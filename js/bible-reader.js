@@ -1,4 +1,4 @@
-import { BOOKS, BIBLE_VERSIONS } from "./bible-data.js";
+import { BOOKS, BIBLE_VERSIONS, resolveBookName } from "./bible-data.js";
 import { fetchChapter } from "./bible-api.js";
 import { addQuestion } from "./questions-data.js";
 import { buildAgeGroupSelect } from "./age-groups-data.js";
@@ -22,13 +22,17 @@ let speaking = false;
 let stoppingDeliberately = false; // true while we're cancelling speech ourselves (not a natural finish)
 let currentVerses = []; // verse texts for the currently-loaded chapter, spoken one at a time
 let currentVerseIndex = 0;
-let fastForwardActive = false; // long-press-to-speed-up on the Listen button
+let fastForwardLevel = -1; // -1 = normal speed; else index into FAST_RATES, ramps up the longer Listen is held
+let rampInterval = null;
 let autoPlayNextChapter = false; // set when auto-advancing to the next daily reading mid-speech
 let longPressTimer = null;
 let longPressTriggered = false;
+let wakeLockSentinel = null;
+let silentAudioEl = null;
 const NORMAL_RATE = 1;
-const FAST_RATE = 2.2;
+const FAST_RATES = [2, 3, 4];
 const LONG_PRESS_MS = 350;
+const RAMP_STEP_MS = 700;
 const VOICE_KEY = "bible-questions-voice-uri";
 let pickerVerses = []; // verses of the chapter currently loaded in the M+ modal
 // Set when the chapter on screen is (part of) a tracked daily reading —
@@ -73,18 +77,16 @@ function buildSkeleton(container) {
       <button id="bible-jump-btn" class="btn btn-small">Go</button>
     </div>
     <p id="bible-jump-error" class="form-error" hidden>Couldn't find that — try "Book Chapter", e.g. "John 3".</p>
-    <div class="bible-controls">
+    <div class="bible-nav-row">
       <select id="bible-version-select" class="bible-select"></select>
+      <button id="bible-prev-btn" class="bible-nav-icon-btn" aria-label="Previous chapter">‹</button>
       <select id="bible-book-select" class="bible-select"></select>
       <select id="bible-chapter-select" class="bible-select"></select>
+      <button id="bible-next-btn" class="bible-nav-icon-btn" aria-label="Next chapter">›</button>
     </div>
-    <div class="bible-nav-row">
-      <button id="bible-prev-btn" class="btn btn-small">← Previous</button>
-      <div class="bible-plus-group">
-        <button id="bible-addq-btn" class="q-plus-btn" aria-label="Add a question">Q<sup>+</sup></button>
-        <button id="bible-addm-btn" class="q-plus-btn m-plus-btn" aria-label="Add a memory verse">M<sup>+</sup></button>
-      </div>
-      <button id="bible-next-btn" class="btn btn-small">Next →</button>
+    <div class="bible-plus-group">
+      <button id="bible-addq-btn" class="q-plus-btn" aria-label="Add a question">Q<sup>+</sup></button>
+      <button id="bible-addm-btn" class="q-plus-btn m-plus-btn" aria-label="Add a memory verse">M<sup>+</sup></button>
     </div>
     <div id="bible-content" class="bible-content"></div>
 
@@ -288,7 +290,7 @@ async function loadChapter() {
       .map((v) => `<p class="bible-verse"><sup>${v.verse}</sup> ${escapeHtml(v.text)}</p>`)
       .join("");
 
-    const voices = supportsSpeech() ? window.speechSynthesis.getVoices() : [];
+    const voices = getEnglishVoices();
     const listenBtn = supportsSpeech()
       ? `<button id="bible-listen-btn" class="btn btn-small listen-btn">🔊 Listen</button>`
       : "";
@@ -375,6 +377,13 @@ function supportsSpeech() {
   return "speechSynthesis" in window;
 }
 
+// Only English voices are offered — this app is KJV-only, so a voice
+// speaking in another language isn't useful here.
+function getEnglishVoices() {
+  if (!supportsSpeech()) return [];
+  return window.speechSynthesis.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith("en"));
+}
+
 function getSavedVoiceURI() {
   try {
     return localStorage.getItem(VOICE_KEY) || null;
@@ -397,19 +406,16 @@ function saveVoiceURI(uri) {
 // than a device's built-in default, so favor those when the browser
 // exposes any, falling back to a name that suggests better quality.
 function pickBestVoice(voices) {
-  const english = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith("en"));
-  const pool = english.length > 0 ? english : voices;
   return (
-    pool.find((v) => !v.localService) ||
-    pool.find((v) => /Google|Microsoft|Natural|Enhanced|Premium/i.test(v.name)) ||
-    pool[0] ||
+    voices.find((v) => !v.localService) ||
+    voices.find((v) => /Google|Microsoft|Natural|Enhanced|Premium/i.test(v.name)) ||
+    voices[0] ||
     null
   );
 }
 
 function getSelectedVoice() {
-  if (!supportsSpeech()) return null;
-  const voices = window.speechSynthesis.getVoices();
+  const voices = getEnglishVoices();
   if (voices.length === 0) return null;
   const savedURI = getSavedVoiceURI();
   const saved = savedURI && voices.find((v) => v.voiceURI === savedURI);
@@ -434,8 +440,100 @@ function setupVoiceSelect(voices) {
 function updateListenBtnLabel() {
   const btn = refs.content.querySelector("#bible-listen-btn");
   if (!btn) return;
-  btn.textContent = speaking ? (fastForwardActive ? "⏩ 2x speed" : "⏹ Stop") : "🔊 Listen";
+  btn.textContent = speaking ? (fastForwardLevel >= 0 ? `⏩ ${FAST_RATES[fastForwardLevel]}x speed` : "⏹ Stop") : "🔊 Listen";
 }
+
+// ---------- Best-effort "keep speaking with the screen off" ----------
+//
+// Two independent, best-effort layers, since neither alone is reliable
+// everywhere: a Screen Wake Lock stops the screen from auto-locking (the
+// most common cause of speech cutting off) while the page is still in the
+// foreground; a silent looping <audio> track plus a Media Session nudges
+// some mobile browsers (mainly Android Chrome) into treating this as real
+// background media, improving the odds speech keeps going even if the
+// screen does lock. Neither can override a deliberate press of the
+// phone's power button, and iOS Safari's behavior here is inconsistent —
+// a real platform limitation, not something this app can fully fix.
+
+function getSilentAudioEl() {
+  if (silentAudioEl) return silentAudioEl;
+  const sampleRate = 8000;
+  const numSamples = sampleRate * 2; // 2 seconds of silence, looped
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+  const writeStr = (offset, str) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, "data");
+  view.setUint32(40, numSamples * 2, true);
+  const audio = new Audio(URL.createObjectURL(new Blob([buffer], { type: "audio/wav" })));
+  audio.loop = true;
+  audio.volume = 0.01;
+  silentAudioEl = audio;
+  return audio;
+}
+
+async function startBackgroundPlayback() {
+  try {
+    if ("wakeLock" in navigator) wakeLockSentinel = await navigator.wakeLock.request("screen");
+  } catch (e) {
+    wakeLockSentinel = null;
+  }
+  try {
+    getSilentAudioEl().play().catch(() => {});
+  } catch (e) {
+    /* ignore */
+  }
+  if ("mediaSession" in navigator) {
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: `${state.book} ${state.chapter}`, artist: "Bible Questions" });
+      navigator.mediaSession.setActionHandler("pause", stopListening);
+      navigator.mediaSession.setActionHandler("stop", stopListening);
+      navigator.mediaSession.playbackState = "playing";
+    } catch (e) {
+      /* ignore */
+    }
+  }
+}
+
+function stopBackgroundPlayback() {
+  if (wakeLockSentinel) {
+    wakeLockSentinel.release().catch(() => {});
+    wakeLockSentinel = null;
+  }
+  if (silentAudioEl) silentAudioEl.pause();
+  if ("mediaSession" in navigator) {
+    try {
+      navigator.mediaSession.playbackState = "none";
+    } catch (e) {
+      /* ignore */
+    }
+  }
+}
+
+// The Wake Lock is released automatically when the tab is hidden (e.g. app
+// switch); re-request it if we come back to the foreground mid-chapter.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && speaking && "wakeLock" in navigator && !wakeLockSentinel) {
+    navigator.wakeLock
+      .request("screen")
+      .then((s) => {
+        wakeLockSentinel = s;
+      })
+      .catch(() => {});
+  }
+});
 
 function stopListening() {
   if (supportsSpeech() && speaking) {
@@ -443,7 +541,9 @@ function stopListening() {
     window.speechSynthesis.cancel();
   }
   speaking = false;
-  fastForwardActive = false;
+  fastForwardLevel = -1;
+  clearInterval(rampInterval);
+  stopBackgroundPlayback();
 }
 
 function startListening(verses) {
@@ -453,6 +553,7 @@ function startListening(verses) {
   currentVerseIndex = 0;
   speakCurrentVerse();
   updateListenBtnLabel();
+  startBackgroundPlayback();
 }
 
 function speakCurrentVerse() {
@@ -464,7 +565,7 @@ function speakCurrentVerse() {
     return;
   }
   const utterance = new SpeechSynthesisUtterance(currentVerses[currentVerseIndex]);
-  utterance.rate = fastForwardActive ? FAST_RATE : NORMAL_RATE;
+  utterance.rate = fastForwardLevel >= 0 ? FAST_RATES[fastForwardLevel] : NORMAL_RATE;
   const voice = getSelectedVoice();
   if (voice) {
     try {
@@ -526,16 +627,25 @@ function setupListenButton(verses) {
     longPressTriggered = false;
     longPressTimer = setTimeout(() => {
       longPressTriggered = true;
-      fastForwardActive = true;
+      fastForwardLevel = 0;
       restartCurrentVerseAtRate();
       updateListenBtnLabel();
+      // Keep holding to ramp further, up to the fastest preset rate.
+      rampInterval = setInterval(() => {
+        if (fastForwardLevel < FAST_RATES.length - 1) {
+          fastForwardLevel++;
+          restartCurrentVerseAtRate();
+          updateListenBtnLabel();
+        }
+      }, RAMP_STEP_MS);
     }, LONG_PRESS_MS);
   });
 
   const endPress = () => {
     clearTimeout(longPressTimer);
-    if (fastForwardActive) {
-      fastForwardActive = false;
+    clearInterval(rampInterval);
+    if (fastForwardLevel >= 0) {
+      fastForwardLevel = -1;
       restartCurrentVerseAtRate();
       updateListenBtnLabel();
     }
@@ -696,11 +806,12 @@ function goToNextReadingForDay() {
 // ---------- Quick "jump to reference" search ----------
 
 function jumpToReference() {
-  const raw = refs.jumpInput.value.trim();
+  const raw = refs.jumpInput.value.trim().replace(/\./g, "");
   if (!raw) return;
   const parsed = parseReadingLabel(raw);
   const first = parsed[0];
-  const match = first && BOOKS.find((b) => b.name.toLowerCase() === first.book.toLowerCase());
+  const bookName = first && resolveBookName(first.book);
+  const match = bookName && BOOKS.find((b) => b.name === bookName);
 
   if (!match || first.chapter < 1 || first.chapter > match.chapters) {
     refs.jumpError.hidden = false;

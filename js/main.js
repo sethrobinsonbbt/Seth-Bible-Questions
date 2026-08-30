@@ -32,7 +32,7 @@ function setupActiveUserBar() {
     select.innerHTML = "";
     const noneOpt = document.createElement("option");
     noneOpt.value = "";
-    noneOpt.textContent = users.length === 0 ? "No family members yet (add in Setup)" : "Who's this?";
+    noneOpt.textContent = users.length === 0 ? "No family yet" : "User";
     select.appendChild(noneOpt);
     users.forEach((u) => {
       const opt = document.createElement("option");

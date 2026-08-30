@@ -1,10 +1,10 @@
 # Bible Questions
 
 A tiny family Bible app with five sections, reached from the ☰ menu (tap
-the icon at the top-left). A **👤 Who's this?** selector sits right below
-the header on every page — pick a family member there once and it's
-remembered on that device, driving whose score gets tracked wherever
-progress applies (Questions, Memorize).
+the icon at the top-left). A **User** dropdown in the header (next to 🌓)
+picks the active family member — set it once and it's remembered on that
+device, driving whose score gets tracked wherever progress applies
+(Questions, Memorize).
 
 - **Bible** — the default landing page: opens straight to today's first
   Reading Plan passage. Read the King James Version, any book and
@@ -24,7 +24,7 @@ progress applies (Questions, Memorize).
   guess the reference from the verse (multiple choice or type-in), and
   fill in the first letter of each word given the reference, with 5
   difficulty levels from mostly-filled-in to completely blank. Tracks
-  whoever's picked in the **👤 Who's this?** selector.
+  whoever's picked in the header's **User** dropdown.
 - **🔒 Setup** — set off by a divider at the bottom of the ☰ menu, since
   it's an admin area rather than something a family member needs
   day-to-day. Passcode-gated (see below). This is where you add family
@@ -184,14 +184,14 @@ Tap 🌓 in the header to cycle the color theme: **Auto** (follows your
 device's system setting), **Dark**, then **Light**. Your choice is
 remembered on that device.
 
-Right below the header, **👤 Who's this?** picks the active family member
-for the whole app — it drives whose score gets tracked on Questions and
-Memorize alike, replacing separate per-page pickers. It's remembered on
-that device, so it doesn't need to be reselected every visit.
+The **User** dropdown in the header picks the active family member for the
+whole app — it drives whose score gets tracked on Questions and Memorize
+alike, replacing separate per-page pickers. It's remembered on that
+device, so it doesn't need to be reselected every visit.
 
 ### Questions
 
-- Once someone's picked in the **👤 Who's this?** selector, the big card
+- Once someone's picked in the header's **User** dropdown, the big card
   at the top shows a random question from any age group they belong to —
   tap **👁️ Show Answer** to reveal the answer, then **✅ Correct** or
   **❌ Wrong** to score it and move to the next one (or **🎲 Skip** to
@@ -240,9 +240,13 @@ that device, so it doesn't need to be reselected every visit.
 This is the app's landing page — the very first thing it opens to (once
 per app load) is today's first Reading Plan passage, so there's always
 something to read right away. From there, type a reference into the
-**Jump to…** box (e.g. "John 3:16" or "Genesis 5") and tap **Go** to jump
-straight there, or pick a book and chapter from the dropdowns, or use ←
-Previous / Next → to move chapter by chapter. Chapters you've read are
+**Jump to…** box and tap **Go** to jump straight there — common
+abbreviations work too (e.g. "Ex 3:14", "1Cor 13", "Ps 23", "Rev. 22",
+not just "Exodus 3:14") — or pick a book and chapter from the dropdowns
+and use the **‹ / ›** buttons either side of them to move chapter by
+chapter. Everything is deliberately kept to two compact rows (the search
+box, then book/chapter/navigation together) so there's more room left
+for the text itself, especially on a phone. Chapters you've read are
 cached on your device, so they still load without a connection.
 
 Whenever the chapter on screen is part of a tracked daily reading (either
@@ -275,9 +279,9 @@ to add one yourself in `js/bible-data.js` (`BIBLE_VERSIONS`) and
 version, the version dropdown stays hidden — it reappears automatically
 if `BIBLE_VERSIONS` ever grows past one entry.)
 
-The little **Q⁺** badge between Previous and Next is a quick way to jot
-down a question inspired by whatever you're currently reading, without
-needing the Setup passcode. Same fields as Setup's question form
+The little **Q⁺** badge is a quick way to jot down a question inspired by
+whatever you're currently reading, without needing the Setup passcode.
+Same fields as Setup's question form
 (question text, required answer, optional reference — pre-filled with
 the current book/chapter — and age-group assignment); it adds straight
 into the shared question pool.
@@ -285,24 +289,33 @@ into the shared question pool.
 Next to it, the amber **M⁺** badge quick-adds a memory verse straight
 from whatever chapter you have open — pick a **From verse** / **To
 verse** range (so you can memorize just part of a passage) and **Add
-Verse**. It tracks progress under whoever's picked in the **👤 Who's
-this?** selector up top (it'll ask you to pick someone there first if no
-one's selected yet). It shares the exact same verse-picker as Memorize's
-own **+ Add Verse** (see below).
+Verse**. It tracks progress under whoever's picked in the header's
+**User** dropdown (it'll ask you to pick someone there first if no one's
+selected yet). It shares the exact same verse-picker as Memorize's own
+**+ Add Verse** (see below).
 
 Tap **🔊 Listen** above the chapter text to have the device read the
 chapter aloud, one verse at a time (using your browser's built-in
 text-to-speech — no API key, works offline); tap it again (now **⏹
 Stop**) to stop. It automatically stops when you navigate to another
-chapter. A **Voice** dropdown appears whenever your device offers more
-than one — the default pick favors a higher-quality network voice over
-a device's flat built-in one where available; your choice is
-remembered. **Press and hold** the Listen button to read at 2× speed
-for as long as you hold it, releasing back to normal speed. If the
-chapter is part of today's reading plan, letting it play through to the
-end automatically marks that reading done and moves on to the day's
+chapter. A **Voice** dropdown (English voices only, since the text is
+always KJV) appears whenever your device offers more than one — the
+default pick favors a higher-quality network voice over a device's flat
+built-in one where available; your choice is remembered. **Press and
+hold** the Listen button to speed up — the longer you hold, the faster
+it goes, ramping 2× → 3× → 4×; release to drop back to normal speed. If
+the chapter is part of today's reading plan, letting it play through to
+the end automatically marks that reading done and moves on to the day's
 next reading, hands-free — until the day's last reading finishes, when
 it stops.
+
+Listening tries to keep going even if your phone's screen locks — while
+active it asks to keep the screen awake (the most common reason speech
+gets cut off) and, on browsers that support it, plays a silent
+background track so the OS treats it like real media playback. Neither
+can override manually pressing the power button, and this is
+noticeably less reliable on iOS Safari than on Android Chrome — a real
+platform limitation, not something we can fully fix from a web app.
 
 ### Reading Plan
 
@@ -340,9 +353,9 @@ it stops.
 
 ### Memorize
 
-- Attempts get tracked under whoever's picked in the **👤 Who's this?**
-  selector at the top of the app — this is optional; practicing without
-  picking anyone just won't record a score.
+- Attempts get tracked under whoever's picked in the **User** dropdown in
+  the header — this is optional; practicing without picking anyone just
+  won't record a score.
 - **+ Add Verse** opens a picker: choose a book and chapter (the King
   James text loads automatically), then narrow **From verse** / **To
   verse** down from the whole chapter if you only want part of a passage
@@ -409,8 +422,10 @@ matching anything.
   unused, in case a bulk-import feature is wanted again later.
 - `js/settings.js` — the passcode-gated Setup section (member
   management, the Question Library subpage, family stats, and backup).
-- `js/bible-data.js` — the 66-book/chapter-count table and the list of
-  available translations.
+- `js/bible-data.js` — the 66-book/chapter-count table, the list of
+  available translations, and `resolveBookName` (common abbreviations —
+  "Ex", "1Cor", "Ps", etc. — to canonical book name) used by the Bible
+  page's "Jump to..." search.
 - `js/bible-api.js` — fetches chapter/verse text from bible-api.com, with
   localStorage caching.
 - `js/bible-reader.js` — the Bible reading section.
