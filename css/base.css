@@ -3,6 +3,20 @@
    or more features. Feature-specific styles live in their own css/*.css
    file — see index.html for the full list of stylesheets. */
 
+/* Visually hides text while keeping it for screen readers — used where an
+   icon replaces a label that should still be announced. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 :root {
   color-scheme: light;
   --indigo: #4f46e5;
@@ -91,18 +105,20 @@ body {
   align-items: center;
   gap: 0.7rem;
   padding: 1rem 1.1rem 0.5rem;
+  /* Installed on iOS with a translucent status bar, the page draws under
+     it — without this the header (and the "Bible Questions" title it
+     used to show) ends up hidden behind the clock/battery. In an
+     ordinary browser tab env(safe-area-inset-top) is ~0, so max() just
+     falls back to the normal 1rem there. */
+  padding-top: max(1rem, env(safe-area-inset-top));
 }
 
-.app-header h1 {
+.app-title {
   font-size: 1.25rem;
   margin: 0;
   flex: 1 1 auto;
-  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  overflow: hidden;
-  white-space: nowrap;
 }
 
 .app-logo {
