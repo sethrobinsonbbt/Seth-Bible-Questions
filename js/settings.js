@@ -8,7 +8,7 @@
 // is a static site with no server — anyone who opens the browser's dev
 // tools can read the passcode straight out of this file. It's meant to
 // keep a curious kid from poking around, not to protect sensitive data.
-import { AGE_GROUPS, ageGroupLabel } from "./age-groups-data.js";
+import { AGE_GROUPS, ageGroupLabel, buildAgeGroupSelect } from "./age-groups-data.js";
 import { subscribeUsers, addUser, updateUser, deleteUser } from "./users.js";
 import {
   subscribeQuestions,
@@ -213,26 +213,6 @@ function renderUsers() {
 
 // ---------- Question admin ----------
 
-function buildAgeGroupSelect(currentValue) {
-  const select = document.createElement("select");
-  select.className = "assign-select";
-
-  const libOpt = document.createElement("option");
-  libOpt.value = "";
-  libOpt.textContent = "Library (unassigned)";
-  select.appendChild(libOpt);
-
-  AGE_GROUPS.forEach((g) => {
-    const opt = document.createElement("option");
-    opt.value = g.id;
-    opt.textContent = g.label;
-    select.appendChild(opt);
-  });
-
-  select.value = currentValue || "";
-  return select;
-}
-
 function filteredQuestions() {
   if (questionFilter === "all") return questions;
   if (questionFilter === "unassigned") return questions.filter((q) => !q.assignedTo);
@@ -394,6 +374,7 @@ function openAddQuestionModal() {
   refs.qModalText.value = "";
   refs.qModalAnswer.value = "";
   refs.qModalReference.value = "";
+  refs.qModalError.hidden = true;
   const select = buildAgeGroupSelect(questionFilter === "unassigned" || questionFilter === "all" ? "" : questionFilter);
   refs.qModalAssignWrap.innerHTML = "";
   refs.qModalAssignWrap.appendChild(select);
@@ -470,12 +451,13 @@ function buildUnlockedView(container) {
         <h3>Add Question</h3>
         <label for="settings-question-text">Question</label>
         <textarea id="settings-question-text" rows="4" placeholder="e.g. Who built the ark?"></textarea>
-        <label for="settings-question-answer">Answer (optional)</label>
+        <label for="settings-question-answer">Answer</label>
         <input id="settings-question-answer" type="text" placeholder="e.g. Noah" />
         <label for="settings-question-reference">Reference (optional)</label>
         <input id="settings-question-reference" type="text" placeholder="e.g. Genesis 1:3" />
         <label>Assign to</label>
         <div id="settings-question-assign-wrap"></div>
+        <p id="settings-question-error" class="form-error" hidden></p>
         <div class="modal-actions">
           <button id="settings-question-cancel-btn" class="btn">Cancel</button>
           <button id="settings-question-save-btn" class="btn btn-primary">Save</button>
@@ -494,6 +476,7 @@ function buildUnlockedView(container) {
   refs.qModalAnswer = container.querySelector("#settings-question-answer");
   refs.qModalReference = container.querySelector("#settings-question-reference");
   refs.qModalAssignWrap = container.querySelector("#settings-question-assign-wrap");
+  refs.qModalError = container.querySelector("#settings-question-error");
 
   container.querySelector("#settings-lock-btn").addEventListener("click", () => {
     setUnlocked(false);
@@ -518,8 +501,17 @@ function buildUnlockedView(container) {
   });
   container.querySelector("#settings-question-save-btn").addEventListener("click", () => {
     const text = refs.qModalText.value.trim();
-    if (!text) return;
     const answer = refs.qModalAnswer.value.trim();
+    if (!text) {
+      refs.qModalError.textContent = "Give the question some text.";
+      refs.qModalError.hidden = false;
+      return;
+    }
+    if (!answer) {
+      refs.qModalError.textContent = "An answer is required (reference is optional).";
+      refs.qModalError.hidden = false;
+      return;
+    }
     const reference = refs.qModalReference.value.trim();
     const assignedTo = refs.qModalAssign.value || null;
     addQuestion(text, answer, reference, assignedTo);

@@ -13,3 +13,26 @@ export function ageGroupLabel(id) {
   const g = AGE_GROUPS.find((g) => g.id === id);
   return g ? g.label : id;
 }
+
+// Builds a <select> with a "Library (unassigned)" option plus one per age
+// group, defaulting to `currentValue`. Shared by Settings' question admin
+// and the Daily Reading page's quick "Q+" add-question modal.
+export function buildAgeGroupSelect(currentValue) {
+  const select = document.createElement("select");
+  select.className = "assign-select";
+
+  const libOpt = document.createElement("option");
+  libOpt.value = "";
+  libOpt.textContent = "Library (unassigned)";
+  select.appendChild(libOpt);
+
+  AGE_GROUPS.forEach((g) => {
+    const opt = document.createElement("option");
+    opt.value = g.id;
+    opt.textContent = g.label;
+    select.appendChild(opt);
+  });
+
+  select.value = currentValue || "";
+  return select;
+}

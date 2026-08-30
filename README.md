@@ -127,9 +127,12 @@ repo:
   **All questions**). Each row has an age-group dropdown to (re)assign
   it, **Edit**, **Delete**, and (once it has a score) **Reset Score**
   (clears everyone's progress on that question).
-- **+ Add Question** opens a form for the question text, an optional
-  answer, and which age group to assign it to (or leave it in the
-  **Library** if undecided).
+- **+ Add Question** opens a form for the question text, a required
+  answer, an optional reference (e.g. "Genesis 1:3"), and which age
+  group to assign it to (or leave it in the **Library** if undecided).
+  Editing an existing question still allows a blank answer, since some
+  imported questions (e.g. "Name some of the Ten Commandments") are
+  intentionally open-ended.
 - **📥 Import Our Family's Questions** adds the fact-checked family list
   (see `js/family-question-bank.js`) into the Library, with answers.
   **📥 Import Question Bank** adds a starter set of ~100 general Bible
@@ -156,11 +159,16 @@ aren't included — you're welcome to add one yourself in
 - **Daily Reading** (top of the section): the classic "Bible Companion"
   plan — two Old Testament passages plus one New Testament passage per
   calendar day, repeating every year (see `js/default-reading-plan.js`).
-  Opens to today by default; use **‹ / ›** to step a day at a time, the
-  **month/day dropdowns** to jump straight to any date, or **Jump to
-  Today** to snap back. Each of the day's three readings has
-  its own checkbox (synced across devices) and a **Read** button that
-  jumps straight to it in the **Bible** section.
+  Opens to today by default; use **‹ / ›** to step a day at a time,
+  **Jump to Today** to snap back, or tap the date itself to pop up
+  month/day dropdowns and jump straight to any date. Each of the day's
+  three readings has its own checkbox (synced across devices) and a
+  **Read** button that jumps straight to it in the **Bible** section.
+- **Q+ Add Question**: a quick way to jot down a question inspired by
+  today's reading, without needing the Setup passcode. Same fields as
+  Setup's question form (question text, required answer, optional
+  reference, age-group assignment) — it adds straight into the shared
+  question pool.
 - **Custom Reading Plans** (below that): **+ New Plan** lets you name a
   plan and pick a start book/chapter and an end book/chapter (inclusive).
   The plan can span multiple books, in Bible order — e.g. start at

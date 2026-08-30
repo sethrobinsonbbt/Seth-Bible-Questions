@@ -538,10 +538,14 @@ body {
   margin-bottom: 0.4rem;
 }
 
-.daily-reading-date {
+.daily-reading-date-btn {
+  border: none;
+  background: rgba(255,255,255,0.12);
   color: white;
   font-weight: 700;
   font-size: 1.05rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
 }
 
 .nav-icon-btn {
@@ -555,24 +559,16 @@ body {
   border-radius: 999px;
 }
 
-.daily-reading-picker {
+.daily-reading-toolbar {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 0.6rem;
 }
 
-.daily-reading-picker select {
-  flex: 1 1 auto;
-  border: none;
-  border-radius: 10px;
-  padding: 0.5rem 0.6rem;
-  font-size: 1rem;
-  background: rgba(255,255,255,0.92);
-  color: var(--text);
-}
-
-#daily-today-btn {
-  margin-bottom: 0.6rem;
+.daily-reading-toolbar #daily-addq-btn {
+  margin-left: auto;
 }
 
 .daily-reading-card .plan-row {
