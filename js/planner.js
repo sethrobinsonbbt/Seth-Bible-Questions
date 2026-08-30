@@ -3,16 +3,30 @@
 // for "the stories of the kings") and get a checklist to track progress.
 import { ready } from "./firebase.js";
 import { BOOKS, computeChapterSequence } from "./bible-data.js";
+import { readingsForDate, parseReadingLabel, dateKey } from "./default-reading-plan.js";
 
 let db = null;
 let plans = []; // [{id, name, startBook, startChapter, endBook, endChapter, chapters, progress}]
 let activePlanId = null;
+let dailyDate = new Date();
+let dailyProgress = { read1: false, read2: false, read3: false };
+let dailyUnsub = null;
 let refs = {};
 
 function buildSkeleton(container) {
   container.innerHTML = `
+    <div class="daily-reading-card">
+      <div class="daily-reading-header">
+        <button id="daily-prev-btn" class="nav-icon-btn" aria-label="Previous day">‹</button>
+        <div class="daily-reading-date" id="daily-reading-date"></div>
+        <button id="daily-next-btn" class="nav-icon-btn" aria-label="Next day">›</button>
+      </div>
+      <button id="daily-today-btn" class="btn btn-small" hidden>Jump to Today</button>
+      <ul class="plan-checklist" id="daily-reading-list"></ul>
+    </div>
+
     <div class="list-toolbar">
-      <h2>Reading Plans</h2>
+      <h2>Custom Reading Plans</h2>
       <button id="new-plan-btn" class="btn btn-primary">+ New Plan</button>
     </div>
     <nav id="plan-tabs" class="tabs plan-tabs"></nav>
@@ -43,6 +57,16 @@ function buildSkeleton(container) {
       </div>
     </div>
   `;
+
+  refs.dailyPrevBtn = container.querySelector("#daily-prev-btn");
+  refs.dailyNextBtn = container.querySelector("#daily-next-btn");
+  refs.dailyDateLabel = container.querySelector("#daily-reading-date");
+  refs.dailyTodayBtn = container.querySelector("#daily-today-btn");
+  refs.dailyList = container.querySelector("#daily-reading-list");
+
+  refs.dailyPrevBtn.addEventListener("click", () => shiftDailyDate(-1));
+  refs.dailyNextBtn.addEventListener("click", () => shiftDailyDate(1));
+  refs.dailyTodayBtn.addEventListener("click", jumpToToday);
 
   refs.tabs = container.querySelector("#plan-tabs");
   refs.detail = container.querySelector("#plan-detail");
@@ -230,13 +254,99 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// ---------- Daily reading (default plan, calendar-linked) ----------
+
+function subscribeDaily(date) {
+  if (dailyUnsub) {
+    dailyUnsub();
+    dailyUnsub = null;
+  }
+  if (!db) return;
+  dailyUnsub = db
+    .collection("dailyReadingProgress")
+    .doc(dateKey(date))
+    .onSnapshot(
+      (doc) => {
+        dailyProgress = doc.exists ? doc.data() : { read1: false, read2: false, read3: false };
+        renderDaily();
+      },
+      (err) => console.error(err)
+    );
+}
+
+function toggleDailyRead(index) {
+  if (!db) return;
+  const field = `read${index + 1}`;
+  db.collection("dailyReadingProgress")
+    .doc(dateKey(dailyDate))
+    .set({ [field]: !dailyProgress[field] }, { merge: true });
+}
+
+function shiftDailyDate(delta) {
+  const d = new Date(dailyDate);
+  d.setDate(d.getDate() + delta);
+  dailyDate = d;
+  subscribeDaily(dailyDate);
+  renderDaily();
+}
+
+function jumpToToday() {
+  dailyDate = new Date();
+  subscribeDaily(dailyDate);
+  renderDaily();
+}
+
+function renderDaily() {
+  const readings = readingsForDate(dailyDate);
+  const isToday = dateKey(dailyDate) === dateKey(new Date());
+
+  refs.dailyDateLabel.textContent =
+    dailyDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) +
+    (isToday ? " · Today" : "");
+  refs.dailyTodayBtn.hidden = isToday;
+
+  refs.dailyList.innerHTML = "";
+  if (!readings) return;
+
+  readings.forEach((label, i) => {
+    const li = document.createElement("li");
+    const field = `read${i + 1}`;
+    const done = !!dailyProgress[field];
+    li.className = "plan-row" + (done ? " plan-row-done" : "");
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = done;
+    checkbox.addEventListener("change", () => toggleDailyRead(i));
+
+    const labelEl = document.createElement("span");
+    labelEl.className = "plan-row-label";
+    labelEl.textContent = label;
+
+    const readBtn = document.createElement("button");
+    readBtn.className = "btn btn-small";
+    readBtn.textContent = "Read";
+    readBtn.addEventListener("click", () => {
+      const chapters = parseReadingLabel(label);
+      if (chapters.length > 0) navigateToChapter(chapters[0].book, chapters[0].chapter);
+    });
+
+    li.appendChild(checkbox);
+    li.appendChild(labelEl);
+    li.appendChild(readBtn);
+    refs.dailyList.appendChild(li);
+  });
+}
+
 export function mountPlanner(container) {
   buildSkeleton(container);
   renderTabs();
   renderDetail();
+  renderDaily();
 
   ready.then((firestoreDb) => {
     db = firestoreDb;
+    subscribeDaily(dailyDate);
     db.collection("readingPlans").onSnapshot(
       (snapshot) => {
         plans = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));

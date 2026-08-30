@@ -523,6 +523,46 @@ body {
 
 /* ---------- Reading planner ---------- */
 
+.daily-reading-card {
+  background: linear-gradient(135deg, var(--indigo), var(--indigo-dark));
+  border-radius: var(--radius);
+  padding: 1.1rem 1.1rem 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 24px rgba(79,70,229,0.25);
+}
+
+.daily-reading-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.daily-reading-date {
+  color: white;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.nav-icon-btn {
+  border: none;
+  background: rgba(255,255,255,0.15);
+  color: white;
+  font-size: 1.2rem;
+  line-height: 1;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+}
+
+#daily-today-btn {
+  margin-bottom: 0.6rem;
+}
+
+.daily-reading-card .plan-row {
+  background: rgba(255,255,255,0.92);
+}
+
 .plan-tabs {
   padding-left: 0;
   padding-right: 0;

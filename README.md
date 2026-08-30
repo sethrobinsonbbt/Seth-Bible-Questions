@@ -153,11 +153,18 @@ aren't included — you're welcome to add one yourself in
 
 ### Planner
 
-- **+ New Plan** lets you name a plan and pick a start book/chapter and
-  an end book/chapter (inclusive). The plan can span multiple books, in
-  Bible order — e.g. start at Judges 1, end at Judges 21 for the whole
-  book; or start at 1 Samuel 1, end at 2 Kings 25 to read through all the
-  kings.
+- **Daily Reading** (top of the section): the classic "Bible Companion"
+  plan — two Old Testament passages plus one New Testament passage per
+  calendar day, repeating every year (see `js/default-reading-plan.js`).
+  Opens to today by default; use **‹ / ›** to browse other days and
+  **Jump to Today** to snap back. Each of the day's three readings has
+  its own checkbox (synced across devices) and a **Read** button that
+  jumps straight to it in the **Bible** section.
+- **Custom Reading Plans** (below that): **+ New Plan** lets you name a
+  plan and pick a start book/chapter and an end book/chapter (inclusive).
+  The plan can span multiple books, in Bible order — e.g. start at
+  Judges 1, end at Judges 21 for the whole book; or start at 1 Samuel 1,
+  end at 2 Kings 25 to read through all the kings.
 - Tap a plan's tab to see its checklist. Check off chapters as you go —
   progress syncs across devices. Tap **Read** on any chapter to jump
   straight to it in the **Bible** section.
@@ -225,7 +232,10 @@ matching anything.
 - `js/bible-api.js` — fetches chapter/verse text from bible-api.com, with
   localStorage caching.
 - `js/bible-reader.js` — the Bible reading section.
-- `js/planner.js` — the custom reading planner.
+- `js/planner.js` — the daily reading card and the custom reading planner.
+- `js/default-reading-plan.js` — the 365-day default reading plan data
+  and its passage-label parser (used to jump to a reading in the Bible
+  section).
 - `js/memorize.js` — the verse memorization section.
 - `firebase-config.js` — your project's Firebase config (fill this in).
 - `manifest.json` / `service-worker.js` / `icons/` — makes it installable
