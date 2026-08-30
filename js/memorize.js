@@ -60,42 +60,35 @@ const BUCKETS = [
   { id: "memorized", label: "Already Memorized" },
 ];
 
-// One shared adult head-in-profile outline (facing right), with a large
-// icon filling the "brain area" marking which bucket this is — a gear
-// with a few sparks (actively working on it — Memorizing), an anatomical
-// brain (Future Memorization), or a lightbulb with a checkmark and idea
-// rays (got it — Already Memorized). Pure line art via currentColor, so
-// it's automatically monochrome and adapts to the light/dark theme.
-const BUCKET_HEAD_PATH =
-  "M10,3 L15,4.3 L16,6.5 L18.7,9.2 L17,10.3 L17.3,12 L16.4,14.2 L14.5,15.5 L14.2,17 L14.2,20.5 L8,20.5 L8,17.5 C6,15.6 4.4,13 4.4,10 C4.4,6.3 6.5,3.4 10,3 Z";
-const BUCKET_EAR_PATH = "M14.7,11.4 C15.8,11.2 16.8,12 16.8,13.1 C16.8,14.1 16,14.9 15,14.9";
-const BUCKET_CONTENT = {
+// Three standalone icons (no head/silhouette) marking which bucket this
+// is — a brain (actively working on it — Memorizing), a calendar (Future
+// Memorization), or a lightbulb with a checkmark and idea rays (got it —
+// Already Memorized). Pure line art via currentColor, so it's
+// automatically monochrome and adapts to the light/dark theme.
+const BUCKET_ICONS = {
   memorizing:
-    '<g transform="translate(11,9.5)"><circle r="1.4"/>' +
-    '<path d="M0,-3.6 L0,-2.4 M0,3.6 L0,2.4 M-3.6,0 L-2.4,0 M3.6,0 L2.4,0 M-2.5,-2.5 L-1.7,-1.7 M2.5,2.5 L1.7,1.7 M-2.5,2.5 L-1.7,1.7 M2.5,-2.5 L1.7,-1.7"/></g>' +
-    '<path d="M8.5,4.5 L7.8,3 M8.5,4.5 L9.4,3.6"/><path d="M13.5,3.8 L14.4,2.4"/><path d="M15.6,6 L17,5.3"/>',
-  future:
-    '<g transform="translate(11,9.3)">' +
+    '<g transform="translate(12,12) scale(2.15)">' +
     '<path d="M-3.4,0.3 A1.5,1.5 0 0 1 -2.6,-2.3 A1.5,1.5 0 0 1 0.1,-3.3 A1.5,1.5 0 0 1 2.8,-2.3 A1.6,1.6 0 0 1 3.5,0.4 A1.5,1.5 0 0 1 2.4,3.2 A1.5,1.5 0 0 1 -0.4,3.4 A1.5,1.5 0 0 1 -3.4,0.3 Z"/>' +
     '<path d="M0.1,-3.3 L0.1,3.3"/>' +
     '<path d="M-2,-1.4 C-1.3,-1 -0.5,-1 0.1,-1.4"/>' +
     '<path d="M0.6,-1.4 C1.2,-1 1.9,-1.2 2.2,-1.8"/>' +
     '<path d="M-1.6,0.8 C-1,1.2 -0.2,1.1 0.1,0.6"/>' +
     '<path d="M0.6,0.7 C1.1,1.1 1.7,1 2,0.5"/></g>',
+  future:
+    '<rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/>' +
+    '<path d="M3.5,9 L20.5,9"/>' +
+    '<path d="M7.5,2.5 L7.5,6.5 M16.5,2.5 L16.5,6.5"/>' +
+    '<circle cx="12" cy="14.2" r="1.7" fill="currentColor" stroke="none"/>',
   memorized:
-    '<g transform="translate(11,8.6)">' +
+    '<g transform="translate(12,13) scale(1.5)">' +
     '<path d="M-2.3,-1.2 C-2.3,-2.8 -1.1,-4 0,-4 C1.1,-4 2.3,-2.8 2.3,-1.2 C2.3,-0.1 1.7,0.6 1.2,1.2 C0.9,1.6 0.7,2 0.7,2.5 L-0.7,2.5 C-0.7,2 -0.9,1.6 -1.2,1.2 C-1.7,0.6 -2.3,-0.1 -2.3,-1.2 Z"/>' +
     '<path d="M-0.7,2.5 L-0.7,3.3 L0.7,3.3 L0.7,2.5"/>' +
     '<path d="M-1,-1.4 L-0.2,-0.3 L1.4,-2.2"/></g>' +
-    '<path d="M11,3.6 L11,2.4 M8.3,4.7 L7.5,3.9 M13.7,4.7 L14.5,3.9"/>',
+    '<path d="M12,3.5 L12,1.8 M6.5,5.8 L5.2,4.5 M17.5,5.8 L18.8,4.5 M4.5,11 L2.8,11 M19.5,11 L21.2,11"/>',
 };
 
 function bucketIconSvg(bucketId) {
-  return `<svg class="mem-bucket-icon" viewBox="0 0 24 24" aria-hidden="true">
-    <path d="${BUCKET_HEAD_PATH}"/>
-    <path d="${BUCKET_EAR_PATH}"/>
-    <g stroke-width="1.1">${BUCKET_CONTENT[bucketId] || ""}</g>
-  </svg>`;
+  return `<svg class="mem-bucket-icon" viewBox="0 0 24 24" aria-hidden="true">${BUCKET_ICONS[bucketId] || ""}</svg>`;
 }
 
 // How many recently-practiced verses to avoid immediately repeating via

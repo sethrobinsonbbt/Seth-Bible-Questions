@@ -34,10 +34,10 @@ device, driving whose score gets tracked wherever progress applies
   since there's nothing to hide from the adult reading it to them.
   Adding/deleting questions still lives in Setup.
 - **Memorize** — a bank of King James verses, filed into three per-person
-  buckets (Memorizing / Future Memorization / Already Memorized — same
-  head icon for all three, showing a gear, a brain, or a lightbulb-and-
-  checkmark; pick one per verse from a compact icon-only dropdown), and
-  further filterable by any custom categories you make in Setup. A small
+  buckets (Memorizing — a brain icon / Future Memorization — a calendar
+  / Already Memorized — a lightbulb with a checkmark; pick one per verse
+  from a compact icon-only dropdown), and further filterable by any
+  custom categories you make in Setup. A small
   mastery dot per verse (gray until practiced, then green-to-red by how
   well recent attempts went) and two practice modes chosen via a tab:
   **Fill in the Blank** (choose a difficulty — Easy/Medium/Hard/Blanks
@@ -528,11 +528,10 @@ The home view: a **Memorizing / Future Memorization / Already Memorized**
 tab row along the top — three per-person buckets a verse can be filed
 under (see the per-verse picker below), defaulting to Memorizing so
 every newly-added verse (and anything added before buckets existed)
-starts in the main working set. All three share the same head-in-profile
-icon; only the icon filling the "brain" changes — a gear with a few
-sparks for Memorizing (actively working on it), a brain for Future
-Memorization, a lightbulb with a checkmark for Already Memorized (got
-it). Below that, category chips — skipped entirely until you make at
+starts in the main working set — a brain icon for Memorizing (actively
+working on it), a calendar for Future Memorization, a lightbulb with a
+checkmark for Already Memorized (got it). Below that, category chips —
+skipped entirely until you make at
 least one custom category in Setup — a **✍️ Fill in the Blank** /
 **🗂️ Flashcards** tab that picks which mode
 a verse launches into, a **▶ Play** button, and the verse list itself.
