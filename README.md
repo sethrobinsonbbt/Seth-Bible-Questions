@@ -341,6 +341,12 @@ device, so it doesn't need to be reselected every visit.
   the same Setup passcode as the Question
   Library (see **Setup**) — handy for a quick typo fix mid-quiz without
   leaving the page.
+- **Multiple Choice / Put in Order / Select All That Apply** questions
+  (set up in the Question Library — see **Setup**) skip the Show
+  Answer step entirely: tap a choice, tap the items back into order, or
+  check the correct options and hit Submit, and it's graded right there
+  (right/wrong feedback shown briefly before moving on) — the same for
+  every family member, adult or kid, included-kid or not.
 
 ### 🔒 Setup
 
@@ -384,6 +390,28 @@ a Switch Family action:
   editing them, and re-importing is a safe way to bulk-edit, not
   something that doubles everything up. Only genuinely new question
   text gets added as a new question.
+  - **Question types** — the **Type** dropdown on Add/Edit switches
+    between four kinds. **Classic** is the original type an answer,
+    self-graded Right/Wrong. **Multiple Choice** shows a few choices and
+    you mark which is correct; family members tap one and it's graded
+    instantly. **Put in Order** is a list already in the correct order
+    (e.g. the books of the Torah, the months, the twelve tribes) — it's
+    shown shuffled and family members tap the items back into sequence,
+    which also makes it the natural fit for things like the Ten
+    Commandments or the Beatitudes that don't have a clean multiple-choice
+    answer. **Select All That Apply** shows a set of options with one or
+    more correct, checked off then submitted at once (e.g. "which of
+    these are among the Ten Commandments?"). All three are always
+    tap-driven and self-grading in the quiz (no Show Answer step, and no
+    separate kid-mode reveal) — only Classic keeps the type-an-answer,
+    Show Answer, self-graded flow. In the CSV, set `type` to
+    `multiple-choice`, `order`, or `select-all` (leave it blank for
+    Classic), and fill in the matching columns with `|`-separated values:
+    `choices` + `correctChoice` (the exact text of the right one) for
+    Multiple Choice, `items` (already in the correct order) for Put in
+    Order, and `options` + `correctOptions` (one or more, `|`-separated)
+    for Select All. **⬇️ Download template** includes one worked example
+    of each type.
 - **✍️ Memory Verses** — **Categories**: **+ Add Category** to name a
   group (e.g. "Salvation", "Peace"); **Rename** or **Delete** any of them
   (deleting a category un-categorizes its verses rather than deleting
@@ -700,8 +728,15 @@ matching anything.
   the Bible page's M⁺ button.
 - `js/age-groups-data.js` — the fixed list of age groups.
 - `js/questions-data.js` — shared "questions" Firestore collection (state
-  + CRUD), used by both the quiz view and Setup.
+  + CRUD), used by both the quiz view and Setup. Each question has a
+  `type` (classic/multiple-choice/order/select-all) plus whichever
+  type-specific fields go with it — see the doc comment at the top of the
+  file.
 - `js/questions.js` — the kid-facing Questions quiz view (read-only).
+  Classic questions use the type-an-answer/Show Answer/self-graded flow;
+  the other three types render a tap-driven, self-grading UI into
+  `#random-interactive` instead (multiple-choice buttons, order-tap
+  chips, select-all checkboxes + Submit).
 - `js/question-bank-data.js` / `js/family-question-bank.js` — the two
   bundled question banks. Their one-time Setup import buttons have been
   removed now that both are imported; these files stay in the repo,

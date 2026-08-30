@@ -90,6 +90,84 @@
   line-height: 1.4;
 }
 
+.random-interactive {
+  margin: 0 0 0.8rem;
+}
+
+.interactive-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.interactive-choice-btn {
+  text-align: left;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255,255,255,0.15);
+  color: inherit;
+  cursor: pointer;
+}
+
+.interactive-choice-btn:disabled {
+  cursor: default;
+}
+
+.interactive-choice-btn.choice-selected {
+  background: rgba(255,255,255,0.32);
+}
+
+.interactive-choice-btn.choice-correct {
+  background: #16a34a;
+  color: #fff;
+}
+
+.interactive-choice-btn.choice-wrong {
+  background: #dc2626;
+  color: #fff;
+}
+
+.interactive-order-picked {
+  margin: 0 0 0.6rem;
+  padding-left: 1.4rem;
+  font-weight: 600;
+}
+
+.interactive-order-picked li {
+  margin-bottom: 0.2rem;
+}
+
+.interactive-order-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.interactive-order-chip {
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255,255,255,0.15);
+  color: inherit;
+  cursor: pointer;
+}
+
+.interactive-result {
+  font-size: 1rem;
+  font-weight: 600;
+  background: rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  margin: 0 0 0.6rem;
+}
+
 .random-nav-row {
   display: flex;
   align-items: center;

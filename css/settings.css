@@ -203,6 +203,44 @@
   margin-bottom: 0.6rem;
 }
 
+.qtype-editor {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.qtype-editor > select {
+  margin-bottom: 0.5rem;
+}
+
+.dynamic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.dynamic-list-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dynamic-list-row .edit-answer-input {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.dynamic-list-remove {
+  border: none;
+  background: none;
+  color: var(--text-muted, #888);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+}
+
 .family-code-display {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 1.3rem;

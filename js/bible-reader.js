@@ -758,7 +758,7 @@ function saveQuickQuestion() {
   }
   const reference = refs.addqReference.value.trim();
   const assignedTo = refs.addqAssign.value || null;
-  addQuestion(text, answer, reference, assignedTo);
+  addQuestion({ text, answer, reference, assignedTo, type: "classic" });
   closeAddQModal();
 }
 

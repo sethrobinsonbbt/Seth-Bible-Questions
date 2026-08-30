@@ -608,6 +608,196 @@ function openImportModal({ title, hint, sampleText, existingItems, keyFn, parseR
   });
 }
 
+// ---------- Question type editor (shared by Add + inline Edit) ----------
+
+const QUESTION_TYPES = [
+  { id: "classic", label: "Classic (type an answer)" },
+  { id: "multiple-choice", label: "Multiple Choice" },
+  { id: "order", label: "Put in Order" },
+  { id: "select-all", label: "Select All That Apply" },
+];
+
+function questionTypeLabel(type) {
+  return (QUESTION_TYPES.find((t) => t.id === type) || QUESTION_TYPES[0]).label;
+}
+
+// A list of text-input rows with "+ Add" / "×" remove, and an optional
+// per-row radio (exactly one correct) or checkbox (any number correct) to
+// its left. Shared by the multiple-choice/order/select-all editors below —
+// they only differ in whether there's a selector and what it means.
+function buildDynamicList({ initialValues, selectMode, initialSelected, placeholder }) {
+  const wrap = document.createElement("div");
+  wrap.className = "dynamic-list";
+  const radioName = "dynlist-" + Math.random().toString(36).slice(2);
+  const rows = [];
+
+  function addRow(value, selected) {
+    const row = document.createElement("div");
+    row.className = "dynamic-list-row";
+
+    let selectInput = null;
+    if (selectMode) {
+      selectInput = document.createElement("input");
+      selectInput.type = selectMode;
+      if (selectMode === "radio") selectInput.name = radioName;
+      selectInput.checked = !!selected;
+      row.appendChild(selectInput);
+    }
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "edit-answer-input";
+    input.placeholder = placeholder || "";
+    input.value = value || "";
+    row.appendChild(input);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "dynamic-list-remove";
+    removeBtn.setAttribute("aria-label", "Remove");
+    removeBtn.textContent = "✕";
+    removeBtn.addEventListener("click", () => {
+      row.remove();
+      rows.splice(rows.indexOf(entry), 1);
+    });
+    row.appendChild(removeBtn);
+
+    wrap.insertBefore(row, addBtn);
+    const entry = { row, input, selectInput };
+    rows.push(entry);
+  }
+
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.className = "btn btn-small";
+  addBtn.textContent = "+ Add";
+  addBtn.addEventListener("click", () => addRow("", false));
+  wrap.appendChild(addBtn);
+
+  (initialValues && initialValues.length ? initialValues : ["", "", ""]).forEach((v, i) =>
+    addRow(v, initialSelected && initialSelected.includes(i))
+  );
+
+  return {
+    el: wrap,
+    getValues() {
+      return rows.map((r) => r.input.value.trim()).filter((v) => v !== "");
+    },
+    // Indices are relative to the non-empty values getValues() returns,
+    // so a selection lines up correctly even if a blank row is skipped.
+    getSelectedIndices() {
+      const nonEmpty = rows.filter((r) => r.input.value.trim() !== "");
+      const indices = [];
+      nonEmpty.forEach((r, i) => {
+        if (r.selectInput && r.selectInput.checked) indices.push(i);
+      });
+      return indices;
+    },
+  };
+}
+
+// Builds the type selector + whichever type-specific fields go with it,
+// pre-filled from `existing` (a question, when editing) if its own type
+// matches the one currently selected. Returns { el, collect(), validate() }.
+function buildQuestionTypeEditor(existing) {
+  const wrap = document.createElement("div");
+  wrap.className = "qtype-editor";
+
+  const typeSelect = document.createElement("select");
+  typeSelect.className = "assign-select";
+  QUESTION_TYPES.forEach((t) => {
+    const opt = document.createElement("option");
+    opt.value = t.id;
+    opt.textContent = t.label;
+    typeSelect.appendChild(opt);
+  });
+  typeSelect.value = (existing && existing.type) || "classic";
+  wrap.appendChild(typeSelect);
+
+  const fieldsHost = document.createElement("div");
+  wrap.appendChild(fieldsHost);
+  let listBuilder = null;
+
+  function renderFields() {
+    fieldsHost.innerHTML = "";
+    listBuilder = null;
+    const type = typeSelect.value;
+    const sameTypeAsExisting = existing && existing.type === type;
+
+    if (type === "multiple-choice") {
+      const hint = document.createElement("p");
+      hint.className = "settings-fineprint";
+      hint.textContent = "Enter each choice, and mark which one is correct.";
+      fieldsHost.appendChild(hint);
+      listBuilder = buildDynamicList({
+        initialValues: sameTypeAsExisting ? existing.choices : null,
+        selectMode: "radio",
+        initialSelected: sameTypeAsExisting && existing.correctIndex != null ? [existing.correctIndex] : null,
+        placeholder: "Choice",
+      });
+      fieldsHost.appendChild(listBuilder.el);
+    } else if (type === "order") {
+      const hint = document.createElement("p");
+      hint.className = "settings-fineprint";
+      hint.textContent = "List the items in their correct order — they'll be shuffled for the quiz.";
+      fieldsHost.appendChild(hint);
+      listBuilder = buildDynamicList({
+        initialValues: sameTypeAsExisting ? existing.items : null,
+        selectMode: null,
+        placeholder: "Item",
+      });
+      fieldsHost.appendChild(listBuilder.el);
+    } else if (type === "select-all") {
+      const hint = document.createElement("p");
+      hint.className = "settings-fineprint";
+      hint.textContent = "Enter each option, and check the ones that are correct.";
+      fieldsHost.appendChild(hint);
+      listBuilder = buildDynamicList({
+        initialValues: sameTypeAsExisting ? existing.options : null,
+        selectMode: "checkbox",
+        initialSelected: sameTypeAsExisting ? existing.correctIndices : null,
+        placeholder: "Option",
+      });
+      fieldsHost.appendChild(listBuilder.el);
+    }
+  }
+
+  typeSelect.addEventListener("change", renderFields);
+  renderFields();
+
+  return {
+    el: wrap,
+    typeSelect,
+    collect() {
+      const type = typeSelect.value;
+      if (type === "multiple-choice") {
+        const choices = listBuilder.getValues();
+        const selected = listBuilder.getSelectedIndices();
+        return { type, choices, correctIndex: selected.length ? selected[0] : null };
+      }
+      if (type === "order") {
+        return { type, items: listBuilder.getValues() };
+      }
+      if (type === "select-all") {
+        return { type, options: listBuilder.getValues(), correctIndices: listBuilder.getSelectedIndices() };
+      }
+      return { type: "classic" };
+    },
+    validate(data) {
+      if (data.type === "multiple-choice") {
+        if (data.choices.length < 2) return "Add at least 2 choices.";
+        if (data.correctIndex == null) return "Mark which choice is correct.";
+      } else if (data.type === "order") {
+        if (data.items.length < 2) return "Add at least 2 items to put in order.";
+      } else if (data.type === "select-all") {
+        if (data.options.length < 2) return "Add at least 2 options.";
+        if (data.correctIndices.length === 0) return "Check at least one correct option.";
+      }
+      return null;
+    },
+  };
+}
+
 // ---------- Question Library subpage ----------
 
 function filteredQuestions() {
@@ -668,19 +858,36 @@ function renderQuestionsAdmin() {
       textarea.value = q.text;
       li.appendChild(textarea);
 
+      const typeEditor = buildQuestionTypeEditor(q);
+      li.appendChild(typeEditor.el);
+
       const answerInput = document.createElement("input");
       answerInput.type = "text";
       answerInput.className = "edit-answer-input";
       answerInput.placeholder = "Answer (optional)";
       answerInput.value = q.answer || "";
-      li.appendChild(answerInput);
 
       const referenceInput = document.createElement("input");
       referenceInput.type = "text";
       referenceInput.className = "edit-answer-input";
       referenceInput.placeholder = "Reference (optional) — e.g. Genesis 1:3";
       referenceInput.value = q.reference || "";
+
+      // The plain "answer" field is classic-only — hide it for the other
+      // types, where the type-specific fields above are the real answer.
+      function syncAnswerVisibility() {
+        answerInput.hidden = typeEditor.typeSelect.value !== "classic";
+      }
+      typeEditor.typeSelect.addEventListener("change", syncAnswerVisibility);
+      syncAnswerVisibility();
+
+      li.appendChild(answerInput);
       li.appendChild(referenceInput);
+
+      const errorEl = document.createElement("p");
+      errorEl.className = "form-error";
+      errorEl.hidden = true;
+      li.appendChild(errorEl);
 
       const actions = document.createElement("div");
       actions.className = "question-row-actions";
@@ -690,7 +897,20 @@ function renderQuestionsAdmin() {
       saveBtn.textContent = "Save";
       saveBtn.addEventListener("click", () => {
         const val = textarea.value.trim();
-        if (val) updateQuestion(q.id, val, answerInput.value.trim(), referenceInput.value.trim());
+        if (!val) return;
+        const typeData = typeEditor.collect();
+        const err = typeEditor.validate(typeData);
+        if (err) {
+          errorEl.textContent = err;
+          errorEl.hidden = false;
+          return;
+        }
+        updateQuestion(q.id, {
+          ...typeData,
+          text: val,
+          answer: typeData.type === "classic" ? answerInput.value.trim() : "",
+          reference: referenceInput.value.trim(),
+        });
         editingQuestionId = null;
         renderQuestionsAdmin();
       });
@@ -712,7 +932,19 @@ function renderQuestionsAdmin() {
       p.textContent = q.text;
       li.appendChild(p);
 
-      if (q.answer || q.reference) {
+      if (q.type && q.type !== "classic") {
+        const typeLine = document.createElement("p");
+        typeLine.className = "question-answer";
+        if (q.type === "multiple-choice") {
+          typeLine.textContent = `🔘 Multiple Choice — ${(q.choices || []).length} choices`;
+        } else if (q.type === "order") {
+          typeLine.textContent = `🔢 Put in Order — ${(q.items || []).join(" → ")}`;
+        } else if (q.type === "select-all") {
+          typeLine.textContent = `☑️ Select All — ${(q.options || []).length} options`;
+        }
+        if (q.reference) typeLine.textContent += ` — Reference: ${q.reference}`;
+        li.appendChild(typeLine);
+      } else if (q.answer || q.reference) {
         const a = document.createElement("p");
         a.className = "question-answer";
         a.textContent = [q.answer && `Answer: ${q.answer}`, q.reference && `Reference: ${q.reference}`]
@@ -777,6 +1009,18 @@ function openAddQuestionModal() {
   refs.qModalAnswer.value = "";
   refs.qModalReference.value = "";
   refs.qModalError.hidden = true;
+
+  const typeEditor = buildQuestionTypeEditor(null);
+  refs.qModalTypeWrap.innerHTML = "";
+  refs.qModalTypeWrap.appendChild(typeEditor.el);
+  refs.qModalTypeEditor = typeEditor;
+  function syncAnswerVisibility() {
+    refs.qModalAnswer.hidden = typeEditor.typeSelect.value !== "classic";
+    refs.qModalAnswer.previousElementSibling.hidden = refs.qModalAnswer.hidden;
+  }
+  typeEditor.typeSelect.addEventListener("change", syncAnswerVisibility);
+  syncAnswerVisibility();
+
   const onlyFilter = questionFilters.size === 1 ? [...questionFilters][0] : "";
   const select = buildAgeGroupSelect(onlyFilter === "unassigned" ? "" : onlyFilter);
   refs.qModalAssignWrap.innerHTML = "";
@@ -794,7 +1038,36 @@ function questionKey(item) {
   return normalizeForMatch(item.text);
 }
 
-const QUESTION_CSV_HEADERS = ["text", "answer", "reference", "assignedTo"];
+const QUESTION_CSV_HEADERS = [
+  "text",
+  "answer",
+  "reference",
+  "assignedTo",
+  "type",
+  "choices",
+  "correctChoice",
+  "items",
+  "options",
+  "correctOptions",
+];
+
+// Choices/items/options and their correct answer(s) are packed into a
+// single cell each, pipe-separated (e.g. "Genesis|Exodus|Leviticus") — one
+// wide CSV covers every question type instead of needing one template per
+// type. `correctChoice`/`correctOptions` reference the actual text (not a
+// position), so reordering choices in a spreadsheet can't silently point
+// the correct answer at the wrong one.
+function splitPipe(str) {
+  return (str || "")
+    .toString()
+    .split("|")
+    .map((s) => s.trim())
+    .filter((s) => s !== "");
+}
+
+function joinPipe(list) {
+  return (list || []).join("|");
+}
 
 function exportQuestions() {
   const rows = questions.map((q) => ({
@@ -802,6 +1075,13 @@ function exportQuestions() {
     answer: q.answer || "",
     reference: q.reference || "",
     assignedTo: q.assignedTo || "",
+    type: q.type && q.type !== "classic" ? q.type : "",
+    choices: q.type === "multiple-choice" ? joinPipe(q.choices) : "",
+    correctChoice: q.type === "multiple-choice" && q.correctIndex != null ? (q.choices || [])[q.correctIndex] || "" : "",
+    items: q.type === "order" ? joinPipe(q.items) : "",
+    options: q.type === "select-all" ? joinPipe(q.options) : "",
+    correctOptions:
+      q.type === "select-all" ? joinPipe((q.correctIndices || []).map((i) => (q.options || [])[i]).filter(Boolean)) : "",
   }));
   downloadFile(`questions-export-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(QUESTION_CSV_HEADERS, rows), "text/csv");
 }
@@ -811,7 +1091,26 @@ function downloadQuestionTemplate() {
     "questions-template.csv",
     toCsv(QUESTION_CSV_HEADERS, [
       { text: "Who built the ark?", answer: "Noah", reference: "Genesis 6:14", assignedTo: "7-10" },
-      { text: "What is the first book of the Bible?", answer: "Genesis", reference: "", assignedTo: "adult" },
+      {
+        text: "What is the first book of the Bible?",
+        assignedTo: "adult",
+        type: "multiple-choice",
+        choices: "Genesis|Exodus|Leviticus",
+        correctChoice: "Genesis",
+      },
+      {
+        text: "Put the months in order, starting with January",
+        assignedTo: "adult",
+        type: "order",
+        items: "January|February|March",
+      },
+      {
+        text: "Which of these are among the Ten Commandments?",
+        assignedTo: "adult",
+        type: "select-all",
+        options: "Honor your father and mother|Steal from your neighbor|Keep the Sabbath holy",
+        correctOptions: "Honor your father and mother|Keep the Sabbath holy",
+      },
     ]),
     "text/csv"
   );
@@ -822,12 +1121,57 @@ function parseQuestionRows(raw) {
   return data.map((item, i) => {
     const text = ((item.text ?? item.question) || "").toString().trim();
     if (!text) throw new Error(`Row ${i + 1} is missing a question ("text").`);
-    return {
+    const rawType = (item.type || "").toString().trim();
+    const type = QUESTION_TYPES.some((t) => t.id === rawType) ? rawType : "classic";
+
+    const row = {
       text,
-      answer: ((item.answer) || "").toString().trim(),
-      reference: ((item.reference) || "").toString().trim(),
-      assignedTo: ((item.assignedto) || "").toString().trim() || null,
+      answer: (item.answer || "").toString().trim(),
+      reference: (item.reference || "").toString().trim(),
+      assignedTo: (item.assignedto || "").toString().trim() || null,
+      type,
+      choices: null,
+      correctIndex: null,
+      items: null,
+      options: null,
+      correctIndices: null,
     };
+
+    if (type === "multiple-choice") {
+      const choices = splitPipe(item.choices);
+      if (choices.length < 2) {
+        throw new Error(`Row ${i + 1} (${text}): multiple-choice needs at least 2 "choices" separated by |.`);
+      }
+      const correctChoice = (item.correctchoice || "").toString().trim();
+      const correctIndex = choices.findIndex((c) => normalizeForMatch(c) === normalizeForMatch(correctChoice));
+      if (correctIndex === -1) {
+        throw new Error(`Row ${i + 1} (${text}): "correctChoice" must match one of the "choices" exactly.`);
+      }
+      row.choices = choices;
+      row.correctIndex = correctIndex;
+    } else if (type === "order") {
+      const items = splitPipe(item.items);
+      if (items.length < 2) {
+        throw new Error(`Row ${i + 1} (${text}): order needs at least 2 "items" separated by |, listed in the correct order.`);
+      }
+      row.items = items;
+    } else if (type === "select-all") {
+      const options = splitPipe(item.options);
+      if (options.length < 2) {
+        throw new Error(`Row ${i + 1} (${text}): select-all needs at least 2 "options" separated by |.`);
+      }
+      const correctOptions = splitPipe(item.correctoptions);
+      const correctIndices = correctOptions
+        .map((co) => options.findIndex((o) => normalizeForMatch(o) === normalizeForMatch(co)))
+        .filter((idx) => idx !== -1);
+      if (correctIndices.length === 0) {
+        throw new Error(`Row ${i + 1} (${text}): "correctOptions" must match one or more of the "options" exactly.`);
+      }
+      row.options = options;
+      row.correctIndices = correctIndices;
+    }
+
+    return row;
   });
 }
 
@@ -836,20 +1180,31 @@ function openQuestionImportModal() {
     title: "Import Questions",
     hint: `Open the template in Excel/Sheets, fill in a row per question, then either save it as a .csv and upload it, or just copy the cells and paste them below. Columns: text, answer, reference (optional), assignedTo — one of ${AGE_GROUPS.map(
       (g) => `"${g.id}"`
-    ).join(", ")} (or leave it blank for Unassigned).`,
+    ).join(", ")} (or leave it blank for Unassigned). Leave "type" blank for a classic question. For Multiple Choice, set type to "multiple-choice" and fill "choices" and "correctChoice" (choices separated by | , e.g. "Genesis|Exodus|Leviticus"). For Put in Order, set type to "order" and list "items" separated by | in the correct order. For Select All, set type to "select-all" and fill "options" and "correctOptions" (also | -separated). Download the template below for worked examples of each.`,
     sampleText: "text, answer, reference, assignedTo\nWho built the ark?, Noah, Genesis 6:14, 7-10",
     existingItems: questions,
     keyFn: questionKey,
     parseRows: parseQuestionRows,
-    describeRow: (row) => row.text + (row.answer ? ` — ${row.answer}` : ""),
+    describeRow: (row) => row.text + (row.answer ? ` — ${row.answer}` : row.type !== "classic" ? ` (${questionTypeLabel(row.type)})` : ""),
     onImportRow: (row, existingMatch) => {
+      const data = {
+        text: row.text,
+        answer: row.answer,
+        reference: row.reference,
+        type: row.type,
+        choices: row.choices,
+        correctIndex: row.correctIndex,
+        items: row.items,
+        options: row.options,
+        correctIndices: row.correctIndices,
+      };
       if (existingMatch) {
-        updateQuestion(existingMatch.id, row.text, row.answer, row.reference);
+        updateQuestion(existingMatch.id, data);
         if (row.assignedTo !== (existingMatch.assignedTo || null)) {
           updateQuestionAssignment(existingMatch.id, row.assignedTo);
         }
       } else {
-        addQuestion(row.text, row.answer, row.reference, row.assignedTo);
+        addQuestion({ ...data, assignedTo: row.assignedTo });
       }
     },
     downloadTemplate: downloadQuestionTemplate,
@@ -892,6 +1247,8 @@ function buildLibraryView(container) {
         <h3>Add Question</h3>
         <label for="settings-question-text">Question</label>
         <textarea id="settings-question-text" rows="4" placeholder="e.g. Who built the ark?"></textarea>
+        <label>Type</label>
+        <div id="settings-question-type-wrap"></div>
         <label for="settings-question-answer">Answer</label>
         <input id="settings-question-answer" type="text" placeholder="e.g. Noah" />
         <label for="settings-question-reference">Reference (optional)</label>
@@ -942,6 +1299,7 @@ function buildLibraryView(container) {
 
   refs.qModalBackdrop = container.querySelector("#settings-question-modal-backdrop");
   refs.qModalText = container.querySelector("#settings-question-text");
+  refs.qModalTypeWrap = container.querySelector("#settings-question-type-wrap");
   refs.qModalAnswer = container.querySelector("#settings-question-answer");
   refs.qModalReference = container.querySelector("#settings-question-reference");
   refs.qModalAssignWrap = container.querySelector("#settings-question-assign-wrap");
@@ -956,20 +1314,33 @@ function buildLibraryView(container) {
   });
   container.querySelector("#settings-question-save-btn").addEventListener("click", () => {
     const text = refs.qModalText.value.trim();
-    const answer = refs.qModalAnswer.value.trim();
     if (!text) {
       refs.qModalError.textContent = "Give the question some text.";
       refs.qModalError.hidden = false;
       return;
     }
-    if (!answer) {
+    const typeData = refs.qModalTypeEditor.collect();
+    const typeErr = refs.qModalTypeEditor.validate(typeData);
+    if (typeErr) {
+      refs.qModalError.textContent = typeErr;
+      refs.qModalError.hidden = false;
+      return;
+    }
+    const answer = refs.qModalAnswer.value.trim();
+    if (typeData.type === "classic" && !answer) {
       refs.qModalError.textContent = "An answer is required (reference is optional).";
       refs.qModalError.hidden = false;
       return;
     }
     const reference = refs.qModalReference.value.trim();
     const assignedTo = refs.qModalAssign.value || null;
-    addQuestion(text, answer, reference, assignedTo);
+    addQuestion({
+      ...typeData,
+      text,
+      answer: typeData.type === "classic" ? answer : "",
+      reference,
+      assignedTo,
+    });
     closeAddQuestionModal();
   });
 

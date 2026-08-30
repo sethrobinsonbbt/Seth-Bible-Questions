@@ -2,12 +2,24 @@
 // kid-facing quiz view (questions.js) and the admin view (settings.js).
 //
 // Doc shape: { text, answer, reference, assignedTo: ageGroupId|null,
-// progress, createdAt }. `reference` is an optional Bible citation (e.g.
-// "Genesis 1:3") backing up the answer. `assignedTo` is an age-group id
-// (see age-groups-data.js) or null for the unassigned Library pool.
+// type, progress, createdAt }. `reference` is an optional Bible citation
+// (e.g. "Genesis 1:3") backing up the answer. `assignedTo` is an age-group
+// id (see age-groups-data.js) or null for the unassigned Library pool.
 // `progress` is a map keyed by user id:
 // { [userId]: { correctCount, wrongCount, needsReview } } — tracked per
 // user so two kids sharing an age group don't share the same score.
+//
+// `type` is one of:
+//   "classic" (default/missing) — plain text `answer`, shown on demand via
+//     Show Answer, self-graded Right/Wrong. Everything from before these
+//     other types existed is this shape.
+//   "multiple-choice" — `choices: [string,...]`, `correctIndex: number`.
+//   "order" — `items: [string,...]` already in the correct order; shown to
+//     the quiz-taker shuffled, tapped back into order.
+//   "select-all" — `options: [string,...]`, `correctIndices: [number,...]`
+//     (the subset of `options` that are true/correct).
+// Every type still just grades as right-or-wrong overall (no partial
+// credit) so scoring/progress tracking stays the same shape regardless.
 import { ready } from "./firebase.js";
 import { getFamilyId, scopedCollection } from "./family.js";
 
@@ -33,21 +45,42 @@ export function getQuestions() {
   return questions;
 }
 
-export function addQuestion(text, answer, reference, assignedTo) {
+// `data` also accepts the type-specific fields documented above (choices/
+// correctIndex, items, options/correctIndices) — whichever ones apply to
+// data.type, the rest are left null.
+export function addQuestion(data) {
   if (!db) return;
   questionsCollection().add({
-    text,
-    answer: answer || null,
-    reference: reference || null,
-    assignedTo: assignedTo || null,
+    text: data.text,
+    answer: data.answer || null,
+    reference: data.reference || null,
+    assignedTo: data.assignedTo || null,
+    type: data.type || "classic",
+    choices: data.choices || null,
+    correctIndex: data.correctIndex != null ? data.correctIndex : null,
+    items: data.items || null,
+    options: data.options || null,
+    correctIndices: data.correctIndices || null,
     progress: {},
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
 }
 
-export function updateQuestion(id, text, answer, reference) {
+export function updateQuestion(id, data) {
   if (!db) return;
-  questionsCollection().doc(id).update({ text, answer: answer || null, reference: reference || null });
+  questionsCollection()
+    .doc(id)
+    .update({
+      text: data.text,
+      answer: data.answer || null,
+      reference: data.reference || null,
+      type: data.type || "classic",
+      choices: data.choices || null,
+      correctIndex: data.correctIndex != null ? data.correctIndex : null,
+      items: data.items || null,
+      options: data.options || null,
+      correctIndices: data.correctIndices || null,
+    });
 }
 
 export function updateQuestionAssignment(id, assignedTo) {

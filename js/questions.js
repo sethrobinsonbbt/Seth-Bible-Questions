@@ -24,6 +24,10 @@ let historyIndex = -1;
 let includedKidIds = [];
 let verseTextCache = {};
 let editingQuestionId = null;
+// Live state for whichever multiple-choice/order/select-all question is
+// currently on screen — keyed by question id so it survives incidental
+// re-renders (e.g. an unrelated Firestore update) but resets on a new pick.
+let interactiveState = null;
 
 // How many recently-shown questions to avoid immediately repeating — a
 // question (right OR wrong) won't come up again until at least this many
@@ -162,6 +166,7 @@ function renderIncludeKidsRow() {
       saveIncludedKids(user.id, includedKidIds);
       // The question pool just changed — drop whatever was mid-browse.
       currentRandomId = null;
+      interactiveState = null;
       history = [];
       historyIndex = -1;
       render();
@@ -242,6 +247,19 @@ function renderRandomCard(list) {
   }
 
   el("random-text").textContent = pick.text;
+  el("random-back-btn").disabled = historyIndex <= 0;
+
+  if (pick.type && pick.type !== "classic") {
+    // The other question types are always tap-driven and self-grading —
+    // no kid-mode/self-mode reveal distinction, no Show Answer step.
+    el("random-answer").hidden = true;
+    el("random-reveal-actions").hidden = true;
+    el("random-grade-actions").hidden = true;
+    el("random-verse-text").hidden = true;
+    renderInteractive(pick);
+    return;
+  }
+  el("random-interactive").hidden = true;
 
   const hasAnswerContent = !!(pick.answer || pick.reference);
   const revealed = !currentIsForSelf || !hasAnswerContent || showingAnswer;
@@ -252,12 +270,179 @@ function renderRandomCard(list) {
     .join(" — ");
   el("random-reveal-actions").hidden = revealed;
   el("random-grade-actions").hidden = !revealed;
-  el("random-back-btn").disabled = historyIndex <= 0;
 
   if (currentIsForSelf) {
     el("random-verse-text").hidden = true;
   } else {
     loadVerseTextFor(pick.reference, pick.id);
+  }
+}
+
+// ---------- Multiple choice / order / select-all: tap-driven quiz UI ----------
+
+function shuffledIndices(n) {
+  const idx = Array.from({ length: n }, (_, i) => i);
+  for (let i = idx.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [idx[i], idx[j]] = [idx[j], idx[i]];
+  }
+  return idx;
+}
+
+function ensureInteractiveState(pick) {
+  if (interactiveState && interactiveState.id === pick.id) return interactiveState;
+  let n = 0;
+  if (pick.type === "multiple-choice") n = (pick.choices || []).length;
+  else if (pick.type === "order") n = (pick.items || []).length;
+  else if (pick.type === "select-all") n = (pick.options || []).length;
+  interactiveState = {
+    id: pick.id,
+    answered: false,
+    selectedIndex: null,
+    orderPicks: [],
+    checked: new Set(),
+    shuffleOrder: shuffledIndices(n),
+  };
+  return interactiveState;
+}
+
+// Credits the answer, then pauses briefly so the tap feedback is visible
+// before moving on to the next question.
+function finishInteractive(pick, wasCorrect) {
+  creditAnswer(pick, wasCorrect);
+  setTimeout(() => {
+    if (currentRandomId !== pick.id) return; // moved on already
+    interactiveState = null;
+    nextRandomQuestion();
+  }, 1200);
+}
+
+function renderInteractive(pick) {
+  const host = el("random-interactive");
+  host.hidden = false;
+  host.innerHTML = "";
+  const state = ensureInteractiveState(pick);
+
+  if (pick.type === "multiple-choice") renderMultipleChoice(host, pick, state);
+  else if (pick.type === "order") renderOrder(host, pick, state);
+  else if (pick.type === "select-all") renderSelectAll(host, pick, state);
+}
+
+function renderMultipleChoice(host, pick, state) {
+  const list = document.createElement("div");
+  list.className = "interactive-choice-list";
+  state.shuffleOrder.forEach((origIdx) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "interactive-choice-btn";
+    btn.textContent = pick.choices[origIdx];
+    if (state.answered) {
+      btn.disabled = true;
+      if (origIdx === pick.correctIndex) btn.classList.add("choice-correct");
+      else if (origIdx === state.selectedIndex) btn.classList.add("choice-wrong");
+    } else {
+      btn.addEventListener("click", () => {
+        state.answered = true;
+        state.selectedIndex = origIdx;
+        const wasCorrect = origIdx === pick.correctIndex;
+        renderInteractive(pick);
+        finishInteractive(pick, wasCorrect);
+      });
+    }
+    list.appendChild(btn);
+  });
+  host.appendChild(list);
+}
+
+function renderOrder(host, pick, state) {
+  const remaining = state.shuffleOrder.filter((idx) => !state.orderPicks.includes(idx));
+
+  const pickedList = document.createElement("ol");
+  pickedList.className = "interactive-order-picked";
+  state.orderPicks.forEach((idx) => {
+    const li = document.createElement("li");
+    li.textContent = pick.items[idx];
+    pickedList.appendChild(li);
+  });
+  if (state.orderPicks.length > 0) host.appendChild(pickedList);
+
+  const chipRow = document.createElement("div");
+  chipRow.className = "interactive-order-chips";
+  remaining.forEach((idx) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "interactive-order-chip";
+    chip.textContent = pick.items[idx];
+    chip.addEventListener("click", () => {
+      if (state.answered) return;
+      state.orderPicks.push(idx);
+      if (state.orderPicks.length === state.shuffleOrder.length) {
+        state.answered = true;
+        const wasCorrect = state.orderPicks.every((v, i) => v === i);
+        renderInteractive(pick);
+        finishInteractive(pick, wasCorrect);
+      } else {
+        renderInteractive(pick);
+      }
+    });
+    chipRow.appendChild(chip);
+  });
+  host.appendChild(chipRow);
+
+  if (state.answered) {
+    const wasCorrect = state.orderPicks.every((v, i) => v === i);
+    const resultEl = document.createElement("p");
+    resultEl.className = "interactive-result";
+    resultEl.textContent = wasCorrect ? "✅ Correct order!" : `❌ Not quite — correct order: ${pick.items.join(" → ")}`;
+    host.appendChild(resultEl);
+  }
+}
+
+function renderSelectAll(host, pick, state) {
+  const correctSet = new Set(pick.correctIndices);
+  const wasCorrect = () => correctSet.size === state.checked.size && [...correctSet].every((idx) => state.checked.has(idx));
+
+  const list = document.createElement("div");
+  list.className = "interactive-choice-list";
+  state.shuffleOrder.forEach((idx) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "interactive-choice-btn interactive-choice-toggle";
+    btn.textContent = (state.checked.has(idx) ? "☑️ " : "⬜ ") + pick.options[idx];
+    if (state.answered) {
+      btn.disabled = true;
+      if (correctSet.has(idx)) btn.classList.add("choice-correct");
+      else if (state.checked.has(idx)) btn.classList.add("choice-wrong");
+    } else {
+      btn.classList.toggle("choice-selected", state.checked.has(idx));
+      btn.addEventListener("click", () => {
+        if (state.checked.has(idx)) state.checked.delete(idx);
+        else state.checked.add(idx);
+        renderInteractive(pick);
+      });
+    }
+    list.appendChild(btn);
+  });
+  host.appendChild(list);
+
+  if (!state.answered) {
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "button";
+    submitBtn.className = "btn btn-primary";
+    submitBtn.textContent = "Submit";
+    submitBtn.disabled = state.checked.size === 0;
+    submitBtn.addEventListener("click", () => {
+      state.answered = true;
+      const correct = wasCorrect();
+      renderInteractive(pick);
+      finishInteractive(pick, correct);
+    });
+    host.appendChild(submitBtn);
+  } else {
+    const resultEl = document.createElement("p");
+    resultEl.className = "interactive-result";
+    resultEl.textContent = wasCorrect() ? "✅ Correct!" : "❌ Not quite — correct ones are highlighted.";
+    host.appendChild(resultEl);
   }
 }
 
@@ -303,25 +488,32 @@ function revealAnswer() {
   renderRandomCard(questionsForUser(activeUser()));
 }
 
-// In kid-mode, "Correct"/"Wrong" should credit every included kid whose
-// age group this question was actually assigned to — not the adult asking
-// it, and not kids who wouldn't have been shown this question on their own.
+// In kid-mode, crediting an answer should count for every included kid
+// whose age group this question was actually assigned to — not the adult
+// asking it, and not kids who wouldn't have been shown this question on
+// their own. Shared by the classic Correct/Wrong buttons and the
+// self-grading multiple-choice/order/select-all UI below.
+function creditAnswer(pick, wasCorrect) {
+  const user = activeUser();
+  if (!user) return;
+  if (currentIsForSelf) {
+    recordAnswer(pick.id, user.id, wasCorrect);
+  } else {
+    includedKidIds.forEach((kidId) => {
+      const kid = users.find((u) => u.id === kidId);
+      if (kid && (kid.ageGroups || []).includes(pick.assignedTo)) {
+        recordAnswer(pick.id, kidId, wasCorrect);
+      }
+    });
+  }
+}
+
 function answerCurrent(wasCorrect) {
   const user = activeUser();
   if (!currentRandomId || !user) return;
   const pick = allQuestions.find((q) => q.id === currentRandomId);
   if (!pick) return;
-
-  if (currentIsForSelf) {
-    recordAnswer(currentRandomId, user.id, wasCorrect);
-  } else {
-    includedKidIds.forEach((kidId) => {
-      const kid = users.find((u) => u.id === kidId);
-      if (kid && (kid.ageGroups || []).includes(pick.assignedTo)) {
-        recordAnswer(currentRandomId, kidId, wasCorrect);
-      }
-    });
-  }
+  creditAnswer(pick, wasCorrect);
   nextRandomQuestion();
 }
 
@@ -360,7 +552,8 @@ function saveEdit() {
   }
   const answer = el("q-edit-answer").value.trim();
   const reference = el("q-edit-reference").value.trim();
-  updateQuestion(editingQuestionId, text, answer, reference);
+  const existing = allQuestions.find((q) => q.id === editingQuestionId);
+  updateQuestion(editingQuestionId, { ...existing, text, answer, reference });
   verseTextCache = {}; // reference may have changed
   closeEditModal();
 }
@@ -415,6 +608,7 @@ export function mountQuestions() {
   subscribeActiveUser((id) => {
     activeUserId = id;
     currentRandomId = null;
+    interactiveState = null;
     history = [];
     historyIndex = -1;
     includedKidIds = id ? loadIncludedKids(id) : [];
