@@ -364,7 +364,9 @@ function renderQuestionsAdmin() {
         const resetBtn = document.createElement("button");
         resetBtn.className = "btn btn-small";
         resetBtn.textContent = "Reset Score";
-        resetBtn.addEventListener("click", () => resetProgress(q.id));
+        resetBtn.addEventListener("click", () => {
+          if (confirm("Reset everyone's score on this question? This can't be undone.")) resetProgress(q.id);
+        });
         actions.appendChild(resetBtn);
       }
 

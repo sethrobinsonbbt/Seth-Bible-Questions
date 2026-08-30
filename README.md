@@ -65,16 +65,60 @@ In the Firebase console, go to **Firestore Database → Rules** and paste:
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
-    }
+    match /users/{id}              { allow read, write: if request.auth != null; }
+    match /questions/{id}          { allow read, write: if request.auth != null; }
+    match /memoryVerses/{id}       { allow read, write: if request.auth != null; }
+    match /readingPlans/{id}       { allow read, write: if request.auth != null; }
+    match /dailyReadingProgress/{id} { allow read, write: if request.auth != null; }
+    match /appState/{id}           { allow read, write: if request.auth != null; }
   }
 }
 ```
 
 Click **Publish**. This means only devices that have opened the app (and
-silently signed in anonymously) can read or write any of the app's data
-(questions, family members, reading plans, memory verses).
+silently signed in anonymously) can read or write the app's data — and,
+compared to a blanket `match /{document=**}`, only within these six known
+collections, so a stray script poking at your project can't spray junk
+data into some new collection name you never created. Add a line here if
+you ever add a new Firestore collection.
+
+**How much protection is this really?** Anonymous auth means *anyone* who
+loads the page — not just your family — becomes an authorized reader/writer
+the moment the page runs. That's a real gap, not just theoretical, even
+though a stranger stumbling onto a family Bible-trivia URL is unlikely. It
+costs nothing (see "How much is this going to cost me?" below) but it's
+worth understanding what it does and doesn't protect against:
+
+- **What it stops:** someone finding your `firebase-config.js` values and
+  hitting your Firestore directly from a *different* app or script without
+  ever loading your page (they can't skip auth, and now can't touch
+  collections outside the six above either).
+- **What it doesn't stop:** someone who actually opens your site's URL —
+  they get anonymous auth automatically, same as your family does, and can
+  read or write anything in those six collections.
+
+Two ways to raise the bar further, in rough order of effort:
+
+- **Keep the URL unlisted.** Don't link it anywhere public, don't submit it
+  to search engines. This repo already ships a `robots.txt` and a `noindex`
+  meta tag asking well-behaved crawlers not to index it — that's obscurity,
+  not security, but combined with an unlisted/custom URL it makes
+  "stumbling across it" genuinely unlikely rather than just hoped-for.
+- **Firebase App Check.** Free, and stops scripted/automated abuse of your
+  Firestore API directly (bots hitting the API without ever loading your
+  page), by requiring a token proving the request came from your actual
+  registered site (via reCAPTCHA v3). It does *not* stop a human who
+  actually opens the real page, so it doesn't fully close the anonymous-auth
+  gap above — see [Firebase App Check docs](https://firebase.google.com/docs/app-check)
+  if you want to set it up.
+
+Real per-family access control (a login instead of "anyone who opens the
+page is authorized") would mean adding a Cloud Function that checks a
+shared passcode server-side and issues a custom auth token — a bigger
+change (requires enabling the pay-as-you-go Blaze plan to deploy a
+function, though usage would still cost $0) that's out of scope unless you
+want to take this from "hobby family app" to "actually gated." Ask if
+you'd like to go that route.
 
 Note the **Setup** section's "1967" passcode is a separate, much
 weaker layer on top of this — it's a plain string checked in the browser
