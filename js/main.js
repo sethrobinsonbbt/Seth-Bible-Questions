@@ -5,12 +5,15 @@ import { mountPlanner } from "./planner.js";
 import { mountMemorize } from "./memorize.js";
 import { mountSettings } from "./settings.js";
 
+// "settings" is deliberately left out of the primary tab row (it's an
+// admin-only area, easy to overlook or crowd out on a small screen) and
+// reached instead via the footer link built in setupFooter().
 const SECTIONS = [
   { id: "questions", label: "Questions", mount: mountQuestions },
   { id: "bible", label: "Bible", mount: mountBibleReader },
   { id: "planner", label: "Planner", mount: mountPlanner },
   { id: "memorize", label: "Memorize", mount: mountMemorize },
-  { id: "settings", label: "🔒 Settings", mount: mountSettings },
+  { id: "settings", label: "🔒 Setup", mount: mountSettings, hideFromNav: true },
 ];
 
 let activeSection = SECTIONS[0].id;
@@ -18,7 +21,7 @@ let activeSection = SECTIONS[0].id;
 function renderPrimaryNav() {
   const nav = document.getElementById("primary-tabs");
   nav.innerHTML = "";
-  SECTIONS.forEach((section) => {
+  SECTIONS.filter((section) => !section.hideFromNav).forEach((section) => {
     const btn = document.createElement("button");
     btn.className = "tab-btn primary-tab-btn" + (section.id === activeSection ? " active" : "");
     btn.textContent = section.label;
@@ -33,6 +36,17 @@ function setActiveSection(id) {
     document.getElementById(`section-${section.id}`).hidden = section.id !== id;
   });
   renderPrimaryNav();
+  setupFooterActive();
+}
+
+function setupFooter() {
+  const btn = document.getElementById("footer-setup-btn");
+  btn.addEventListener("click", () => setActiveSection("settings"));
+  setupFooterActive();
+}
+
+function setupFooterActive() {
+  document.getElementById("footer-setup-btn").classList.toggle("active", activeSection === "settings");
 }
 
 function initSections() {
@@ -74,6 +88,7 @@ window.addEventListener("bible:navigate", (e) => {
 
 document.addEventListener("DOMContentLoaded", () => {
   initSections();
+  setupFooter();
   setupStatusBanner();
 
   if ("serviceWorker" in navigator) {

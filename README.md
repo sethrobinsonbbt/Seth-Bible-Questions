@@ -16,7 +16,9 @@ A tiny family Bible app with five sections, tabbed across the top:
   fill in the first letter of each word given the reference, with 5
   difficulty levels from mostly-filled-in to completely blank. A "Who's
   memorizing?" picker tracks each person's own attempts/correct count.
-- **🔒 Settings** — passcode-gated (see below). This is where you add
+- **🔒 Setup** — a small link in the footer, deliberately not one of the
+  top tabs (it's an admin area, not something to bump into by accident).
+  Passcode-gated (see below). This is where you add
   family members (each assigned to one or more age groups), and where all
   question authoring lives: add/edit/delete questions, assign them to an
   age group (2–3, 4–6, 7–10, 11–15, Adult), and the two bulk-import
@@ -28,9 +30,11 @@ open, using a free Firebase project. It's a static site — installable on
 an iPhone via Safari's "Add to Home Screen" (opens full-screen, no browser
 chrome) and installable as an app from Chrome on desktop/Android too.
 
-## Setup
+## Getting Started
 
-You only need to do this once.
+One-time project setup — not to be confused with the in-app **🔒 Setup**
+section described below, which is for day-to-day family/question
+management. You only need to do the steps on this page once.
 
 ### 1. Create a free Firebase project
 
@@ -70,7 +74,7 @@ Click **Publish**. This means only devices that have opened the app (and
 silently signed in anonymously) can read or write any of the app's data
 (questions, family members, reading plans, memory verses).
 
-Note the **Settings** section's "1967" passcode is a separate, much
+Note the **Setup** section's "1967" passcode is a separate, much
 weaker layer on top of this — it's a plain string checked in the browser
 (`js/settings.js`), not real access control. Anyone who opens the
 browser's dev tools can read it straight out of the page. It's there to
@@ -108,9 +112,9 @@ repo:
   preferentially resurfaced until answered correctly — scores are tracked
   per person, so two kids sharing an age group don't share a score.
 - Below the card is a plain list of that person's questions with their
-  running score. There's no editing here by design — see **Settings**.
+  running score. There's no editing here by design — see **Setup**.
 
-### 🔒 Settings
+### 🔒 Setup
 
 - Enter the passcode (default `1967`, see the security note above) to
   unlock **Family Members** and **All Questions** management.
@@ -161,7 +165,7 @@ aren't included — you're welcome to add one yourself in
 ### Memorize
 
 - Pick **Who's memorizing?** at the top (family members are managed in
-  Settings) so attempts get tracked under the right person — this is
+  Setup) so attempts get tracked under the right person — this is
   optional; practicing without picking anyone just won't record a score.
 - Add a verse by typing its reference (e.g. `John 3:16` or
   `Psalm 23:1-3`) — the King James text is looked up automatically.
@@ -180,7 +184,7 @@ aren't included — you're welcome to add one yourself in
 
 ## Adding another person, or another age group
 
-Adding a person is just **+ Add Member** in Settings — no code changes
+Adding a person is just **+ Add Member** in Setup — no code changes
 needed. Age groups, on the other hand, are a fixed list in code (since
 they double as the assignment target for every question). To add or
 rename one, edit the `AGE_GROUPS` array in `js/age-groups-data.js`:
@@ -206,14 +210,14 @@ matching anything.
 - `js/main.js` — top-level section navigation and app bootstrapping.
 - `js/firebase.js` — shared Firebase init (anonymous auth + Firestore).
 - `js/users.js` — shared "family members" Firestore collection (state +
-  CRUD), used by Questions, Memorize, and Settings.
+  CRUD), used by Questions, Memorize, and Setup.
 - `js/age-groups-data.js` — the fixed list of age groups.
 - `js/questions-data.js` — shared "questions" Firestore collection (state
-  + CRUD + bulk import), used by both the quiz view and Settings.
+  + CRUD + bulk import), used by both the quiz view and Setup.
 - `js/questions.js` — the kid-facing Questions quiz view (read-only).
 - `js/question-bank-data.js` / `js/family-question-bank.js` — the two
-  bundled question banks importable from Settings.
-- `js/settings.js` — the passcode-gated Settings section (member +
+  bundled question banks importable from Setup.
+- `js/settings.js` — the passcode-gated Setup section (member +
   question administration).
 - `js/bible-data.js` — the 66-book/chapter-count table and the list of
   available translations.

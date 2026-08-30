@@ -62,7 +62,7 @@ function escapeHtml(str) {
 function buildLockScreen(container) {
   container.innerHTML = `
     <div class="settings-lock">
-      <h2>🔒 Settings</h2>
+      <h2>🔒 Setup</h2>
       <p>Enter the family passcode to manage family members and questions.</p>
       <input id="settings-password-input" type="password" inputmode="numeric" placeholder="Passcode" />
       <p id="settings-password-error" class="form-error" hidden>That's not it — try again.</p>
@@ -428,7 +428,7 @@ function runImportQuestionBank() {
 function buildUnlockedView(container) {
   container.innerHTML = `
     <div class="settings-header">
-      <h2>🔒 Settings</h2>
+      <h2>🔒 Setup</h2>
       <button id="settings-lock-btn" class="btn btn-small">Lock</button>
     </div>
 
