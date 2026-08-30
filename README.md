@@ -190,9 +190,13 @@ Firebase project, fully isolated from each other:
   plans, everything — lives under `families/{familyId}/...` in the same
   Firestore project (see `js/family.js`), completely separate from every
   other family's.
-- The family's **name** shows (read-only) at the top of **Setup**; there's
-  a **Switch Family** button further down Setup for moving a device to a
-  different family's code (you'll need a code to get back in).
+- The family's **name** shows (read-only) at the top of **Setup**, along
+  with the family's own **code** and a **📋 Copy Join Link** button (copies
+  a link that auto-fills the code for whoever opens it) — this is the only
+  place to find the code again after creating a family, so it's worth a
+  glance if you're about to add someone new. There's also a **Switch
+  Family** button further down Setup for moving a device to a different
+  family's code (you'll need a code to get back in).
 - There's no cross-family anything — no shared question bank, no way to
   see another family exists. The starter question banks
   (`js/question-bank-data.js`, `js/family-question-bank.js`) are bundled

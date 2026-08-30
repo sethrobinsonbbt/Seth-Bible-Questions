@@ -211,3 +211,16 @@
   font-family: inherit;
   margin-bottom: 0.6rem;
 }
+
+.family-code-display {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin: 0 0 0.6rem;
+  text-align: center;
+}

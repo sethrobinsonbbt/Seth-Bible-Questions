@@ -32,7 +32,7 @@ import {
 } from "./memorize-data.js";
 import { subscribePlanState, refreshPlanStats, resetPlan } from "./daily-plan-data.js";
 import { ready } from "./firebase.js";
-import { getFamilyPasscode, subscribeFamilyInfo, setFamilyId, scopedCollection } from "./family.js";
+import { getFamilyId, getFamilyPasscode, subscribeFamilyInfo, setFamilyId, scopedCollection } from "./family.js";
 
 const UNLOCK_KEY = "bible-questions-settings-unlocked";
 
@@ -1369,6 +1369,16 @@ function buildMainView(container) {
       <button id="settings-lock-btn" class="btn btn-small">Lock</button>
     </div>
     <p id="settings-family-name" class="settings-fineprint"></p>
+    <div class="settings-panel">
+      <div class="list-toolbar">
+        <h2>Family Code</h2>
+      </div>
+      <p class="settings-fineprint">Share this with the rest of the family so their devices can join —
+      each one only needs to enter it once. Tapping "Copy Join Link" gives them a link that fills it in
+      automatically.</p>
+      <p id="family-code-display" class="family-code-display"></p>
+      <button id="copy-join-link-btn" class="btn btn-small">📋 Copy Join Link</button>
+    </div>
 
     <ul class="settings-nav-list">
       <li><button id="open-family-btn" class="settings-nav-link">
@@ -1428,6 +1438,26 @@ function buildMainView(container) {
   refs.familyNameEl = container.querySelector("#settings-family-name");
   refs.exportBtn = container.querySelector("#export-data-btn");
   refs.exportBtn.addEventListener("click", exportAllData);
+
+  const familyCodeEl = container.querySelector("#family-code-display");
+  const familyCode = getFamilyId() || "";
+  familyCodeEl.textContent = familyCode;
+  container.querySelector("#copy-join-link-btn").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const originalText = btn.textContent;
+    const joinLink = `${window.location.origin}${window.location.pathname}?family=${familyCode}`;
+    try {
+      await navigator.clipboard.writeText(joinLink);
+      btn.textContent = "✅ Copied!";
+    } catch (err) {
+      // Clipboard access can be blocked (older browsers, non-HTTPS, etc.) —
+      // fall back to just showing the link so it can be copied by hand.
+      prompt("Copy this link:", joinLink);
+    }
+    setTimeout(() => {
+      btn.textContent = originalText;
+    }, 1500);
+  });
 
   container.querySelector("#settings-lock-btn").addEventListener("click", () => {
     setUnlocked(false);
