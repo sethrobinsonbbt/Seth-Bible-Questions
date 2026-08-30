@@ -60,26 +60,33 @@ const BUCKETS = [
   { id: "memorized", label: "Already Memorized" },
 ];
 
-// One shared head-in-profile outline, with a small circular badge over
-// the forehead whose contents mark which bucket this is — a gear
-// (in-progress/Memorizing), a clock (Future Memorization), or a check
-// (Already Memorized). Pure line art via currentColor, so it's
-// automatically monochrome and adapts to the light/dark theme.
+// One shared adult head-in-profile outline, with a small circular badge
+// over the forehead whose contents mark which bucket this is — a gear
+// (in-progress/Memorizing), a little day-calendar showing "9" (Future
+// Memorization), or a check (Already Memorized). Pure line art via
+// currentColor, so it's automatically monochrome and adapts to the
+// light/dark theme.
 const BUCKET_HEAD_PATH =
-  "M14 3.2c-4.4 0-8 3.5-8 7.9 0 1.6.5 3.1 1.3 4.4-.6.2-1.1.7-1.1 1.4 0 .8.6 1.4 1.4 1.4h.3c.5 1.6 1.6 2.9 3.1 3.7v2h6.4v-2.6c2.3-1.5 3.6-4.1 3.6-6.9v-1.4C21 6.9 17.9 3.2 14 3.2z";
-const BUCKET_EAR_PATH = "M6 11.6c-.7-.1-1.5.2-1.9.9-.5.9-.1 2 .8 2.4";
+  "M14,3 L9,4.3 L8,6.5 L5.3,9.2 L7,10.3 L6.7,12 L7.6,14.2 L9.5,15.5 L9.8,17 L9.8,20.5 L16,20.5 L16,17.5 C18,15.6 19.6,13 19.6,10 C19.6,6.3 17.5,3.4 14,3 Z";
+const BUCKET_EAR_PATH = "M9.3,11.4 C8.2,11.2 7.2,12 7.2,13.1 C7.2,14.1 8,14.9 9,14.9";
 const BUCKET_BADGE_INSETS = {
-  memorizing: '<circle r="1.15"/><path d="M0,-2.3 L0,-1.5 M0,2.3 L0,1.5 M-2.3,0 L-1.5,0 M2.3,0 L1.5,0"/>',
-  future: '<path d="M0,-1.7 L0,0 L1.3,0.9"/>',
-  memorized: '<path d="M-1.7,0.1 L-0.6,1.3 L1.8,-1.4"/>',
+  memorizing:
+    '<g stroke="currentColor" stroke-width="1.1" fill="none" stroke-linecap="round">' +
+    '<circle r="1.15"/><path d="M0,-2.3 L0,-1.5 M0,2.3 L0,1.5 M-2.3,0 L-1.5,0 M2.3,0 L1.5,0"/></g>',
+  future:
+    '<path stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round" ' +
+    'd="M-1.6,-1.4 L1.6,-1.4 M-1.6,-1.4 L-1.6,1.7 L1.6,1.7 L1.6,-1.4 M-0.8,-2 L-0.8,-1.4 M0.8,-2 L0.8,-1.4"/>' +
+    '<text x="0" y="1.15" font-size="2.3" font-family="Arial, sans-serif" font-weight="700" ' +
+    'text-anchor="middle" fill="currentColor" stroke="none">9</text>',
+  memorized: '<path stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M-1.7,0.1 L-0.6,1.3 L1.8,-1.4"/>',
 };
 
 function bucketIconSvg(bucketId) {
   return `<svg class="mem-bucket-icon" viewBox="0 0 24 24" aria-hidden="true">
     <path d="${BUCKET_HEAD_PATH}"/>
     <path d="${BUCKET_EAR_PATH}"/>
-    <circle cx="13.3" cy="9.6" r="3.4"/>
-    <g transform="translate(13.3,9.6)">${BUCKET_BADGE_INSETS[bucketId] || ""}</g>
+    <circle cx="10.3" cy="6.7" r="3.3"/>
+    <g transform="translate(10.3,6.7)">${BUCKET_BADGE_INSETS[bucketId] || ""}</g>
   </svg>`;
 }
 
@@ -411,11 +418,11 @@ function saveVerseFromPicker() {
 
 // ---------- Practice shell ----------
 
-function openPractice(verseId) {
+function openPractice(verseId, opts) {
   currentVerseId = verseId;
   view = "practice";
   refs.listView.hidden = true;
-  if (practiceMode === "fitb") startFitbChallenge(verseId);
+  if (practiceMode === "fitb") startFitbChallenge(verseId, opts && opts.skipPreview);
   else startFlashcard(verseId);
 }
 
@@ -493,7 +500,11 @@ function startPlay() {
   const pool = filteredVerses();
   const first = pickNextVerse(pool, activeUserId, verseHistory);
   if (!first) return;
-  openPractice(first.id);
+  // Skip the verse-text preview for Play's first verse — with a whole
+  // session ahead of you, seeing the answer before picking a difficulty
+  // isn't the point (every verse after this one already skips it, via
+  // goToNextVerse going straight to the blanks screen).
+  openPractice(first.id, { skipPreview: true });
 }
 
 // ---------- Fill in the Blank ----------
@@ -543,7 +554,7 @@ function buildBlanksTokens(text) {
   return tokens;
 }
 
-function startFitbChallenge(verseId) {
+function startFitbChallenge(verseId, skipPreview) {
   const verse = verses.find((v) => v.id === verseId);
   if (!verse) {
     closePractice();
@@ -552,8 +563,12 @@ function startFitbChallenge(verseId) {
   refs.practiceArea.innerHTML = `
     <button id="practice-close-btn" class="btn btn-small back-btn">← Back to Verse Library</button>
     <p class="mem-challenge-label">Ready to Memorize?</p>
-    <div class="mem-ref-pill">🖐 ${escapeHtml(verse.reference)}</div>
-    <div class="mem-challenge-verse-card">"${escapeHtml(verse.text)}"</div>
+    ${
+      skipPreview
+        ? ""
+        : `<div class="mem-ref-pill">🖐 ${escapeHtml(verse.reference)}</div>
+           <div class="mem-challenge-verse-card">"${escapeHtml(verse.text)}"</div>`
+    }
     <p class="mem-challenge-heading">Choose your challenge</p>
     <div class="mem-challenge-options" id="mem-challenge-options">
       ${LEVEL_LABELS.map(

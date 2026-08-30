@@ -35,7 +35,7 @@ device, driving whose score gets tracked wherever progress applies
   Adding/deleting questions still lives in Setup.
 - **Memorize** — a bank of King James verses, filed into three per-person
   buckets (Memorizing / Future Memorization / Already Memorized — same
-  head icon for all three, distinguished by a small gear/clock/check
+  head icon for all three, distinguished by a small gear/calendar/check
   badge; pick one per verse from a compact icon-only dropdown), and
   further filterable by category — a built-in **Old/New Testament**
   split (auto-detected from each verse's reference) is always available
@@ -532,10 +532,11 @@ under (see the per-verse picker below), defaulting to Memorizing so
 every newly-added verse (and anything added before buckets existed)
 starts in the main working set. All three share the same head-in-profile
 icon; only the small badge on the forehead differs — a gear for
-Memorizing (in progress), a clock for Future Memorization, a check for
-Already Memorized. Below that, category chips (**All**, an
-always-available **Old Testament / New Testament** split auto-detected
-from each verse's reference, plus any custom categories made in Setup),
+Memorizing (in progress), a little day-calendar showing "9" for Future
+Memorization, a check for Already Memorized. Below that, category chips
+(**All**, an always-available **Old Testament / New Testament** split
+auto-detected from each verse's reference, plus any custom categories
+made in Setup),
 a **✍️ Fill in the Blank** / **🗂️ Flashcards** tab that picks which mode
 a verse launches into, a **▶ Play** button, and the verse list itself.
 Each verse's row shows a small mastery dot (top-right — gray until
