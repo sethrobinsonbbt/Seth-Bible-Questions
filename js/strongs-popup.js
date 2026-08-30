@@ -2,7 +2,7 @@
 // reader (see bible-reader.js). Shows the Hebrew/Greek word's meaning, and
 // every place it occurs elsewhere in the KJV, in a big bordered window
 // over the page — markup lives in index.html (#strongs-popup-backdrop).
-import { fetchLexiconEntry, fetchOccurrences, extractCrossRefs } from "./strongs-data.js";
+import { fetchLexiconEntry, fetchOccurrences, extractCrossRefs, fetchStrongsChapter } from "./strongs-data.js";
 
 const OCCURRENCES_PER_PAGE = 50;
 
@@ -13,6 +13,7 @@ let currentNumber = null; // which of currentNumbers is currently shown
 let occurrencesCache = {}; // strongs number -> resolved occurrence list
 let occurrencesPage = 0;
 let history = []; // previously-viewed numbers, for "‹ Back" when following a cross-reference link
+let viewingOccurrence = null; // {book, chapter, verse} while showing a single verse preview
 
 function el(id) {
   return document.getElementById(id);
@@ -27,6 +28,7 @@ function ensureRefs() {
     number: el("strongs-popup-number"),
     lemma: el("strongs-popup-lemma"),
     multi: el("strongs-popup-multi"),
+    tabsRow: document.querySelector(".strongs-modal-tabs"),
     tabs: document.querySelectorAll(".strongs-tab"),
     body: el("strongs-popup-body"),
   };
@@ -65,6 +67,13 @@ export function closeStrongsPopup() {
 }
 
 function goBack() {
+  if (viewingOccurrence) {
+    viewingOccurrence = null;
+    refs.tabsRow.hidden = false;
+    refs.back.hidden = history.length === 0;
+    renderBody();
+    return;
+  }
   if (history.length === 0) return;
   const prev = history.pop();
   showNumber(prev.number, prev.numbers, true);
@@ -77,6 +86,8 @@ function showNumber(number, numbers, skipHistory) {
   currentNumber = number;
   currentNumbers = numbers || [number];
   occurrencesPage = 0;
+  viewingOccurrence = null;
+  refs.tabsRow.hidden = false;
   refs.back.hidden = history.length === 0;
   renderMultiChips();
   renderTabs();
@@ -170,16 +181,49 @@ async function renderOccurrencesTab(number) {
   renderOccurrencesPage(number);
 }
 
-function renderOccurrencesPage(number) {
+// Wraps the segment(s) matching `targetNumber` in <mark>, so the reader can
+// spot the word being looked up right in its verse context.
+function buildHighlightedVerseHtml(segments, targetNumber) {
+  return segments
+    .map((seg) => {
+      const text = Array.isArray(seg) ? seg[0] : seg;
+      const isMatch = Array.isArray(seg) && seg[1].includes(targetNumber);
+      return isMatch ? `<mark class="strongs-highlight">${escapeHtml(text)}</mark>` : escapeHtml(text);
+    })
+    .join("");
+}
+
+async function renderOccurrencesPage(number) {
   const all = occurrencesCache[number] || [];
   const totalPages = Math.max(1, Math.ceil(all.length / OCCURRENCES_PER_PAGE));
   occurrencesPage = Math.min(occurrencesPage, totalPages - 1);
-  const start = occurrencesPage * OCCURRENCES_PER_PAGE;
+  const myPage = occurrencesPage;
+  const start = myPage * OCCURRENCES_PER_PAGE;
   const pageItems = all.slice(start, start + OCCURRENCES_PER_PAGE);
 
-  const listHtml = pageItems
+  refs.body.innerHTML = `<p class="bible-status">Loading verses…</p>`;
+
+  const resolved = await Promise.all(
+    pageItems.map(async (o) => {
+      try {
+        const chapterData = await fetchStrongsChapter(o.book, o.chapter);
+        const verseData = chapterData.verses[o.verse - 1];
+        return { ...o, html: verseData ? buildHighlightedVerseHtml(verseData.segments, number) : "" };
+      } catch (err) {
+        return { ...o, html: "" };
+      }
+    })
+  );
+  if (number !== currentNumber || myPage !== occurrencesPage) return; // superseded by a page/number change
+
+  const listHtml = resolved
     .map(
-      (o) => `<li><button type="button" class="strongs-occurrence-btn" data-book="${escapeHtml(o.book)}" data-chapter="${o.chapter}" data-verse="${o.verse}">${escapeHtml(o.book)} ${o.chapter}:${o.verse}</button></li>`
+      (o) => `<li>
+        <button type="button" class="strongs-occurrence-btn" data-book="${escapeHtml(o.book)}" data-chapter="${o.chapter}" data-verse="${o.verse}">
+          <span class="strongs-occurrence-ref">${escapeHtml(o.book)} ${o.chapter}:${o.verse}</span>
+          <span class="strongs-occurrence-verse-text">${o.html}</span>
+        </button>
+      </li>`
     )
     .join("");
 
@@ -197,20 +241,51 @@ function renderOccurrencesPage(number) {
     }
   `;
 
-  refs.body.querySelectorAll(".strongs-occurrence-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      closeStrongsPopup();
-      window.dispatchEvent(
-        new CustomEvent("bible:navigate", {
-          detail: { book: btn.dataset.book, chapter: Number(btn.dataset.chapter), version: "kjv" },
-        })
-      );
-    });
+  refs.body.querySelectorAll(".strongs-occurrence-btn").forEach((btn, i) => {
+    btn.addEventListener("click", () => renderVerseDetail(resolved[i]));
   });
   const prevBtn = el("strongs-occ-prev");
   const nextBtn = el("strongs-occ-next");
   if (prevBtn) prevBtn.addEventListener("click", () => { occurrencesPage--; renderOccurrencesPage(number); });
   if (nextBtn) nextBtn.addEventListener("click", () => { occurrencesPage++; renderOccurrencesPage(number); });
+}
+
+// Shown when a reference is tapped in the Occurrences list: the full verse,
+// highlighted, with a "Jump to Reference" button that actually navigates
+// there (closing the popup) — so glancing at a cross-reference doesn't cost
+// you your place in the current chapter unless you choose to leave it.
+async function renderVerseDetail(occurrence) {
+  viewingOccurrence = occurrence;
+  refs.tabsRow.hidden = true;
+  refs.back.hidden = false;
+  refs.body.innerHTML = `<p class="bible-status">Loading…</p>`;
+
+  const number = currentNumber;
+  try {
+    const chapterData = await fetchStrongsChapter(occurrence.book, occurrence.chapter);
+    if (number !== currentNumber || viewingOccurrence !== occurrence) return;
+    const verseData = chapterData.verses[occurrence.verse - 1];
+    const html = verseData ? buildHighlightedVerseHtml(verseData.segments, number) : "Couldn't load this verse.";
+
+    refs.body.innerHTML = `
+      <div class="strongs-verse-detail">
+        <p class="strongs-verse-detail-reference">${escapeHtml(occurrence.book)} ${occurrence.chapter}:${occurrence.verse}</p>
+        <p class="strongs-verse-detail-text">${html}</p>
+        <button type="button" id="strongs-jump-btn" class="btn btn-primary btn-block">Jump to Reference →</button>
+      </div>
+    `;
+    el("strongs-jump-btn").addEventListener("click", () => {
+      closeStrongsPopup();
+      window.dispatchEvent(
+        new CustomEvent("bible:navigate", {
+          detail: { book: occurrence.book, chapter: occurrence.chapter, version: "kjv" },
+        })
+      );
+    });
+  } catch (err) {
+    if (number !== currentNumber || viewingOccurrence !== occurrence) return;
+    refs.body.innerHTML = `<p class="bible-status bible-error">Couldn't load this verse.</p>`;
+  }
 }
 
 function escapeHtml(str) {

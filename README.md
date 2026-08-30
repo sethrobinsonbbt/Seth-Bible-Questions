@@ -151,6 +151,38 @@ repo:
 3. Save. GitHub will give you a URL like
    `https://<username>.github.io/<repo>/` within a minute or two.
 
+**Custom domain:** this repo's `CNAME` file already points GitHub Pages
+at **christadelphian.family**. GitHub can't finish wiring that up on its
+own, though — it needs a DNS change made at wherever the domain was
+registered (Namecheap, GoDaddy, Google Domains, etc.), since the domain
+itself isn't hosted here:
+
+1. In that registrar's DNS settings for `christadelphian.family`, add
+   four **A** records (all for the root/apex domain, i.e. no `www` or
+   other prefix) pointing to:
+   ```
+   185.199.108.153
+   185.199.109.153
+   185.199.110.153
+   185.199.111.153
+   ```
+   (Optional, for IPv6: four **AAAA** records to `2606:50c0:8000::153`,
+   `2606:50c0:8001::153`, `2606:50c0:8002::153`, `2606:50c0:8003::153`.)
+2. Back on GitHub's **Settings → Pages**, the custom domain field should
+   pick up `christadelphian.family` from the `CNAME` file automatically;
+   once GitHub can see the DNS change (can take anywhere from a few
+   minutes to a few hours), a green checkmark appears there and an
+   **Enforce HTTPS** checkbox becomes available — turn that on so the
+   site's certificate covers the new domain.
+3. If you'd like `www.christadelphian.family` to work too, add a
+   **CNAME** record for the `www` subdomain pointing to
+   `<username>.github.io` at the same registrar.
+
+A nicer URL doesn't change any of the privacy considerations described
+above — it's still just a friendlier name pointing at the same
+Firestore-backed site, protected the same way (anonymous-only auth,
+`noindex`/`robots.txt`, no public listing).
+
 ### 4. Install it on your phone / Chrome
 
 - **iPhone (Safari):** open the site's URL, tap the Share icon, then
@@ -328,9 +360,14 @@ look up the original Hebrew or Greek word behind it. A window opens
   render a single Hebrew word, or the reverse), a small row of chips
   above the tabs lets you switch between them.
 - **Occurrences** — every other place that exact Hebrew/Greek word
-  appears in the KJV, 50 at a time with **‹ Prev** / **Next ›** paging.
-  Tapping any reference in the list closes the popup and jumps the
-  reader straight to that chapter.
+  appears in the KJV, 50 at a time with **‹ Prev** / **Next ›** paging,
+  each one showing the actual verse text (centered, with the matching
+  word highlighted) rather than just a bare reference. Tap one to
+  preview that verse full-size in the same window; a **Jump to
+  Reference →** button at the bottom is what actually takes you
+  there (closing the popup) — so glancing at a cross-reference doesn't
+  cost you your place in the chapter you were reading unless you choose
+  to leave it. **‹ Back** returns to the occurrence list instead.
 
 This data is bundled with the app rather than fetched live: the KJV
 text tagged word-by-word with Strong's numbers comes from
@@ -422,13 +459,16 @@ Attempts get tracked under whoever's picked in the **User** dropdown in
 the header — this is optional; practicing without picking anyone just
 won't record a score.
 
-The home view: category chips along the top (skipped entirely if you
-haven't made any categories in Setup yet — see above), a
+The home view: category chips along the top, a
 **✍️ Fill in the Blank** / **🗂️ Flashcards** tab that picks which mode
 tapping a verse launches you into, and the verse list itself, each verse
 showing a 0–3 ★ mastery rating built from that verse's past correct
 attempts. Tap a verse to start practicing it in whichever mode is
-selected; tap a category chip to filter the list down to it.
+selected; tap a category chip to filter the list down to it. Once
+you've made your own categories in Setup (see above), those are what
+show here; until then, the chips fall back to a built-in **All / OT /
+NT** split (by Old vs. New Testament) so there's still a quick way to
+narrow the list down.
 
 **+ Add Verse** opens a picker: choose a book and chapter (the King
 James text loads automatically), then narrow **From verse** / **To

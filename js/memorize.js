@@ -19,6 +19,10 @@ import {
   loadChapterVerses,
   computeVerseRangeSelection,
 } from "./verse-picker.js";
+import { resolveBookName, bookIndex } from "./bible-data.js";
+import { parseReadingLabel } from "./default-reading-plan.js";
+
+const OT_BOOK_COUNT = 39; // Genesis..Malachi — everything from Matthew on is NT
 
 // Common short/function words revealed first at easier levels, so the words
 // left to recall are the more distinctive ones. Includes KJV-specific terms.
@@ -90,18 +94,28 @@ function starString(count) {
 
 // ---------- Home view: categories, mode tabs, verse list ----------
 
+// "OT"/"NT" from a verse's reference (e.g. "Genesis 6:14" -> "OT",
+// "John 3:16" -> "NT") — the built-in split offered in place of custom
+// categories when none have been set up yet (see renderCategoryRow).
+function testamentForVerse(v) {
+  const parsed = parseReadingLabel(v.reference || "")[0];
+  const bookName = parsed && resolveBookName(parsed.book);
+  if (!bookName) return null;
+  const idx = bookIndex(bookName);
+  if (idx === -1) return null;
+  return idx < OT_BOOK_COUNT ? "OT" : "NT";
+}
+
 function versesForSelectedCategory() {
   if (!selectedCategoryId) return verses;
+  if (selectedCategoryId === "OT" || selectedCategoryId === "NT") {
+    return verses.filter((v) => testamentForVerse(v) === selectedCategoryId);
+  }
   return verses.filter((v) => v.categoryId === selectedCategoryId);
 }
 
 function renderCategoryRow() {
   const row = refs.categoryRow;
-  if (categories.length === 0) {
-    row.hidden = true;
-    row.innerHTML = "";
-    return;
-  }
   row.hidden = false;
   row.innerHTML = "";
 
@@ -114,6 +128,24 @@ function renderCategoryRow() {
     renderVerseList();
   });
   row.appendChild(allChip);
+
+  if (categories.length === 0) {
+    // No custom categories yet — offer the Old/New Testament split as a
+    // built-in default instead of just hiding the row.
+    ["OT", "NT"].forEach((testament) => {
+      const count = verses.filter((v) => testamentForVerse(v) === testament).length;
+      const chip = document.createElement("button");
+      chip.className = "chip" + (selectedCategoryId === testament ? " active" : "");
+      chip.textContent = `${testament} (${count})`;
+      chip.addEventListener("click", () => {
+        selectedCategoryId = testament;
+        renderCategoryRow();
+        renderVerseList();
+      });
+      row.appendChild(chip);
+    });
+    return;
+  }
 
   categories.forEach((cat) => {
     const count = verses.filter((v) => v.categoryId === cat.id).length;

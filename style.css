@@ -725,18 +725,32 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.5rem;
 }
 
 .strongs-occurrence-btn {
   width: 100%;
-  text-align: left;
+  text-align: center;
   border: none;
   background: var(--btn-bg);
   color: var(--text);
-  padding: 0.5rem 0.7rem;
+  padding: 0.6rem 0.7rem;
   border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.strongs-occurrence-ref {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--indigo);
+}
+
+.strongs-occurrence-verse-text {
+  text-align: center;
   font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .strongs-occurrence-pager {
@@ -747,6 +761,39 @@ body {
   margin-top: 0.6rem;
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+.strongs-highlight {
+  background: var(--banner-bg);
+  border: 1px solid var(--banner-border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 0 0.15rem;
+}
+
+.strongs-verse-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  height: 100%;
+}
+
+.strongs-verse-detail-reference {
+  font-weight: 700;
+  color: var(--indigo);
+  margin: 0;
+}
+
+.strongs-verse-detail-text {
+  text-align: center;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.strongs-verse-detail .btn-block {
+  margin-top: auto;
 }
 
 /* ---------- Bible reader ---------- */
