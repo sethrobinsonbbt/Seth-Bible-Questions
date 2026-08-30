@@ -123,7 +123,8 @@ body {
 
 .app-logo {
   flex: 0 0 auto;
-  color: var(--indigo);
+  border-radius: 22%;
+  display: block;
 }
 
 .header-user-select {
