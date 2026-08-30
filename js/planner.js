@@ -39,10 +39,11 @@ function buildSkeleton(container) {
     <div id="daily-date-modal-backdrop" class="modal-backdrop" hidden>
       <div class="modal">
         <h3>Pick a Date</h3>
-        <label for="daily-month-select">Month</label>
-        <select id="daily-month-select"></select>
-        <label for="daily-day-select">Day</label>
-        <select id="daily-day-select"></select>
+        <label for="daily-month-select">Date</label>
+        <div class="date-picker-row">
+          <select id="daily-month-select"></select>
+          <select id="daily-day-select"></select>
+        </div>
         <div class="modal-actions">
           <button id="daily-date-close-btn" class="btn btn-primary">Done</button>
         </div>
