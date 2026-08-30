@@ -19,19 +19,16 @@ device, driving whose score gets tracked wherever progress applies
   plans between any two chapters (e.g. all of Judges, or 1 Samuel
   through 2 Kings for "the kings of Israel"), with a checklist to track
   progress, plus a start/streak/missed-days system for the daily plan.
-- **Questions** — a quiz card for whoever's picked up top. Picks new
-  (never-asked) questions first, then weights toward ones this person
-  gets wrong more often — without ever fully hiding the ones they know
-  well, and never repeating anything from the last 10 questions shown. A
-  **Show Answer** button reveals the answer and swaps itself for
-  ✅ Correct / ❌ Wrong (only for a question at this person's own level —
-  see below); each question shows its own right/asked tally (e.g.
-  `12/18`) top-right of the card, next to a passcode-gated **✏️** button
-  for quick fixes, once it's been asked at least once. An Adult can fold a
-  kid's age group into their own quiz via an **Include:** chip row — a
-  question that's actually the kid's auto-shows its answer (and the
-  cited verse) and goes straight to ✅/❌ without the Show Answer step,
-  since there's nothing to hide from the adult reading it to them.
+- **Questions** — a quiz card that cycles alphabetically through
+  whichever family members are toggled on in a **Questions for:** chip
+  row (everyone, by default). Picks new (never-asked) questions first for
+  whoever's turn it is, then weights toward ones that person gets wrong
+  more often — without ever fully hiding the ones they know well, and
+  never repeating anything from their last 10 questions shown. A
+  **Show Answer** button reveals the answer and swaps itself, in the same
+  spot, for ✅ Correct / ❌ Wrong; each question shows its own right/asked
+  tally (e.g. `12/18`) top-right of the card, next to a passcode-gated
+  **✏️** button for quick fixes, once it's been asked at least once.
   Adding/deleting questions still lives in Setup.
 - **Memorize** — a bank of King James verses, filed into three per-person
   buckets (Memorizing — a brain icon / Future — a calendar
@@ -312,30 +309,29 @@ device, so it doesn't need to be reselected every visit.
 
 ### Questions
 
-- Once someone's picked in the header's **User** dropdown, the big card
-  at the top shows a question from any age group they belong to — new
-  (never-asked) questions come up first; once everything's been tried at
-  least once, questions this person tends to get wrong come up more
-  often (never exclusively — everything stays in the pool), and nothing
-  repeats within the last 10 questions shown. Tap **Show Answer** to
-  reveal the answer — it's replaced by **✅ Correct** / **❌ Wrong** to
-  score it and move to the next one (**‹ Back** / **Next ›** browse
-  without scoring). Once a question's been asked at least once, its
-  right/asked tally (e.g. `12/18`) shows top-right of the card, so you
-  can see at a glance how shaky it is — scores are tracked per person, so
-  two kids sharing an age group don't share a score.
-- **Quizzing a kid from your own login:** if the active user is an Adult
-  and there are other family members, an **Include: [name] [name]...**
-  chip row appears above the card — toggle on a kid to fold their age
-  group's questions into the pool without switching the User dropdown
-  away from yourself. Any question that's actually one of the *included
-  kid's* (not your own) automatically shows the answer — and the cited
-  verse's text, if the question has a reference — and goes straight to
-  **✅ Correct** / **❌ Wrong** without the Show Answer step (there's
-  nothing to hide from the adult reading it to them), so you can read it
-  straight to them. Tapping Correct/Wrong on one of those records
-  progress against the included kid(s) whose age group it matched, not
-  against you.
+- No need to pick who you are up top first — a **Questions for:**
+  chip row above the card lists every family member, and any combination
+  can be toggled on at once (the first time you open the page it starts
+  with whichever person is picked in the header's **User** dropdown, if
+  any, otherwise everyone; after that, your toggle choices are
+  remembered). With more than one person toggled on, the card **cycles
+  through them alphabetically by name**, one question per turn — the
+  label at the top (e.g. "**Alice's question**") always says whose turn
+  it is. Each person's turn only draws from their own age group(s); it's
+  a straightforward rotation, not a blended pool.
+- For whoever's turn it is: new (never-asked) questions for them come up
+  first; once everything's been tried at least once, questions they tend
+  to get wrong come up more often (never exclusively — everything stays
+  in the pool), and nothing repeats within their last 10 questions shown.
+  Tap **Show Answer** to reveal the answer (and the cited verse's text,
+  if the question has a reference) — it's replaced, in the same spot, by
+  **✅ Correct** / **❌ Wrong** to score it and move to the next
+  person's turn (**‹ Back** / **Next ›** browse the history of turns
+  already taken, without scoring). Once a question's been asked at least
+  once, its right/asked tally (e.g. `12/18`) shows top-right of the card,
+  so you can see at a glance how shaky it is — scores are tracked per
+  person, so two kids sharing an age group don't share a score (overall
+  totals and review flags live in Setup, not on this card).
 - **✏️** (top-right of the card, next to the right/asked tally) lets you
   fix a question's text/answer/reference right from here, gated behind
   the same Setup passcode as the Question
@@ -346,7 +342,7 @@ device, so it doesn't need to be reselected every visit.
   Answer step entirely: tap a choice, tap the items back into order, or
   check the correct options and hit Submit, and it's graded right there
   (right/wrong feedback shown briefly before moving on) — the same for
-  every family member, adult or kid, included-kid or not.
+  every family member regardless of whose turn it is.
 
 ### 🔒 Setup
 
@@ -409,9 +405,9 @@ a Switch Family action:
     answer. **Select All That Apply** shows a set of options with one or
     more correct, checked off then submitted at once (e.g. "which of
     these are among the Ten Commandments?"). All three are always
-    tap-driven and self-grading in the quiz (no Show Answer step, and no
-    separate kid-mode reveal) — only Classic keeps the type-an-answer,
-    Show Answer, self-graded flow. In the CSV, set `type` to
+    tap-driven and self-grading in the quiz (no Show Answer step) — only
+    Classic keeps the type-an-answer, Show Answer, self-graded flow. In
+    the CSV, set `type` to
     `multiple-choice`, `order`, or `select-all` (leave it blank for
     Classic), and fill in the matching columns with `|`-separated values:
     `choices` + `correctChoice` (the exact text of the right one) for

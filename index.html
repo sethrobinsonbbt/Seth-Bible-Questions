@@ -102,21 +102,20 @@
 
   <div id="section-questions" class="section">
     <p id="no-users-msg" class="empty-state" hidden>No family members set up yet. Add them in 🔒 Setup (☰ menu).</p>
-    <p id="no-active-user-msg" class="empty-state" hidden>Pick who you are up top ☝️ to see your questions.</p>
+    <p id="no-selection-msg" class="empty-state" hidden>Tap a name above to see their questions.</p>
 
-    <div id="include-kids-row" class="chip-row" hidden>
-      <span class="chip-row-label">Include:</span>
+    <div id="quiz-for-row" class="chip-row" hidden>
+      <span class="chip-row-label">Questions for:</span>
     </div>
 
     <section id="random-card" class="random-card" hidden>
       <div class="random-card-top">
-        <div class="random-label" id="random-label">Question for <span id="random-person"></span></div>
+        <div class="random-label" id="random-label"><span id="random-person"></span>'s question</div>
         <div class="random-card-top-right">
           <span class="random-question-stat" id="random-question-stat" hidden></span>
           <button id="random-edit-btn" class="random-edit-btn" aria-label="Edit question">✏️</button>
         </div>
       </div>
-      <div class="random-score" id="random-score"></div>
       <p class="random-text" id="random-text"></p>
       <p class="random-answer" id="random-answer" hidden></p>
       <div id="random-interactive" class="random-interactive" hidden></div>

@@ -1,27 +1,26 @@
-// "Questions" section: a random-question quiz card for whoever is picked in
-// the global "who's using this" selector at the top of the app (see
-// main.js / active-user.js), covering every age group that person belongs
-// to. An Adult can also toggle on other family members ("Include: ...") to
-// fold their age groups into the pool — handy for a parent quizzing a kid
-// directly from the adult's own login. Adding/deleting questions and
-// managing family members both live in the password-protected Setup
-// section; editing a question's text is also available right here via a
+// "Questions" section: a random-question quiz card cycling through
+// whichever family members are toggled on in the "Questions for:" row.
+// Turns rotate alphabetically by name, one question per turn, each scoped
+// to that person's own age groups. Adding/deleting questions and managing
+// family members both live in the password-protected Setup section;
+// editing a question's text is also available right here via a
 // passcode-gated Edit button, for quick fixes mid-quiz.
 import { subscribeQuestions, recordAnswer, updateQuestion } from "./questions-data.js";
 import { subscribeUsers } from "./users.js";
-import { subscribeActiveUser } from "./active-user.js";
+import { getActiveUser } from "./active-user.js";
 import { fetchVerseRange } from "./bible-api.js";
 import { getFamilyPasscode } from "./family.js";
 
 let users = [];
 let allQuestions = [];
-let activeUserId = null;
+// null = not yet defaulted (waiting on the first real users list); after
+// that it's the persisted array of user ids toggled on in "Questions for:".
+let includedUserIds = null;
+let currentTurnUserId = null;
 let currentRandomId = null;
-let currentIsForSelf = true;
 let showingAnswer = false;
-let history = []; // question ids shown, in order, for the ‹ Back / Next › browsing
+let history = []; // [{ userId, questionId }, ...], for ‹ Back / Next › browsing
 let historyIndex = -1;
-let includedKidIds = [];
 let verseTextCache = {};
 let editingQuestionId = null;
 // Live state for whichever multiple-choice/order/select-all question is
@@ -31,65 +30,54 @@ let interactiveState = null;
 
 // How many recently-shown questions to avoid immediately repeating — a
 // question (right OR wrong) won't come up again until at least this many
-// others have been shown first.
+// others have been shown first, per person.
 const RECENCY_WINDOW = 10;
+
+const INCLUDED_KEY = "bible-questions:quiz-included-ids";
 
 const el = (id) => document.getElementById(id);
 
-function isAdult(user) {
-  return !!user && (user.ageGroups || []).includes("adult");
-}
-
-function includedKidsStorageKey(userId) {
-  return `bible-questions:included-kids:${userId}`;
-}
-
-function loadIncludedKids(userId) {
+function loadIncluded() {
   try {
-    const raw = localStorage.getItem(includedKidsStorageKey(userId));
-    return raw ? JSON.parse(raw) : [];
+    const raw = localStorage.getItem(INCLUDED_KEY);
+    return raw ? JSON.parse(raw) : null;
   } catch (e) {
-    return [];
+    return null;
   }
 }
 
-function saveIncludedKids(userId, ids) {
+function saveIncluded(ids) {
   try {
-    localStorage.setItem(includedKidsStorageKey(userId), JSON.stringify(ids));
+    localStorage.setItem(INCLUDED_KEY, JSON.stringify(ids));
   } catch (e) {
     // ignore — storage unavailable, non-critical
   }
 }
 
-// The full set of age groups that should count as "this person's
-// questions" right now: their own, plus any included family member's
-// (an Adult quizzing their kids from their own login).
-function effectiveAgeGroups(user) {
-  const groups = new Set(user.ageGroups || []);
-  if (isAdult(user)) {
-    includedKidIds.forEach((id) => {
-      const kid = users.find((u) => u.id === id);
-      if (kid) (kid.ageGroups || []).forEach((g) => groups.add(g));
-    });
+// Computed once, the first time a real (non-empty) users list shows up:
+// whichever member is picked in the header's "who's using this" selector
+// (if any), otherwise everyone — so the page works immediately without
+// forcing a selection first. After that, only manually toggling a chip
+// changes who's included; a newly added family member starts untoggled.
+function ensureIncludedDefaults() {
+  if (includedUserIds !== null || users.length === 0) return;
+  const stored = loadIncluded();
+  if (stored) {
+    includedUserIds = stored.filter((id) => users.some((u) => u.id === id));
+    return;
   }
-  return groups;
+  const active = getActiveUser();
+  includedUserIds = active && users.some((u) => u.id === active) ? [active] : users.map((u) => u.id);
 }
 
-// A question "is for self" when it matches the active user's own age
-// groups — as opposed to only matching an included kid's, which puts the
-// quiz into kid-mode (auto-shown answer + verse text).
-function isPickForSelf(pick, user) {
-  return (user.ageGroups || []).includes(pick.assignedTo);
+function includedUsersSorted() {
+  return users.filter((u) => includedUserIds.includes(u.id)).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function questionsForUser(user) {
   if (!user) return [];
-  const groups = effectiveAgeGroups(user);
+  const groups = new Set(user.ageGroups || []);
   return allQuestions.filter((q) => q.assignedTo && groups.has(q.assignedTo));
-}
-
-function activeUser() {
-  return users.find((u) => u.id === activeUserId) || null;
 }
 
 // Per-question stats for one user: how many times they've been asked this
@@ -123,8 +111,9 @@ function weightedRandomPick(list, userId) {
 
 // Picks the next question for this user: brand-new (never-asked) questions
 // first, then a weighted pick favoring ones they've gotten wrong more —
-// while avoiding repeating anything from the last RECENCY_WINDOW shown, so
-// a just-missed question doesn't immediately come right back around.
+// while avoiding repeating anything from the last RECENCY_WINDOW shown to
+// them specifically, so a just-missed question doesn't immediately come
+// right back around.
 function pickRandomQuestion(list, userId, recentIds) {
   if (list.length === 0) return null;
   const recentSet = new Set((recentIds || []).slice(-RECENCY_WINDOW));
@@ -138,14 +127,37 @@ function pickRandomQuestion(list, userId, recentIds) {
   return weightedRandomPick(pool, userId);
 }
 
-// Renders the "Include: ..." chip row — only relevant for an Adult active
-// user with other family members to fold in.
-function renderIncludeKidsRow() {
-  const row = el("include-kids-row");
-  const user = activeUser();
-  const others = user ? users.filter((u) => u.id !== user.id) : [];
+// Question ids already shown to this specific person this session, for
+// pickRandomQuestion's recency check — kept per-person so Timmy's recent
+// questions don't block a repeat for Susie, and vice versa.
+function personHistory(userId) {
+  return history.filter((h) => h.userId === userId).map((h) => h.questionId);
+}
 
-  if (!user || !isAdult(user) || others.length === 0) {
+function mod(n, m) {
+  return ((n % m) + m) % m;
+}
+
+// The next person (alphabetically, wrapping around) after `afterUserId`
+// who actually has at least one assigned question — skips anyone with an
+// empty pool so the rotation never gets stuck on them. `afterUserId` of
+// null starts from the top of the list.
+function nextTurnUser(afterUserId) {
+  const list = includedUsersSorted();
+  if (list.length === 0) return null;
+  const startIdx = afterUserId ? list.findIndex((u) => u.id === afterUserId) : -1;
+  for (let step = 1; step <= list.length; step++) {
+    const candidate = list[mod(startIdx + step, list.length)];
+    if (questionsForUser(candidate).length > 0) return candidate;
+  }
+  return null;
+}
+
+// Renders the "Questions for:" chip row — every family member, each
+// independently toggleable (not just an Adult folding in kids anymore).
+function renderQuizForRow() {
+  const row = el("quiz-for-row");
+  if (users.length === 0) {
     row.hidden = true;
     return;
   }
@@ -154,17 +166,19 @@ function renderIncludeKidsRow() {
   // Keep the label, drop any previously-rendered chips.
   Array.from(row.querySelectorAll(".chip")).forEach((chip) => chip.remove());
 
-  others.forEach((kid) => {
+  const sorted = [...users].sort((a, b) => a.name.localeCompare(b.name));
+  sorted.forEach((u) => {
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = "chip" + (includedKidIds.includes(kid.id) ? " active" : "");
-    chip.textContent = kid.name;
+    chip.className = "chip" + (includedUserIds.includes(u.id) ? " active" : "");
+    chip.textContent = u.name;
     chip.addEventListener("click", () => {
-      includedKidIds = includedKidIds.includes(kid.id)
-        ? includedKidIds.filter((id) => id !== kid.id)
-        : [...includedKidIds, kid.id];
-      saveIncludedKids(user.id, includedKidIds);
-      // The question pool just changed — drop whatever was mid-browse.
+      includedUserIds = includedUserIds.includes(u.id)
+        ? includedUserIds.filter((id) => id !== u.id)
+        : [...includedUserIds, u.id];
+      saveIncluded(includedUserIds);
+      // The rotation just changed — drop whatever was mid-browse.
+      currentTurnUserId = null;
       currentRandomId = null;
       interactiveState = null;
       history = [];
@@ -175,9 +189,9 @@ function renderIncludeKidsRow() {
   });
 }
 
-// Fetches and shows the cited verse's text for the currently-shown
-// question (kid-mode only). Guards against a stale response landing after
-// the user has already moved on to a different question.
+// Fetches and shows the cited verse's text for the currently-revealed
+// question. Guards against a stale response landing after the user has
+// already moved on to a different question.
 function loadVerseTextFor(reference, forRandomId) {
   const verseTextEl = el("random-verse-text");
   if (!reference) {
@@ -204,36 +218,44 @@ function loadVerseTextFor(reference, forRandomId) {
     });
 }
 
-// Renders whichever question `currentRandomId` points at, refreshing its
-// live score/review state. Falls back to picking a random one if that id
-// isn't in the current user's list (person switch, or it was deleted/reassigned).
-function renderRandomCard(list) {
+// Renders whichever question/person `currentRandomId`/`currentTurnUserId`
+// point at, picking a fresh first turn if nothing's shown yet.
+function renderRandomCard() {
   const card = el("random-card");
-  const user = activeUser();
-  if (!user) {
+  const included = includedUsersSorted();
+  if (included.length === 0) {
     card.hidden = true;
+    el("empty-state").hidden = true;
+    el("no-selection-msg").hidden = false;
     return;
   }
-  if (list.length === 0) {
-    card.hidden = true;
-    el("empty-state").hidden = false;
+  el("no-selection-msg").hidden = true;
+
+  if (!currentTurnUserId || !currentRandomId) {
+    const firstUser = nextTurnUser(null);
+    if (!firstUser) {
+      card.hidden = true;
+      el("empty-state").hidden = false;
+      return;
+    }
+    const pick = pickRandomQuestion(questionsForUser(firstUser), firstUser.id, personHistory(firstUser.id));
+    pushHistory(firstUser.id, pick.id);
+  }
+
+  const user = users.find((u) => u.id === currentTurnUserId);
+  const pick = allQuestions.find((q) => q.id === currentRandomId);
+  if (!user || !pick) {
+    // Stale reference (person or question removed/reassigned) — repick.
+    currentTurnUserId = null;
+    currentRandomId = null;
+    renderRandomCard();
     return;
   }
+
   el("empty-state").hidden = true;
   card.hidden = false;
   el("random-person").textContent = user.name;
 
-  const correctTotal = list.reduce((sum, q) => sum + ((q.progress && q.progress[user.id] && q.progress[user.id].correctCount) || 0), 0);
-  const reviewCount = list.filter((q) => q.progress && q.progress[user.id] && q.progress[user.id].needsReview).length;
-  el("random-score").textContent = `✅ ${correctTotal} correct so far${reviewCount > 0 ? ` · 🔁 ${reviewCount} to review` : ""}`;
-
-  let pick = list.find((q) => q.id === currentRandomId);
-  if (!pick) {
-    pick = pickRandomQuestion(list, user.id, history);
-    pushHistory(pick.id);
-  }
-
-  currentIsForSelf = isPickForSelf(pick, user);
   const { correctCount, asked } = questionStatsFor(pick, user.id);
   const needsReview = !!(pick.progress && pick.progress[user.id] && pick.progress[user.id].needsReview);
 
@@ -251,7 +273,7 @@ function renderRandomCard(list) {
 
   if (pick.type && pick.type !== "classic") {
     // The other question types are always tap-driven and self-grading —
-    // no kid-mode/self-mode reveal distinction, no Show Answer step.
+    // no Show Answer step.
     el("random-answer").hidden = true;
     el("random-reveal-actions").hidden = true;
     el("random-grade-actions").hidden = true;
@@ -261,20 +283,21 @@ function renderRandomCard(list) {
   }
   el("random-interactive").hidden = true;
 
+  // Always requires tapping Show Answer first — Wrong/Correct only ever
+  // replace it in the same spot once that's happened, never alongside it.
+  const revealed = showingAnswer;
   const hasAnswerContent = !!(pick.answer || pick.reference);
-  const revealed = !currentIsForSelf || !hasAnswerContent || showingAnswer;
-
-  el("random-answer").hidden = !revealed;
+  el("random-answer").hidden = !revealed || !hasAnswerContent;
   el("random-answer").textContent = [pick.answer && `Answer: ${pick.answer}`, pick.reference && `Reference: ${pick.reference}`]
     .filter(Boolean)
     .join(" — ");
   el("random-reveal-actions").hidden = revealed;
   el("random-grade-actions").hidden = !revealed;
 
-  if (currentIsForSelf) {
-    el("random-verse-text").hidden = true;
-  } else {
+  if (revealed && pick.reference) {
     loadVerseTextFor(pick.reference, pick.id);
+  } else {
+    el("random-verse-text").hidden = true;
   }
 }
 
@@ -446,71 +469,62 @@ function renderSelectAll(host, pick, state) {
   }
 }
 
-// Records a freshly-shown question id, truncating any "redo" history past
-// the current point (mirrors normal back/forward browsing).
-function pushHistory(id) {
+// Records a freshly-shown question id for a person, truncating any "redo"
+// history past the current point (mirrors normal back/forward browsing).
+function pushHistory(userId, questionId) {
   history = history.slice(0, historyIndex + 1);
-  history.push(id);
+  history.push({ userId, questionId });
   historyIndex = history.length - 1;
-  currentRandomId = id;
+  currentTurnUserId = userId;
+  currentRandomId = questionId;
   showingAnswer = false;
 }
 
-// Forces a fresh pick (used by "Next ›" / Correct / Wrong), as opposed to
-// renderRandomCard's default of preserving whatever is currently shown
-// across incidental re-renders (e.g. an unrelated Firestore update).
+// Forces a fresh pick (used by "Next ›" / Correct / Wrong / finishing an
+// interactive question) — advances the rotation to the next included
+// person, as opposed to renderRandomCard's default of preserving whatever
+// is currently shown across incidental re-renders (e.g. an unrelated
+// Firestore update).
 function nextRandomQuestion() {
-  const user = activeUser();
-  const list = questionsForUser(user);
-  if (list.length === 0) return;
-
   if (historyIndex < history.length - 1) {
     // Already have a "forward" entry from a previous Back — reuse it.
     historyIndex++;
-    currentRandomId = history[historyIndex];
+    const entry = history[historyIndex];
+    currentTurnUserId = entry.userId;
+    currentRandomId = entry.questionId;
     showingAnswer = false;
   } else {
-    pushHistory(pickRandomQuestion(list, user.id, history).id);
+    const nextUser = nextTurnUser(currentTurnUserId);
+    if (!nextUser) return;
+    const pick = pickRandomQuestion(questionsForUser(nextUser), nextUser.id, personHistory(nextUser.id));
+    if (!pick) return;
+    pushHistory(nextUser.id, pick.id);
   }
-  renderRandomCard(list);
+  renderRandomCard();
 }
 
 function previousQuestion() {
   if (historyIndex <= 0) return;
   historyIndex--;
-  currentRandomId = history[historyIndex];
+  const entry = history[historyIndex];
+  currentTurnUserId = entry.userId;
+  currentRandomId = entry.questionId;
   showingAnswer = false;
-  renderRandomCard(questionsForUser(activeUser()));
+  renderRandomCard();
 }
 
 function revealAnswer() {
   showingAnswer = true;
-  renderRandomCard(questionsForUser(activeUser()));
+  renderRandomCard();
 }
 
-// In kid-mode, crediting an answer should count for every included kid
-// whose age group this question was actually assigned to — not the adult
-// asking it, and not kids who wouldn't have been shown this question on
-// their own. Shared by the classic Correct/Wrong buttons and the
-// self-grading multiple-choice/order/select-all UI below.
 function creditAnswer(pick, wasCorrect) {
-  const user = activeUser();
-  if (!user) return;
-  if (currentIsForSelf) {
-    recordAnswer(pick.id, user.id, wasCorrect);
-  } else {
-    includedKidIds.forEach((kidId) => {
-      const kid = users.find((u) => u.id === kidId);
-      if (kid && (kid.ageGroups || []).includes(pick.assignedTo)) {
-        recordAnswer(pick.id, kidId, wasCorrect);
-      }
-    });
-  }
+  if (!currentTurnUserId) return;
+  recordAnswer(pick.id, currentTurnUserId, wasCorrect);
 }
 
 function answerCurrent(wasCorrect) {
-  const user = activeUser();
-  if (!currentRandomId || !user) return;
+  if (!currentRandomId || !currentTurnUserId) return;
   const pick = allQuestions.find((q) => q.id === currentRandomId);
   if (!pick) return;
   creditAnswer(pick, wasCorrect);
@@ -559,29 +573,20 @@ function saveEdit() {
 }
 
 function render() {
+  ensureIncludedDefaults();
+
   if (users.length === 0) {
     el("no-users-msg").hidden = false;
-    el("no-active-user-msg").hidden = true;
-    el("include-kids-row").hidden = true;
+    el("quiz-for-row").hidden = true;
     el("random-card").hidden = true;
     el("empty-state").hidden = true;
+    el("no-selection-msg").hidden = true;
     return;
   }
   el("no-users-msg").hidden = true;
 
-  const user = activeUser();
-  if (!user) {
-    el("no-active-user-msg").hidden = false;
-    el("include-kids-row").hidden = true;
-    el("random-card").hidden = true;
-    el("empty-state").hidden = true;
-    return;
-  }
-  el("no-active-user-msg").hidden = true;
-
-  renderIncludeKidsRow();
-  const list = questionsForUser(user);
-  renderRandomCard(list);
+  renderQuizForRow();
+  renderRandomCard();
 }
 
 export function mountQuestions() {
@@ -603,15 +608,6 @@ export function mountQuestions() {
   });
   subscribeQuestions((updated) => {
     allQuestions = updated;
-    render();
-  });
-  subscribeActiveUser((id) => {
-    activeUserId = id;
-    currentRandomId = null;
-    interactiveState = null;
-    history = [];
-    historyIndex = -1;
-    includedKidIds = id ? loadIncludedKids(id) : [];
     render();
   });
 }

@@ -58,12 +58,6 @@
   color: var(--danger);
 }
 
-.random-score {
-  font-size: 0.85rem;
-  opacity: 0.9;
-  margin-bottom: 0.5rem;
-}
-
 .random-text {
   font-size: 1.35rem;
   font-weight: 600;
@@ -194,6 +188,10 @@
   justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
+}
+
+.random-actions[hidden] {
+  display: none;
 }
 
 .random-actions-score {
