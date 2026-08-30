@@ -1,7 +1,9 @@
-// Settings section: a simple passcode gate, then family member management,
-// a Question Library subpage, family stats, and backup. This is the only
-// place questions and family members are created or edited — the Questions
-// tab itself is a read-only quiz view, safe for kids to use unsupervised.
+// Settings section: a simple passcode gate, then a landing page linking to
+// three subpages (Family Members, Question Library, Memory Verses) plus
+// Backup. This is the only place questions, family members, and memory
+// verse categories are created or edited — the Questions and Memorize
+// tabs themselves are read-only/practice views, safe for kids to use
+// unsupervised.
 //
 // IMPORTANT: the passcode is a soft deterrent only, not real security. This
 // is a static site with no server — anyone who opens the browser's dev
@@ -16,8 +18,17 @@ import {
   updateQuestionAssignment,
   deleteQuestion,
   resetProgress,
+  resetUserProgress as resetUserQuestionProgress,
 } from "./questions-data.js";
-import { subscribeMemoryVerses } from "./memorize-data.js";
+import {
+  subscribeMemoryVerses,
+  subscribeVerseCategories,
+  addVerseCategory,
+  updateVerseCategory,
+  deleteVerseCategory,
+  assignVerseCategory,
+  resetUserProgress as resetUserVerseProgress,
+} from "./memorize-data.js";
 import { subscribePlanState } from "./daily-plan-data.js";
 import { ready } from "./firebase.js";
 
@@ -27,6 +38,7 @@ const UNLOCK_KEY = "bible-questions-settings-unlocked";
 let users = [];
 let questions = [];
 let memoryVerses = [];
+let verseCategories = [];
 let planState = null;
 let planStats = null;
 let editingUserId = null;
@@ -34,6 +46,8 @@ let addingUser = false;
 let editingQuestionId = null;
 let questionFilter = "all"; // "all" | "unassigned" | an age-group id
 let questionSearch = "";
+let editingCategoryId = null;
+let addingCategory = false;
 // The Question Library subpage has its own edit lock, separate from (and
 // on top of) the outer Setup passcode — it defaults locked every time you
 // open the subpage, so browsing questions never accidentally exposes
@@ -96,7 +110,41 @@ function buildLockScreen(container) {
   });
 }
 
-// ---------- Family members ----------
+// ---------- Shared: per-user stat line + reset ----------
+
+function userStatsLine(user) {
+  let qCorrect = 0;
+  let qWrong = 0;
+  questions.forEach((q) => {
+    const p = q.progress && q.progress[user.id];
+    if (p) {
+      qCorrect += p.correctCount || 0;
+      qWrong += p.wrongCount || 0;
+    }
+  });
+
+  let vCorrect = 0;
+  let vAttempts = 0;
+  memoryVerses.forEach((v) => {
+    const p = v.progress && v.progress[user.id];
+    if (p) {
+      vCorrect += p.correctCount || 0;
+      vAttempts += p.attempts || 0;
+    }
+  });
+
+  return { qCorrect, qWrong, vCorrect, vAttempts };
+}
+
+function resetUserStats(user) {
+  if (!confirm(`Reset ${user.name}'s stats? This clears their Questions and Memorize progress — it can't be undone.`)) {
+    return;
+  }
+  resetUserQuestionProgress(user.id);
+  resetUserVerseProgress(user.id);
+}
+
+// ---------- Family Members subpage ----------
 
 function buildUserForm(user) {
   const wrapper = document.createElement("div");
@@ -190,6 +238,12 @@ function renderUsers() {
           : "No age groups yet — this member won't see any questions.";
       li.appendChild(groupsEl);
 
+      const { qCorrect, qWrong, vCorrect, vAttempts } = userStatsLine(user);
+      const statsEl = document.createElement("p");
+      statsEl.className = "question-score";
+      statsEl.textContent = `📖 Questions: ✅ ${qCorrect} · ❌ ${qWrong}   ✍️ Memorize: ✅ ${vCorrect} / ${vAttempts} attempts`;
+      li.appendChild(statsEl);
+
       const actions = document.createElement("div");
       actions.className = "question-row-actions";
 
@@ -201,6 +255,14 @@ function renderUsers() {
         renderUsers();
       });
       actions.appendChild(editBtn);
+
+      if (qCorrect > 0 || qWrong > 0 || vAttempts > 0) {
+        const resetStatsBtn = document.createElement("button");
+        resetStatsBtn.className = "btn btn-small";
+        resetStatsBtn.textContent = "Reset Stats";
+        resetStatsBtn.addEventListener("click", () => resetUserStats(user));
+        actions.appendChild(resetStatsBtn);
+      }
 
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "btn btn-danger btn-small";
@@ -219,7 +281,49 @@ function renderUsers() {
   });
 }
 
-// ---------- Question Library ----------
+function renderReadingPlanStat() {
+  const el = refs.readingPlanStat;
+  if (!el) return;
+  if (!planState) {
+    el.textContent = "📅 Daily Reading Plan: not started yet (see the Reading Plan page).";
+    return;
+  }
+  const stats = planStats || { completed: 0, missed: 0, currentStreak: 0 };
+  el.textContent = `📅 Daily Reading Plan (family-wide): 🔥 ${stats.currentStreak || 0} day streak · ✅ ${stats.completed} completed · ❌ ${stats.missed} missed`;
+}
+
+function buildFamilyView(container) {
+  refs = {};
+  container.innerHTML = `
+    <div class="settings-header">
+      <button id="family-back-btn" class="btn btn-small">← Setup</button>
+      <h2>👪 Family Members</h2>
+      <span></span>
+    </div>
+    <p id="reading-plan-stat" class="question-score"></p>
+    <div class="list-toolbar">
+      <h2>Members</h2>
+      <button id="add-user-btn" class="btn btn-primary">+ Add Member</button>
+    </div>
+    <ul id="user-list" class="question-list"></ul>
+    <p id="user-empty" class="empty-state" hidden>No family members yet.</p>
+  `;
+
+  refs.userList = container.querySelector("#user-list");
+  refs.userEmpty = container.querySelector("#user-empty");
+  refs.readingPlanStat = container.querySelector("#reading-plan-stat");
+
+  container.querySelector("#family-back-btn").addEventListener("click", () => buildMainView(container));
+  container.querySelector("#add-user-btn").addEventListener("click", () => {
+    addingUser = true;
+    renderUsers();
+  });
+
+  renderUsers();
+  renderReadingPlanStat();
+}
+
+// ---------- Question Library subpage ----------
 
 function filteredQuestions() {
   let list = questions;
@@ -388,96 +492,6 @@ function renderQuestionsAdmin() {
   });
 }
 
-// ---------- Family stats ----------
-
-function renderFamilyStats() {
-  const listEl = refs.statsList;
-  listEl.innerHTML = "";
-  refs.statsEmpty.hidden = users.length !== 0;
-
-  users.forEach((user) => {
-    let qCorrect = 0;
-    let qWrong = 0;
-    questions.forEach((q) => {
-      const p = q.progress && q.progress[user.id];
-      if (p) {
-        qCorrect += p.correctCount || 0;
-        qWrong += p.wrongCount || 0;
-      }
-    });
-
-    let vCorrect = 0;
-    let vAttempts = 0;
-    memoryVerses.forEach((v) => {
-      const p = v.progress && v.progress[user.id];
-      if (p) {
-        vCorrect += p.correctCount || 0;
-        vAttempts += p.attempts || 0;
-      }
-    });
-
-    const li = document.createElement("li");
-    li.className = "question-card";
-
-    const name = document.createElement("p");
-    name.className = "question-text";
-    name.textContent = user.name;
-    li.appendChild(name);
-
-    const line = document.createElement("p");
-    line.className = "question-answer";
-    line.textContent = `📖 Questions: ✅ ${qCorrect} · ❌ ${qWrong}   ✍️ Memorize: ✅ ${vCorrect} / ${vAttempts} attempts`;
-    li.appendChild(line);
-
-    listEl.appendChild(li);
-  });
-}
-
-function renderReadingPlanStat() {
-  const el = refs.readingPlanStat;
-  if (!planState) {
-    el.textContent = "📅 Daily Reading Plan: not started yet (see the Reading Plan page).";
-    return;
-  }
-  const stats = planStats || { completed: 0, missed: 0, currentStreak: 0 };
-  el.textContent = `📅 Daily Reading Plan (family-wide): 🔥 ${stats.currentStreak || 0} day streak · ✅ ${stats.completed} completed · ❌ ${stats.missed} missed`;
-}
-
-// ---------- Data export ----------
-
-async function exportAllData() {
-  const btn = refs.exportBtn;
-  const originalText = btn.textContent;
-  btn.textContent = "Exporting…";
-  btn.disabled = true;
-  try {
-    const db = await ready;
-    const collectionNames = ["users", "questions", "memoryVerses", "readingPlans", "dailyReadingProgress", "appState"];
-    const data = {};
-    for (const name of collectionNames) {
-      const snapshot = await db.collection(name).get();
-      data[name] = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `bible-questions-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error(err);
-    alert("Couldn't export data — check your internet connection and try again.");
-  } finally {
-    btn.textContent = originalText;
-    btn.disabled = false;
-  }
-}
-
-// ---------- Add-question modal ----------
-
 function openAddQuestionModal() {
   refs.qModalText.value = "";
   refs.qModalAnswer.value = "";
@@ -494,8 +508,6 @@ function openAddQuestionModal() {
 function closeAddQuestionModal() {
   refs.qModalBackdrop.hidden = true;
 }
-
-// ---------- Question Library subpage ----------
 
 function buildLibraryView(container) {
   refs = {};
@@ -597,6 +609,237 @@ function buildLibraryView(container) {
   renderQuestionsAdmin();
 }
 
+// ---------- Memory Verses subpage ----------
+
+function buildCategoryForm(category) {
+  const wrapper = document.createElement("div");
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.className = "edit-answer-input";
+  nameInput.placeholder = "Category name, e.g. Salvation";
+  nameInput.value = category ? category.name : "";
+  wrapper.appendChild(nameInput);
+
+  const actions = document.createElement("div");
+  actions.className = "question-row-actions";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.className = "btn btn-primary btn-small";
+  saveBtn.textContent = "Save";
+  saveBtn.addEventListener("click", () => {
+    const name = nameInput.value.trim();
+    if (!name) return;
+    if (category) updateVerseCategory(category.id, name);
+    else addVerseCategory(name);
+    editingCategoryId = null;
+    addingCategory = false;
+    renderCategories();
+  });
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.className = "btn btn-small";
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.addEventListener("click", () => {
+    editingCategoryId = null;
+    addingCategory = false;
+    renderCategories();
+  });
+
+  actions.appendChild(saveBtn);
+  actions.appendChild(cancelBtn);
+  wrapper.appendChild(actions);
+  return wrapper;
+}
+
+function renderCategories() {
+  const listEl = refs.categoryList;
+  listEl.innerHTML = "";
+
+  if (addingCategory) {
+    const li = document.createElement("li");
+    li.className = "question-card";
+    li.appendChild(buildCategoryForm(null));
+    listEl.appendChild(li);
+  }
+
+  refs.categoryEmpty.hidden = verseCategories.length !== 0;
+
+  verseCategories.forEach((cat) => {
+    const li = document.createElement("li");
+    li.className = "question-card";
+
+    if (editingCategoryId === cat.id) {
+      li.appendChild(buildCategoryForm(cat));
+    } else {
+      const count = memoryVerses.filter((v) => v.categoryId === cat.id).length;
+
+      const nameEl = document.createElement("p");
+      nameEl.className = "question-text";
+      nameEl.textContent = cat.name;
+      li.appendChild(nameEl);
+
+      const countEl = document.createElement("p");
+      countEl.className = "question-answer";
+      countEl.textContent = `${count} verse${count === 1 ? "" : "s"}`;
+      li.appendChild(countEl);
+
+      const actions = document.createElement("div");
+      actions.className = "question-row-actions";
+
+      const editBtn = document.createElement("button");
+      editBtn.className = "btn btn-small";
+      editBtn.textContent = "Rename";
+      editBtn.addEventListener("click", () => {
+        editingCategoryId = cat.id;
+        renderCategories();
+      });
+      actions.appendChild(editBtn);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "btn btn-danger btn-small";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.addEventListener("click", () => {
+        if (confirm(`Delete "${cat.name}"? Its verses move to Uncategorized, not deleted.`)) deleteVerseCategory(cat.id);
+      });
+      actions.appendChild(deleteBtn);
+
+      li.appendChild(actions);
+    }
+
+    listEl.appendChild(li);
+  });
+}
+
+function buildCategorySelect(currentValue) {
+  const select = document.createElement("select");
+  select.className = "assign-select";
+  const noneOpt = document.createElement("option");
+  noneOpt.value = "";
+  noneOpt.textContent = "Uncategorized";
+  select.appendChild(noneOpt);
+  verseCategories.forEach((cat) => {
+    const opt = document.createElement("option");
+    opt.value = cat.id;
+    opt.textContent = cat.name;
+    select.appendChild(opt);
+  });
+  select.value = currentValue || "";
+  return select;
+}
+
+function renderVersesAdmin() {
+  const listEl = refs.verseAdminList;
+  listEl.innerHTML = "";
+  refs.verseAdminEmpty.hidden = memoryVerses.length !== 0;
+
+  memoryVerses.forEach((v) => {
+    const li = document.createElement("li");
+    li.className = "question-card";
+
+    const refEl = document.createElement("p");
+    refEl.className = "question-text";
+    refEl.textContent = v.reference;
+    li.appendChild(refEl);
+
+    const textEl = document.createElement("p");
+    textEl.className = "question-answer";
+    textEl.textContent = v.text.length > 90 ? v.text.slice(0, 90) + "…" : v.text;
+    li.appendChild(textEl);
+
+    const actions = document.createElement("div");
+    actions.className = "question-row-actions";
+    const select = buildCategorySelect(v.categoryId);
+    select.addEventListener("change", () => assignVerseCategory(v.id, select.value));
+    actions.appendChild(select);
+    li.appendChild(actions);
+
+    listEl.appendChild(li);
+  });
+}
+
+function buildMemoryVersesView(container) {
+  refs = {};
+  container.innerHTML = `
+    <div class="settings-header">
+      <button id="mv-back-btn" class="btn btn-small">← Setup</button>
+      <h2>✍️ Memory Verses</h2>
+      <span></span>
+    </div>
+
+    <div class="settings-panel">
+      <div class="list-toolbar">
+        <h2>Categories</h2>
+        <button id="add-category-btn" class="btn btn-primary">+ Add Category</button>
+      </div>
+      <ul id="category-list" class="question-list"></ul>
+      <p id="category-empty" class="empty-state" hidden>No categories yet — verses will just show in one list.</p>
+    </div>
+
+    <div class="settings-panel">
+      <div class="list-toolbar">
+        <h2>All Verses</h2>
+      </div>
+      <ul id="verse-admin-list" class="question-list"></ul>
+      <p id="verse-admin-empty" class="empty-state" hidden>No memory verses yet — add some from the Memorize page.</p>
+    </div>
+  `;
+
+  refs.categoryList = container.querySelector("#category-list");
+  refs.categoryEmpty = container.querySelector("#category-empty");
+  refs.verseAdminList = container.querySelector("#verse-admin-list");
+  refs.verseAdminEmpty = container.querySelector("#verse-admin-empty");
+
+  container.querySelector("#mv-back-btn").addEventListener("click", () => buildMainView(container));
+  container.querySelector("#add-category-btn").addEventListener("click", () => {
+    addingCategory = true;
+    renderCategories();
+  });
+
+  renderCategories();
+  renderVersesAdmin();
+}
+
+// ---------- Data export ----------
+
+async function exportAllData() {
+  const btn = refs.exportBtn;
+  const originalText = btn.textContent;
+  btn.textContent = "Exporting…";
+  btn.disabled = true;
+  try {
+    const db = await ready;
+    const collectionNames = [
+      "users",
+      "questions",
+      "memoryVerses",
+      "verseCategories",
+      "readingPlans",
+      "dailyReadingProgress",
+      "appState",
+    ];
+    const data = {};
+    for (const name of collectionNames) {
+      const snapshot = await db.collection(name).get();
+      data[name] = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bible-questions-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(err);
+    alert("Couldn't export data — check your internet connection and try again.");
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
 // ---------- Main Setup view ----------
 
 function buildMainView(container) {
@@ -607,31 +850,23 @@ function buildMainView(container) {
       <button id="settings-lock-btn" class="btn btn-small">Lock</button>
     </div>
 
-    <div class="settings-panel">
-      <div class="list-toolbar">
-        <h2>Family Members</h2>
-        <button id="add-user-btn" class="btn btn-primary">+ Add Member</button>
-      </div>
-      <ul id="user-list" class="question-list"></ul>
-      <p id="user-empty" class="empty-state" hidden>No family members yet.</p>
-    </div>
-
-    <div class="settings-panel">
-      <div class="list-toolbar">
-        <h2>Questions</h2>
-        <button id="open-library-btn" class="btn btn-primary">📚 Question Library</button>
-      </div>
-      <p id="library-count" class="settings-fineprint"></p>
-    </div>
-
-    <div class="settings-panel">
-      <div class="list-toolbar">
-        <h2>Family Stats</h2>
-      </div>
-      <p id="reading-plan-stat" class="question-score"></p>
-      <ul id="family-stats-list" class="question-list"></ul>
-      <p id="family-stats-empty" class="empty-state" hidden>Add family members to see stats.</p>
-    </div>
+    <ul class="settings-nav-list">
+      <li><button id="open-family-btn" class="settings-nav-link">
+        <span class="settings-nav-icon">👪</span>
+        <span class="settings-nav-text"><strong>Family Members</strong><span id="family-count"></span></span>
+        <span class="settings-nav-chevron">›</span>
+      </button></li>
+      <li><button id="open-library-btn" class="settings-nav-link">
+        <span class="settings-nav-icon">📚</span>
+        <span class="settings-nav-text"><strong>Question Library</strong><span id="library-count"></span></span>
+        <span class="settings-nav-chevron">›</span>
+      </button></li>
+      <li><button id="open-memverses-btn" class="settings-nav-link">
+        <span class="settings-nav-icon">✍️</span>
+        <span class="settings-nav-text"><strong>Memory Verses</strong><span id="memverses-count"></span></span>
+        <span class="settings-nav-chevron">›</span>
+      </button></li>
+    </ul>
 
     <div class="settings-panel">
       <div class="list-toolbar">
@@ -642,12 +877,9 @@ function buildMainView(container) {
     </div>
   `;
 
-  refs.userList = container.querySelector("#user-list");
-  refs.userEmpty = container.querySelector("#user-empty");
+  refs.familyCount = container.querySelector("#family-count");
   refs.libraryCount = container.querySelector("#library-count");
-  refs.statsList = container.querySelector("#family-stats-list");
-  refs.statsEmpty = container.querySelector("#family-stats-empty");
-  refs.readingPlanStat = container.querySelector("#reading-plan-stat");
+  refs.memversesCount = container.querySelector("#memverses-count");
   refs.exportBtn = container.querySelector("#export-data-btn");
   refs.exportBtn.addEventListener("click", exportAllData);
 
@@ -656,25 +888,22 @@ function buildMainView(container) {
     buildLockScreen(container);
   });
 
-  container.querySelector("#add-user-btn").addEventListener("click", () => {
-    addingUser = true;
-    renderUsers();
-  });
-
+  container.querySelector("#open-family-btn").addEventListener("click", () => buildFamilyView(container));
   container.querySelector("#open-library-btn").addEventListener("click", () => {
     libraryUnlocked = false; // always opens locked/read-only; tap the lock to edit
     buildLibraryView(container);
   });
+  container.querySelector("#open-memverses-btn").addEventListener("click", () => buildMemoryVersesView(container));
 
-  renderUsers();
-  renderLibraryCount();
-  renderFamilyStats();
-  renderReadingPlanStat();
+  renderNavCounts();
 }
 
-function renderLibraryCount() {
-  if (!refs.libraryCount) return;
-  refs.libraryCount.textContent = `${questions.length} question${questions.length === 1 ? "" : "s"} in the library.`;
+function renderNavCounts() {
+  if (refs.familyCount) refs.familyCount.textContent = `${users.length} member${users.length === 1 ? "" : "s"}`;
+  if (refs.libraryCount) refs.libraryCount.textContent = `${questions.length} question${questions.length === 1 ? "" : "s"}`;
+  if (refs.memversesCount) {
+    refs.memversesCount.textContent = `${memoryVerses.length} verse${memoryVerses.length === 1 ? "" : "s"} · ${verseCategories.length} categor${verseCategories.length === 1 ? "y" : "ies"}`;
+  }
 }
 
 export function mountSettings(container) {
@@ -687,21 +916,30 @@ export function mountSettings(container) {
   subscribeUsers((updated) => {
     users = updated;
     if (refs.userList) renderUsers();
-    if (refs.statsList) renderFamilyStats();
+    renderNavCounts();
   });
   subscribeQuestions((updated) => {
     questions = updated;
     if (refs.adminQuestionList) renderQuestionsAdmin();
-    if (refs.statsList) renderFamilyStats();
-    if (refs.libraryCount) renderLibraryCount();
+    if (refs.userList) renderUsers();
+    renderNavCounts();
   });
   subscribeMemoryVerses((updated) => {
     memoryVerses = updated;
-    if (refs.statsList) renderFamilyStats();
+    if (refs.userList) renderUsers();
+    if (refs.categoryList) renderCategories();
+    if (refs.verseAdminList) renderVersesAdmin();
+    renderNavCounts();
+  });
+  subscribeVerseCategories((updated) => {
+    verseCategories = updated;
+    if (refs.categoryList) renderCategories();
+    if (refs.verseAdminList) renderVersesAdmin();
+    renderNavCounts();
   });
   subscribePlanState(({ planState: state, planStats: stats }) => {
     planState = state;
     planStats = stats;
-    if (refs.readingPlanStat) renderReadingPlanStat();
+    renderReadingPlanStat();
   });
 }

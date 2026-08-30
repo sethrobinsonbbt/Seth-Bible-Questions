@@ -76,6 +76,19 @@ export function resetProgress(id) {
   db.collection("questions").doc(id).update({ progress: {} });
 }
 
+// Clears one user's progress on every question (used by Setup's per-member
+// "Reset Stats"). Other users' progress on the same questions is untouched.
+export function resetUserProgress(userId) {
+  if (!db) return;
+  const affected = questions.filter((q) => q.progress && q.progress[userId]);
+  if (affected.length === 0) return;
+  const batch = db.batch();
+  affected.forEach((q) => {
+    batch.update(db.collection("questions").doc(q.id), { [`progress.${userId}`]: firebase.firestore.FieldValue.delete() });
+  });
+  batch.commit();
+}
+
 ready.then((firestoreDb) => {
   db = firestoreDb;
   db.collection("questions").onSnapshot(

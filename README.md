@@ -20,18 +20,20 @@ device, driving whose score gets tracked wherever progress applies
   (with answer reveal, and ✅ Correct / ❌ Wrong buttons that track a
   score and automatically resurface missed questions). Read-only and
   kid-safe — no editing controls live here.
-- **Memorize** — a bank of King James verses with two practice modes:
-  guess the reference from the verse (multiple choice or type-in), and
-  fill in the first letter of each word given the reference, with 5
-  difficulty levels from mostly-filled-in to completely blank. Tracks
+- **Memorize** — a bank of King James verses, optionally grouped into
+  categories, with a 0–3 ★ mastery rating per verse and two practice
+  modes chosen via a tab: **Fill in the Blank** (choose a difficulty,
+  type the first letter of each blanked word) and **Flashcards**
+  (verse-or-reference, flip, self-grade Fail/Hard/Good/Easy). Tracks
   whoever's picked in the header's **User** dropdown.
 - **🔒 Setup** — set off by a divider at the bottom of the ☰ menu, since
   it's an admin area rather than something a family member needs
-  day-to-day. Passcode-gated (see below). This is where you add family
-  members (each assigned to one or more age groups) and, via the
-  **📚 Question Library** subpage (its own separate lock, defaulting to
-  read-only), author questions: add/edit/delete/reassign them to an age
-  group (2–3, 4–6, 7–10, 11–15, Adult, or leave Unassigned).
+  day-to-day. Passcode-gated (see below). A landing page links to three
+  subpages: **👪 Family Members** (add/edit/delete, age groups, and
+  per-person stats with a Reset Stats button), **📚 Question Library**
+  (its own separate lock, defaulting to read-only — add/edit/delete
+  questions and reassign their age group), and **✍️ Memory Verses**
+  (create/rename/delete categories and file verses into them).
 
 Everything syncs live across every phone and computer that has the site
 open, using a free Firebase project. It's a static site — installable on
@@ -74,6 +76,7 @@ service cloud.firestore {
     match /users/{id}              { allow read, write: if request.auth != null; }
     match /questions/{id}          { allow read, write: if request.auth != null; }
     match /memoryVerses/{id}       { allow read, write: if request.auth != null; }
+    match /verseCategories/{id}    { allow read, write: if request.auth != null; }
     match /readingPlans/{id}       { allow read, write: if request.auth != null; }
     match /dailyReadingProgress/{id} { allow read, write: if request.auth != null; }
     match /appState/{id}           { allow read, write: if request.auth != null; }
@@ -83,10 +86,13 @@ service cloud.firestore {
 
 Click **Publish**. This means only devices that have opened the app (and
 silently signed in anonymously) can read or write the app's data — and,
-compared to a blanket `match /{document=**}`, only within these six known
-collections, so a stray script poking at your project can't spray junk
-data into some new collection name you never created. Add a line here if
-you ever add a new Firestore collection.
+compared to a blanket `match /{document=**}`, only within these seven
+known collections, so a stray script poking at your project can't spray
+junk data into some new collection name you never created. **If you set
+up Firestore rules before Memorize categories were added, re-paste this
+block** — the `verseCategories` line is new; without it, creating or
+renaming a category in Setup will silently fail with a permission-denied
+error. Add a line here any other time you add a new Firestore collection.
 
 **How much protection is this really?** Anonymous auth means *anyone* who
 loads the page — not just your family — becomes an authorized reader/writer
@@ -204,36 +210,45 @@ device, so it doesn't need to be reselected every visit.
 
 ### 🔒 Setup
 
-- Enter the passcode (default `1967`, see the security note above) to
-  unlock **Family Members**, the **Question Library**, **Family Stats**,
-  and **Backup**.
-- **Family Members**: **+ Add Member** to name someone and check which
-  age group(s) they belong to (a person can be in more than one — e.g. a
-  10-year-old could also be checked into 11–15 if they're ready for
-  harder questions). Edit or delete anyone here.
-- **📚 Question Library** opens a dedicated subpage, filterable by age
-  group (or **Unassigned** / **All questions**) and/or **🔍 Search
-  questions…** by text or answer — the two combine. It opens **🔒
-  Locked** (read-only, safe to browse) every time; tap the lock to
-  switch to **🔓 Editing**, which reveals **+ Add Question** and, per
-  row, an age-group dropdown to reassign it, **Edit**, **Delete**, and
-  (once it has a score) **Reset Score** (clears everyone's progress on
-  that question). **+ Add Question** needs the question text and a
-  required answer (an optional reference, e.g. "Genesis 1:3", and an
-  age-group assignment or leave it **Unassigned**). Editing an existing
-  question still allows a blank answer, since some imported questions
-  (e.g. "Name some of the Ten Commandments") are intentionally
-  open-ended.
-- Changes sync instantly to everyone else with the app open.
-- **Family Stats**: a per-person rollup of Questions (✅/❌) and Memorize
-  (✅ correct / attempts) scores, plus one family-wide line for the
-  Daily Reading Plan's current streak and completed/missed count
-  (reading progress isn't tracked per person — it's one shared family
-  log).
+Enter the passcode (default `1967`, see the security note above) to
+unlock the landing page, which just links to three subpages, plus a
+Backup panel:
+
+- **👪 Family Members** — **+ Add Member** to name someone and check
+  which age group(s) they belong to (a person can be in more than
+  one — e.g. a 10-year-old could also be checked into 11–15 if they're
+  ready for harder questions). Each member's row also shows their stats
+  (📖 Questions ✅/❌, ✍️ Memorize ✅/attempts) with **Edit**, **Reset
+  Stats** (clears that one person's Questions *and* Memorize progress —
+  everyone else's stays put), and **Delete**. A family-wide line at the
+  top shows the Daily Reading Plan's current streak and completed/missed
+  count (that one isn't per-person — it's one shared family log).
+- **📚 Question Library** — filterable by age group (or **Unassigned** /
+  **All questions**) and/or **🔍 Search questions…** by text or answer —
+  the two combine. It opens **🔒 Locked** (read-only, safe to browse)
+  every time; tap the lock to switch to **🔓 Editing**, which reveals
+  **+ Add Question** and, per row, an age-group dropdown to reassign it,
+  **Edit**, **Delete**, and (once it has a score) **Reset Score** (clears
+  *everyone's* progress on that one question — for one person's overall
+  stats, use Family Members' Reset Stats instead). **+ Add Question**
+  needs the question text and a required answer (an optional reference,
+  e.g. "Genesis 1:3", and an age-group assignment or leave it
+  **Unassigned**). Editing an existing question still allows a blank
+  answer, since some imported questions (e.g. "Name some of the Ten
+  Commandments") are intentionally open-ended.
+- **✍️ Memory Verses** — **Categories**: **+ Add Category** to name a
+  group (e.g. "Salvation", "Peace"); **Rename** or **Delete** any of them
+  (deleting a category un-categorizes its verses rather than deleting
+  the verses themselves). **All Verses**: every memory verse with a
+  dropdown to file it under a category (or leave it **Uncategorized**).
+  Adding verses themselves still happens from the Memorize page (see
+  below) — this subpage is just for organizing what's already there.
 - **Backup**: **⬇️ Export All Data** downloads every collection (family
-  members, questions, memory verses, reading plans, and all reading
-  progress) as one JSON file — a manual safety net alongside Firebase's
-  own backups.
+  members, questions, memory verses, verse categories, reading plans,
+  and all reading progress) as one JSON file — a manual safety net
+  alongside Firebase's own backups.
+
+Changes sync instantly to everyone else with the app open.
 
 ### Bible
 
@@ -353,32 +368,48 @@ platform limitation, not something we can fully fix from a web app.
 
 ### Memorize
 
-- Attempts get tracked under whoever's picked in the **User** dropdown in
-  the header — this is optional; practicing without picking anyone just
-  won't record a score.
-- **+ Add Verse** opens a picker: choose a book and chapter (the King
-  James text loads automatically), then narrow **From verse** / **To
-  verse** down from the whole chapter if you only want part of a passage
-  memorized (e.g. just verses 16–17) — a live preview shows the exact
-  text that range covers before you save. The saved reference reflects
-  the range (e.g. `John 3:16-17`, or just `John 3` if the whole chapter
-  stays selected). The Bible page's **M⁺** badge (see above) opens the
-  same picker pre-filled to whatever chapter you're reading.
-- **🔤 Guess the Reference**: shown the verse text, pick the right
-  reference. Toggle **Multiple Choice** (easier) or **Type the
-  Reference** (harder — must match the reference format, e.g. "John
-  3:16").
-- **✍️ Fill in the Blanks**: shown the reference, type the first letter
-  of each missing word from memory. The **Difficulty** dropdown controls
-  how many words are already filled in for you:
-  - **Beginner/Easy**: most short, common words (and, the, of, unto...)
-    are filled in — only the more distinctive words need a letter.
-  - **Medium/Hard**: fewer words filled in.
-  - **Expert**: every word is blank — pure recall.
-  - After checking, **Show Full Verse** reveals the whole text.
-- Both practice modes prioritize verses missed last time (marked
-  **🔁 needs review** in the list) the same way Questions does, so
-  practice naturally circles back to the ones that need it.
+Attempts get tracked under whoever's picked in the **User** dropdown in
+the header — this is optional; practicing without picking anyone just
+won't record a score.
+
+The home view: category chips along the top (skipped entirely if you
+haven't made any categories in Setup yet — see above), a
+**✍️ Fill in the Blank** / **🗂️ Flashcards** tab that picks which mode
+tapping a verse launches you into, and the verse list itself, each verse
+showing a 0–3 ★ mastery rating built from that verse's past correct
+attempts. Tap a verse to start practicing it in whichever mode is
+selected; tap a category chip to filter the list down to it.
+
+**+ Add Verse** opens a picker: choose a book and chapter (the King
+James text loads automatically), then narrow **From verse** / **To
+verse** down from the whole chapter if you only want part of a passage
+memorized (e.g. just verses 16–17) — a live preview shows the exact text
+that range covers before you save, and a **Category** dropdown files it
+under one of Setup's categories right away (or leave it
+**Uncategorized**). The saved reference reflects the range (e.g.
+`John 3:16-17`, or just `John 3` if the whole chapter stays selected).
+The Bible page's **M⁺** badge (see above) opens the same picker
+pre-filled to whatever chapter you're reading.
+
+**✍️ Fill in the Blank**: tapping a verse first asks you to **choose your
+challenge** — Easy, Medium, Hard, or Blanks Only (no words given at
+all) — showing the full verse text so you know what you're about to
+attempt. **Start Game** drops into the verse with the harder/rarer words
+already blanked out based on that difficulty. Type the first letter of
+each blanked word: get it right and the whole word fills in, moving you
+to the next blank; get it wrong and a momentary ✗ flashes so you can just
+try that same word again — there's no penalty box to dig out of, only
+practice. Finishing the verse without ever slipping records a
+perfect ✅; finishing after a few misses still counts as done, just not
+first-try-perfect (that's what feeds the ★ rating above).
+
+**🗂️ Flashcards**: shows either the verse text or just the reference —
+your choice, via the **Start with: Verse / Reference** toggle at the
+bottom, remembered for next time. Tap **🔄 Flip** to reveal the other
+side, then grade yourself honestly: **Fail** / **Hard** / **Good** /
+**Easy**. Only **Fail** counts against you — Hard/Good/Easy all count as
+a successful recall (just at varying confidence), matching how real
+spaced-repetition flashcard apps grade.
 
 ## Adding another person, or another age group
 
@@ -420,8 +451,9 @@ matching anything.
   bundled question banks. Their one-time Setup import buttons have been
   removed now that both are imported; these files stay in the repo,
   unused, in case a bulk-import feature is wanted again later.
-- `js/settings.js` — the passcode-gated Setup section (member
-  management, the Question Library subpage, family stats, and backup).
+- `js/settings.js` — the passcode-gated Setup landing page and its three
+  subpages (Family Members + stats/reset, Question Library, Memory
+  Verses categories), plus Backup.
 - `js/bible-data.js` — the 66-book/chapter-count table, the list of
   available translations, and `resolveBookName` (common abbreviations —
   "Ex", "1Cor", "Ps", etc. — to canonical book name) used by the Bible
@@ -435,9 +467,11 @@ matching anything.
   section).
 - `js/daily-plan-data.js` — tracks whether the Daily Reading plan has
   been "started" and computes completed/missed-day stats since then.
-- `js/memorize.js` — the verse memorization section.
-- `js/memorize-data.js` — shared "memoryVerses" Firestore collection
-  (state + CRUD), used by both Memorize and the Bible page's M⁺ button.
+- `js/memorize.js` — the verse memorization section (categories, mode
+  tabs, verse list with mastery stars, Fill in the Blank, Flashcards).
+- `js/memorize-data.js` — shared "memoryVerses" and "verseCategories"
+  Firestore collections (state + CRUD + per-user progress reset), used
+  by Memorize, the Bible page's M⁺ button, and Setup.
 - `js/verse-picker.js` — the shared book/chapter/From-verse/To-verse
   picker logic (fetch a chapter, collapse a verse range into a reference
   like "John 3:16-18") used by both Memorize's + Add Verse and the Bible

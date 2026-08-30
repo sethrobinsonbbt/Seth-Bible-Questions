@@ -254,7 +254,7 @@ function renderTabs() {
 function renderDetail() {
   const plan = plans.find((p) => p.id === activePlanId);
   if (!plan) {
-    refs.detail.innerHTML = `<p class="empty-state">No reading plans yet. Tap "+ New Plan" to make one — e.g. start at Judges 1 and end at Judges 21.</p>`;
+    refs.detail.innerHTML = "";
     return;
   }
 
