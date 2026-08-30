@@ -12,28 +12,38 @@ device, driving whose score gets tracked wherever progress applies
   and a text-to-speech "Listen" button. When the chapter on screen is
   part of today's reading, a footer offers **✓ Mark as Read**, **Next
   Chapter**, and **Next Reading** (jumps to the day's next passage).
+  **Press and hold any word** to look up its underlying Hebrew/Greek
+  Strong's number — meaning, and every other place that word occurs in
+  the KJV (see below).
 - **Reading Plan** — the daily plan (see below) plus custom reading
   plans between any two chapters (e.g. all of Judges, or 1 Samuel
   through 2 Kings for "the kings of Israel"), with a checklist to track
   progress, plus a start/streak/missed-days system for the daily plan.
 - **Questions** — a random-question quiz card for whoever's picked up top
   (with answer reveal, and ✅ Correct / ❌ Wrong buttons that track a
-  score and automatically resurface missed questions). Read-only and
-  kid-safe — no editing controls live here.
+  score and automatically resurface missed questions). An Adult can fold
+  a kid's age group into their own quiz via an **Include:** chip row —
+  a question that's actually the kid's auto-shows its answer (and the
+  cited verse) instead of hiding it. A passcode-gated **✏️ Edit** button
+  handles quick fixes right from the card, but adding/deleting questions
+  still lives in Setup.
 - **Memorize** — a bank of King James verses, optionally grouped into
-  categories, with a 0–3 ★ mastery rating per verse and two practice
+  categories (falls back to a built-in **All / OT / NT** split until you
+  make your own), with a 0–3 ★ mastery rating per verse and two practice
   modes chosen via a tab: **Fill in the Blank** (choose a difficulty,
   type the first letter of each blanked word) and **Flashcards**
   (verse-or-reference, flip, self-grade Fail/Hard/Good/Easy). Tracks
   whoever's picked in the header's **User** dropdown.
 - **🔒 Setup** — set off by a divider at the bottom of the ☰ menu, since
   it's an admin area rather than something a family member needs
-  day-to-day. Passcode-gated (see below). A landing page links to three
+  day-to-day. Passcode-gated (see below). A landing page links to four
   subpages: **👪 Family Members** (add/edit/delete, age groups, and
   per-person stats with a Reset Stats button), **📚 Question Library**
   (its own separate lock, defaulting to read-only — add/edit/delete
-  questions and reassign their age group), and **✍️ Memory Verses**
-  (create/rename/delete categories and file verses into them).
+  questions, reassign their age group, and bulk import/export as JSON),
+  **✍️ Memory Verses** (create/rename/delete categories, file verses
+  into them, and bulk import/export as JSON), and **ℹ️ About** (its own
+  passcode re-entry — what accounts/services this site runs on).
 
 Everything syncs live across every phone and computer that has the site
 open, using a free Firebase project. It's a static site — installable on
@@ -561,15 +571,27 @@ matching anything.
   bundled question banks. Their one-time Setup import buttons have been
   removed now that both are imported; these files stay in the repo,
   unused, in case a bulk-import feature is wanted again later.
-- `js/settings.js` — the passcode-gated Setup landing page and its three
+- `js/setup-password.js` — the Setup passcode, shared by the Setup section
+  and any other passcode-gated spot (the Questions page's Edit button).
+- `js/settings.js` — the passcode-gated Setup landing page and its four
   subpages (Family Members + stats/reset, Question Library, Memory
-  Verses categories), plus Backup.
+  Verses categories, About), each with bulk JSON import/export where
+  noted above, plus Backup.
 - `js/bible-data.js` — the 66-book/chapter-count table, the list of
   available translations, and `resolveBookName` (common abbreviations —
   "Ex", "1Cor", "Ps", etc. — to canonical book name) used by the Bible
   page's "Jump to..." search.
 - `js/bible-api.js` — fetches chapter/verse text from bible-api.com, with
-  localStorage caching.
+  localStorage caching. Kept only as an automatic fallback for the Bible
+  reading section now that the KJV text is bundled (see `strongs-data.js`
+  below) — still the live source for the Memorize/M⁺ verse picker.
+- `js/strongs-data.js` — loads the bundled Strong's-tagged KJV text
+  (`data/strongs/kjv-text/*.json`, one file per book), the combined
+  Hebrew/Greek dictionary (`data/strongs/lexicon.json`), and the
+  "every occurrence" reverse index (`data/strongs/occurrences.json`) —
+  see the Bible section above for licensing/provenance.
+- `js/strongs-popup.js` — the long-press word-lookup popup (Meaning /
+  Occurrences tabs, cross-reference links, verse preview + jump).
 - `js/bible-reader.js` — the Bible reading section.
 - `js/planner.js` — the Reading Plan section (daily reading card + custom reading plans).
 - `js/default-reading-plan.js` — the 365-day default reading plan data
@@ -577,8 +599,9 @@ matching anything.
   section).
 - `js/daily-plan-data.js` — tracks whether the Daily Reading plan has
   been "started" and computes completed/missed-day stats since then.
-- `js/memorize.js` — the verse memorization section (categories, mode
-  tabs, verse list with mastery stars, Fill in the Blank, Flashcards).
+- `js/memorize.js` — the verse memorization section (categories or the
+  built-in OT/NT fallback, mode tabs, verse list with mastery stars,
+  Fill in the Blank, Flashcards).
 - `js/memorize-data.js` — shared "memoryVerses" and "verseCategories"
   Firestore collections (state + CRUD + per-user progress reset), used
   by Memorize, the Bible page's M⁺ button, and Setup.
@@ -586,9 +609,13 @@ matching anything.
   picker logic (fetch a chapter, collapse a verse range into a reference
   like "John 3:16-18") used by both Memorize's + Add Verse and the Bible
   page's M⁺ button.
+- `data/strongs/` — the bundled Strong's data described above (a few MB;
+  fetched lazily per-book/on first use, not all at once).
 - `firebase-config.js` — your project's Firebase config (fill this in).
 - `esv-config.js` — your (optional) free ESV API key (fill this in).
+- `CNAME` — the custom domain GitHub Pages serves the site on.
 - `manifest.json` / `service-worker.js` / `icons/` — makes it installable
-  as a PWA and lets the app shell load instantly (and offline) after the
-  first visit. Data itself (questions, Bible text, plans, verses) still
-  requires an internet connection the first time it's fetched.
+  as a PWA and lets the app shell (plus, once opened, the KJV text
+  itself) load instantly and offline after the first visit. Live data
+  (questions, plans, verses, progress) still needs a connection, since
+  that comes from Firestore, not the app shell.
