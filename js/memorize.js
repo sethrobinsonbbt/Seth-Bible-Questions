@@ -378,11 +378,18 @@ function startFitbBlanks(verseId) {
   renderFitbBlanks(verse);
 }
 
+// Widens the blank roughly with the word it's hiding, so a long word like
+// "beginning" reads as a longer blank than "of" even though only the first
+// letter is actually typed into it.
+function blankWidth(word) {
+  return Math.max(1.5, Math.min(6, word.length * 0.65)).toFixed(2) + "rem";
+}
+
 function renderFitbBlanks(verse) {
   const wordsHtml = blanksTokens
     .map((t, i) => {
       if (!t.blankable || t.revealed) return `<span class="blank-word">${escapeHtml(t.raw)}</span>`;
-      return `<span class="blank-word blank-pending" data-index="${i}">${escapeHtml(t.prefix)}<input class="letter-input" data-index="${i}" maxlength="1" autocomplete="off" autocapitalize="off">${escapeHtml(t.suffix)}</span>`;
+      return `<span class="blank-word blank-pending" data-index="${i}">${escapeHtml(t.prefix)}<input class="letter-input" style="width:${blankWidth(t.core)}" data-index="${i}" maxlength="1" autocomplete="off" autocapitalize="off">${escapeHtml(t.suffix)}</span>`;
     })
     .join(" ");
 
