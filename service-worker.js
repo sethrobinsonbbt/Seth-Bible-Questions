@@ -1,5 +1,5 @@
 // Bump CACHE_NAME whenever app-shell files change so clients pick up the update.
-const CACHE_NAME = "bible-questions-v2";
+const CACHE_NAME = "bible-questions-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -17,7 +17,12 @@ const APP_SHELL = [
   "./js/planner.js",
   "./js/memorize.js",
   "./js/questions.js",
+  "./js/questions-data.js",
   "./js/question-bank-data.js",
+  "./js/family-question-bank.js",
+  "./js/users.js",
+  "./js/age-groups-data.js",
+  "./js/settings.js",
 ];
 
 self.addEventListener("install", (event) => {

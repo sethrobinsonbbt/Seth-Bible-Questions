@@ -116,16 +116,50 @@ body {
   margin-bottom: 0.4rem;
 }
 
+.random-score {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-bottom: 0.5rem;
+}
+
 .random-text {
   font-size: 1.35rem;
   font-weight: 600;
   line-height: 1.35;
-  margin: 0 0 1rem;
+  margin: 0 0 0.6rem;
+}
+
+.random-review-tag {
+  font-size: 0.85rem;
+  background: rgba(255,255,255,0.18);
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  margin: 0 0 0.8rem;
+}
+
+.random-answer {
+  font-size: 1.05rem;
+  font-weight: 600;
+  background: rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  margin: 0 0 0.8rem;
 }
 
 .random-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.random-actions-score {
+  justify-content: stretch;
+}
+
+.random-actions-score .btn {
+  flex: 1 1 0;
 }
 
 .list-toolbar {
@@ -171,6 +205,11 @@ body {
   color: var(--danger);
 }
 
+.btn-success {
+  background: #e6f6ec;
+  color: #1a7a41;
+}
+
 .btn-small {
   padding: 0.35rem 0.6rem;
   font-size: 0.8rem;
@@ -197,6 +236,18 @@ body {
   line-height: 1.4;
 }
 
+.question-answer {
+  margin: -0.3rem 0 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.question-score {
+  margin: -0.3rem 0 0.6rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .question-row-actions {
   display: flex;
   flex-wrap: wrap;
@@ -218,6 +269,17 @@ body {
   border-radius: 8px;
   padding: 0.5rem;
   font-size: 1rem;
+  font-family: inherit;
+  margin-bottom: 0.6rem;
+}
+
+.edit-answer-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  font-size: 0.95rem;
   font-family: inherit;
   margin-bottom: 0.6rem;
 }
@@ -264,6 +326,7 @@ body {
 }
 
 .modal textarea,
+.modal input,
 .modal select {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -527,4 +590,59 @@ body {
 
 .feedback-wrong {
   color: var(--danger);
+}
+
+/* ---------- Settings ---------- */
+
+.settings-lock {
+  max-width: 360px;
+  margin: 2rem auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.settings-lock input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem;
+  font-size: 1.2rem;
+  text-align: center;
+  letter-spacing: 0.2em;
+}
+
+.settings-fineprint {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 0.8rem;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.settings-panel {
+  margin-bottom: 2rem;
+}
+
+.age-group-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.age-group-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
 }

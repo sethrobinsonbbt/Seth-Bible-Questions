@@ -27,12 +27,12 @@ function buildSkeleton(container) {
         <label for="plan-start-book">Start book</label>
         <select id="plan-start-book"></select>
         <label for="plan-start-chapter">Start chapter</label>
-        <input id="plan-start-chapter" type="number" min="1" value="1" />
+        <select id="plan-start-chapter"></select>
 
         <label for="plan-end-book">End book</label>
         <select id="plan-end-book"></select>
         <label for="plan-end-chapter">End chapter</label>
-        <input id="plan-end-chapter" type="number" min="1" value="1" />
+        <select id="plan-end-chapter"></select>
 
         <p id="plan-error" class="form-error" hidden></p>
 
@@ -63,6 +63,13 @@ function buildSkeleton(container) {
     });
   });
 
+  refs.startBook.addEventListener("change", () => {
+    populateChapterSelect(refs.startChapter, refs.startBook.value);
+  });
+  refs.endBook.addEventListener("change", () => {
+    populateChapterSelect(refs.endChapter, refs.endBook.value);
+  });
+
   container.querySelector("#new-plan-btn").addEventListener("click", openModal);
   container.querySelector("#plan-cancel-btn").addEventListener("click", closeModal);
   refs.modalBackdrop.addEventListener("click", (e) => {
@@ -71,12 +78,26 @@ function buildSkeleton(container) {
   container.querySelector("#plan-save-btn").addEventListener("click", savePlan);
 }
 
+function populateChapterSelect(select, bookName) {
+  const book = BOOKS.find((b) => b.name === bookName);
+  const count = book ? book.chapters : 1;
+  const previous = select.value;
+  select.innerHTML = "";
+  for (let i = 1; i <= count; i++) {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = `Chapter ${i}`;
+    select.appendChild(opt);
+  }
+  select.value = previous && Number(previous) <= count ? previous : "1";
+}
+
 function openModal() {
   refs.nameInput.value = "";
   refs.startBook.value = BOOKS[0].name;
-  refs.startChapter.value = "1";
   refs.endBook.value = BOOKS[0].name;
-  refs.endChapter.value = "1";
+  populateChapterSelect(refs.startChapter, refs.startBook.value);
+  populateChapterSelect(refs.endChapter, refs.endBook.value);
   refs.error.hidden = true;
   refs.modalBackdrop.hidden = false;
   refs.nameInput.focus();
@@ -228,5 +249,5 @@ export function mountPlanner(container) {
       },
       (err) => console.error(err)
     );
-  });
+  }).catch((err) => console.error(err));
 }

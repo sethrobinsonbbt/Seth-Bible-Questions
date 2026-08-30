@@ -3,12 +3,14 @@ import { mountQuestions } from "./questions.js";
 import { mountBibleReader, goTo as goToBibleChapter } from "./bible-reader.js";
 import { mountPlanner } from "./planner.js";
 import { mountMemorize } from "./memorize.js";
+import { mountSettings } from "./settings.js";
 
 const SECTIONS = [
   { id: "questions", label: "Questions", mount: mountQuestions },
   { id: "bible", label: "Bible", mount: mountBibleReader },
   { id: "planner", label: "Planner", mount: mountPlanner },
   { id: "memorize", label: "Memorize", mount: mountMemorize },
+  { id: "settings", label: "🔒 Settings", mount: mountSettings },
 ];
 
 let activeSection = SECTIONS[0].id;

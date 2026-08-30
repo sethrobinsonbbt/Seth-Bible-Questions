@@ -6,8 +6,10 @@
 //      already filled in for you (easiest) vs. fully blank (hardest).
 import { ready } from "./firebase.js";
 import { fetchVerseRange } from "./bible-api.js";
+import { subscribeUsers } from "./users.js";
 
 const VERSION = "kjv"; // memorization is always King James per the spec
+const ACTIVE_USER_KEY = "bible-questions-memorize-active-user";
 
 // Common short/function words revealed first at easier levels, so the words
 // left to recall are the more distinctive ones. Includes KJV-specific terms.
@@ -21,7 +23,9 @@ const STOPWORDS = new Set([
 ]);
 
 let db = null;
-let verses = []; // [{id, reference, text}]
+let verses = []; // [{id, reference, text, progress}]
+let users = [];
+let activeUserId = loadActiveUser();
 let refs = {};
 let view = "list"; // "list" | "guess" | "blanks"
 let guessDifficulty = "easy"; // "easy" | "hard"
@@ -30,6 +34,38 @@ let currentVerseId = null;
 let currentOptions = [];
 let blanksTokens = [];
 let answered = false;
+
+function loadActiveUser() {
+  try {
+    return localStorage.getItem(ACTIVE_USER_KEY) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveActiveUser(id) {
+  try {
+    if (id) localStorage.setItem(ACTIVE_USER_KEY, id);
+    else localStorage.removeItem(ACTIVE_USER_KEY);
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+function recordVerseProgress(verseId, wasCorrect) {
+  if (!db || !activeUserId) return;
+  const v = verses.find((v) => v.id === verseId);
+  if (!v) return;
+  const prev = (v.progress && v.progress[activeUserId]) || { correctCount: 0, attempts: 0 };
+  db.collection("memoryVerses")
+    .doc(verseId)
+    .update({
+      [`progress.${activeUserId}`]: {
+        correctCount: (prev.correctCount || 0) + (wasCorrect ? 1 : 0),
+        attempts: (prev.attempts || 0) + 1,
+      },
+    });
+}
 
 function pickRandomVerse(excludeId) {
   const pool = excludeId ? verses.filter((v) => v.id !== excludeId) : verses;
@@ -71,6 +107,27 @@ function deleteVerse(id) {
 
 // ---------- List view ----------
 
+function renderUserSelect() {
+  const select = refs.userSelect;
+  select.innerHTML = "";
+  const noneOpt = document.createElement("option");
+  noneOpt.value = "";
+  noneOpt.textContent = users.length === 0 ? "No family members yet (add in Settings)" : "Select a person…";
+  select.appendChild(noneOpt);
+  users.forEach((u) => {
+    const opt = document.createElement("option");
+    opt.value = u.id;
+    opt.textContent = u.name;
+    select.appendChild(opt);
+  });
+  if (activeUserId && users.some((u) => u.id === activeUserId)) {
+    select.value = activeUserId;
+  } else {
+    activeUserId = null;
+    select.value = "";
+  }
+}
+
 function renderList() {
   refs.listEl.innerHTML = "";
   refs.emptyEl.hidden = verses.length !== 0;
@@ -84,6 +141,14 @@ function renderList() {
     p.className = "question-text";
     p.textContent = v.reference;
     li.appendChild(p);
+
+    const progress = activeUserId && v.progress && v.progress[activeUserId];
+    if (progress) {
+      const scoreLine = document.createElement("p");
+      scoreLine.className = "question-score";
+      scoreLine.textContent = `✅ ${progress.correctCount || 0} / ${progress.attempts || 0} attempts`;
+      li.appendChild(scoreLine);
+    }
 
     const actions = document.createElement("div");
     actions.className = "question-row-actions";
@@ -198,6 +263,7 @@ function renderGuess() {
 function gradeGuess(givenRef, verse) {
   answered = true;
   const correct = normalizeRef(givenRef) === normalizeRef(verse.reference);
+  recordVerseProgress(verse.id, correct);
   const feedback = refs.practiceArea.querySelector("#guess-feedback");
   feedback.textContent = correct
     ? "✅ Correct!"
@@ -335,6 +401,7 @@ function gradeBlanks() {
   const feedback = refs.practiceArea.querySelector("#blanks-feedback");
   feedback.textContent = `${correctCount} / ${total} correct`;
   feedback.className = "practice-feedback " + (correctCount === total ? "feedback-correct" : "feedback-wrong");
+  recordVerseProgress(currentVerseId, total > 0 && correctCount === total);
 
   inputs.forEach((input) => (input.disabled = true));
   refs.practiceArea.querySelector("#blanks-check-btn").hidden = true;
@@ -373,6 +440,8 @@ function buildSkeleton(container) {
     <div class="list-toolbar">
       <h2>Memory Verses</h2>
     </div>
+    <label for="memorize-user-select">Who's memorizing?</label>
+    <select id="memorize-user-select" class="assign-select"></select>
     <div class="add-verse-row">
       <input id="verse-ref-input" type="text" placeholder="e.g. John 3:16 (King James Version)" />
       <button id="add-verse-btn" class="btn btn-primary">+ Add Verse</button>
@@ -395,6 +464,13 @@ function buildSkeleton(container) {
   refs.emptyEl = container.querySelector("#verse-empty");
   refs.practiceRow = container.querySelector("#practice-launch-row");
   refs.practiceArea = container.querySelector("#practice-area");
+  refs.userSelect = container.querySelector("#memorize-user-select");
+
+  refs.userSelect.addEventListener("change", () => {
+    activeUserId = refs.userSelect.value || null;
+    saveActiveUser(activeUserId);
+    renderList();
+  });
 
   container.querySelector("#add-verse-btn").addEventListener("click", () => {
     const val = refs.refInput.value.trim();
@@ -415,6 +491,12 @@ export function mountMemorize(container) {
   buildSkeleton(container);
   renderList();
 
+  subscribeUsers((updated) => {
+    users = updated;
+    renderUserSelect();
+    renderList();
+  });
+
   ready.then((firestoreDb) => {
     db = firestoreDb;
     db.collection("memoryVerses").onSnapshot(
@@ -427,5 +509,5 @@ export function mountMemorize(container) {
       },
       (err) => console.error(err)
     );
-  });
+  }).catch((err) => console.error(err));
 }

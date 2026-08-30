@@ -1,151 +1,141 @@
-// "Questions" section: per-person tabs (Asher/Ollie/Parents) + a shared
-// Library of unassigned questions. See README.md for the data model.
-import { ready } from "./firebase.js";
-import { QUESTION_BANK } from "./question-bank-data.js";
+// "Questions" section: one tab per family member (managed in Settings),
+// each showing a random-question quiz card for every age group that member
+// belongs to. Adding/editing/assigning questions and managing family
+// members both live in the password-protected Settings section — this view
+// is quiz-only, safe for kids to use on their own.
+import { subscribeQuestions, recordAnswer } from "./questions-data.js";
+import { subscribeUsers } from "./users.js";
 
-export const PEOPLE = [
-  { id: "asher", label: "Asher" },
-  { id: "ollie", label: "Ollie" },
-  { id: "parents", label: "Parents" },
-];
-const LIBRARY_TAB = { id: "library", label: "Library" };
-const TABS = [...PEOPLE, LIBRARY_TAB];
-
-let activeTab = TABS[0].id;
-let allQuestions = []; // [{id, text, assignedTo}]
-let editingId = null;
-let lastRandomId = null;
-let db = null;
+let users = [];
+let allQuestions = [];
+let activeUserId = null;
+let currentRandomId = null;
+let showingAnswer = false;
 
 const el = (id) => document.getElementById(id);
 
-function personLabel(id) {
-  const p = PEOPLE.find((p) => p.id === id);
-  return p ? p.label : id;
+function questionsForUser(user) {
+  if (!user) return [];
+  const groups = user.ageGroups || [];
+  return allQuestions.filter((q) => q.assignedTo && groups.includes(q.assignedTo));
 }
 
-// ---------- Firestore actions ----------
-
-function addQuestion(text, assignedTo) {
-  if (!db) return;
-  db.collection("questions").add({
-    text,
-    assignedTo: assignedTo || null,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-  });
+function activeUser() {
+  return users.find((u) => u.id === activeUserId) || null;
 }
 
-function updateQuestionText(id, text) {
-  if (!db) return;
-  db.collection("questions").doc(id).update({ text });
-}
-
-function updateQuestionAssignment(id, assignedTo) {
-  if (!db) return;
-  db.collection("questions").doc(id).update({ assignedTo: assignedTo || null });
-}
-
-function deleteQuestion(id) {
-  if (!db) return;
-  db.collection("questions").doc(id).delete();
-}
-
-function importQuestionBank() {
-  if (!db) return;
-  const existingText = new Set(allQuestions.map((q) => q.text.trim().toLowerCase()));
-  const toAdd = QUESTION_BANK.filter((text) => !existingText.has(text.trim().toLowerCase()));
-  if (toAdd.length === 0) {
-    alert("Every question from the built-in bank is already in your list.");
-    return;
+function pickRandomQuestion(list, userId, excludeId) {
+  const reviewPool = list.filter((q) => q.progress && q.progress[userId] && q.progress[userId].needsReview);
+  const pool = reviewPool.length > 0 ? reviewPool : list;
+  let candidates = pool;
+  if (excludeId && pool.length > 1) {
+    const filtered = pool.filter((q) => q.id !== excludeId);
+    if (filtered.length > 0) candidates = filtered;
   }
-  if (!confirm(`Add ${toAdd.length} question(s) from the built-in Bible trivia bank into the Library?`)) return;
-  const batch = db.batch();
-  const col = db.collection("questions");
-  toAdd.forEach((text) => {
-    batch.set(col.doc(), {
-      text,
-      assignedTo: null,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-  });
-  batch.commit();
-}
-
-// ---------- Rendering ----------
-
-function questionsForTab(tabId) {
-  if (tabId === "library") return allQuestions.filter((q) => !q.assignedTo);
-  return allQuestions.filter((q) => q.assignedTo === tabId);
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 function renderTabs() {
   const tabsEl = el("tabs");
   tabsEl.innerHTML = "";
-  TABS.forEach((tab) => {
+
+  if (users.length === 0) {
+    el("no-users-msg").hidden = false;
+    el("random-card").hidden = true;
+    el("question-list").innerHTML = "";
+    el("empty-state").hidden = true;
+    return;
+  }
+  el("no-users-msg").hidden = true;
+
+  if (!activeUserId || !users.find((u) => u.id === activeUserId)) {
+    activeUserId = users[0].id;
+  }
+
+  users.forEach((user) => {
     const btn = document.createElement("button");
-    btn.className = "tab-btn" + (tab.id === activeTab ? " active" : "");
-    btn.textContent = tab.label;
+    btn.className = "tab-btn" + (user.id === activeUserId ? " active" : "");
+    btn.textContent = user.name;
     btn.addEventListener("click", () => {
-      activeTab = tab.id;
-      editingId = null;
-      lastRandomId = null;
+      activeUserId = user.id;
+      currentRandomId = null;
       render();
     });
     tabsEl.appendChild(btn);
   });
 }
 
+// Renders whichever question `currentRandomId` points at, refreshing its
+// live score/review state. Falls back to picking a random one if that id
+// isn't in the current user's list (tab switch, or it was deleted/reassigned).
 function renderRandomCard(list) {
   const card = el("random-card");
-  if (activeTab === "library" || list.length === 0) {
+  const user = activeUser();
+  if (!user || list.length === 0) {
     card.hidden = true;
     return;
   }
   card.hidden = false;
-  el("random-person").textContent = personLabel(activeTab);
+  el("random-person").textContent = user.name;
 
-  let pick = list[Math.floor(Math.random() * list.length)];
-  if (list.length > 1 && lastRandomId) {
-    let tries = 0;
-    while (pick.id === lastRandomId && tries < 10) {
-      pick = list[Math.floor(Math.random() * list.length)];
-      tries++;
-    }
+  const correctTotal = list.reduce((sum, q) => sum + ((q.progress && q.progress[user.id] && q.progress[user.id].correctCount) || 0), 0);
+  const reviewCount = list.filter((q) => q.progress && q.progress[user.id] && q.progress[user.id].needsReview).length;
+  el("random-score").textContent = `✅ ${correctTotal} correct so far${reviewCount > 0 ? ` · 🔁 ${reviewCount} to review` : ""}`;
+
+  let pick = list.find((q) => q.id === currentRandomId);
+  if (!pick) {
+    pick = pickRandomQuestion(list, user.id, currentRandomId);
+    currentRandomId = pick.id;
+    showingAnswer = false;
   }
-  lastRandomId = pick.id;
+
+  const pickProgress = (pick.progress && pick.progress[user.id]) || {};
+
   el("random-text").textContent = pick.text;
+  el("random-review-tag").hidden = !pickProgress.needsReview;
+  el("random-answer").hidden = !showingAnswer;
+  el("random-answer").textContent = pick.answer ? `Answer: ${pick.answer}` : "";
+  el("random-show-answer-btn").hidden = !pick.answer;
+  el("random-show-answer-btn").textContent = showingAnswer ? "🙈 Hide Answer" : "👁️ Show Answer";
 }
 
-function buildAssignSelect(currentValue) {
-  const select = document.createElement("select");
-  select.className = "assign-select";
+// Forces a fresh pick (used by "Skip" / Correct / Wrong), as opposed to
+// renderRandomCard's default of preserving whatever is currently shown
+// across incidental re-renders (e.g. an unrelated Firestore update).
+function nextRandomQuestion() {
+  const user = activeUser();
+  const list = questionsForUser(user);
+  if (list.length === 0) return;
+  currentRandomId = pickRandomQuestion(list, user.id, currentRandomId).id;
+  showingAnswer = false;
+  renderRandomCard(list);
+}
 
-  const libOpt = document.createElement("option");
-  libOpt.value = "";
-  libOpt.textContent = "Library (unassigned)";
-  select.appendChild(libOpt);
+function toggleAnswer() {
+  showingAnswer = !showingAnswer;
+  el("random-answer").hidden = !showingAnswer;
+  el("random-show-answer-btn").textContent = showingAnswer ? "🙈 Hide Answer" : "👁️ Show Answer";
+}
 
-  PEOPLE.forEach((p) => {
-    const opt = document.createElement("option");
-    opt.value = p.id;
-    opt.textContent = p.label;
-    select.appendChild(opt);
-  });
-
-  select.value = currentValue || "";
-  return select;
+function answerCurrent(wasCorrect) {
+  const user = activeUser();
+  if (!currentRandomId || !user) return;
+  recordAnswer(currentRandomId, user.id, wasCorrect);
+  nextRandomQuestion();
 }
 
 function renderList(list) {
   const listEl = el("question-list");
   const emptyEl = el("empty-state");
+  const user = activeUser();
   listEl.innerHTML = "";
 
-  el("list-title").textContent =
-    activeTab === "library" ? "Library (unassigned)" : `${personLabel(activeTab)}'s Questions`;
+  el("list-title").textContent = user ? `${user.name}'s Questions` : "Questions";
 
-  el("import-bank-btn").hidden = activeTab !== "library";
-
+  if (users.length === 0) {
+    emptyEl.hidden = true;
+    return;
+  }
   if (list.length === 0) {
     emptyEl.hidden = false;
     return;
@@ -156,69 +146,19 @@ function renderList(list) {
     const li = document.createElement("li");
     li.className = "question-card";
 
-    if (editingId === q.id) {
-      const textarea = document.createElement("textarea");
-      textarea.className = "edit-textarea";
-      textarea.value = q.text;
-      li.appendChild(textarea);
+    const p = document.createElement("p");
+    p.className = "question-text";
+    p.textContent = q.text;
+    li.appendChild(p);
 
-      const actions = document.createElement("div");
-      actions.className = "question-row-actions";
-
-      const saveBtn = document.createElement("button");
-      saveBtn.className = "btn btn-primary btn-small";
-      saveBtn.textContent = "Save";
-      saveBtn.addEventListener("click", () => {
-        const val = textarea.value.trim();
-        if (val) updateQuestionText(q.id, val);
-        editingId = null;
-        render();
-      });
-
-      const cancelBtn = document.createElement("button");
-      cancelBtn.className = "btn btn-small";
-      cancelBtn.textContent = "Cancel";
-      cancelBtn.addEventListener("click", () => {
-        editingId = null;
-        render();
-      });
-
-      actions.appendChild(saveBtn);
-      actions.appendChild(cancelBtn);
-      li.appendChild(actions);
-    } else {
-      const p = document.createElement("p");
-      p.className = "question-text";
-      p.textContent = q.text;
-      li.appendChild(p);
-
-      const actions = document.createElement("div");
-      actions.className = "question-row-actions";
-
-      const assignSelect = buildAssignSelect(q.assignedTo);
-      assignSelect.addEventListener("change", () => {
-        updateQuestionAssignment(q.id, assignSelect.value);
-      });
-      actions.appendChild(assignSelect);
-
-      const editBtn = document.createElement("button");
-      editBtn.className = "btn btn-small";
-      editBtn.textContent = "Edit";
-      editBtn.addEventListener("click", () => {
-        editingId = q.id;
-        render();
-      });
-      actions.appendChild(editBtn);
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "btn btn-danger btn-small";
-      deleteBtn.textContent = "Delete";
-      deleteBtn.addEventListener("click", () => {
-        if (confirm("Delete this question?")) deleteQuestion(q.id);
-      });
-      actions.appendChild(deleteBtn);
-
-      li.appendChild(actions);
+    const progress = (q.progress && q.progress[user.id]) || {};
+    const correct = progress.correctCount || 0;
+    const wrong = progress.wrongCount || 0;
+    if (correct > 0 || wrong > 0) {
+      const scoreLine = document.createElement("p");
+      scoreLine.className = "question-score";
+      scoreLine.textContent = `✅ ${correct} · ❌ ${wrong}${progress.needsReview ? " · 🔁 needs review" : ""}`;
+      li.appendChild(scoreLine);
     }
 
     listEl.appendChild(li);
@@ -227,72 +167,24 @@ function renderList(list) {
 
 function render() {
   renderTabs();
-  const list = questionsForTab(activeTab);
+  const user = activeUser();
+  const list = questionsForUser(user);
   renderRandomCard(list);
   renderList(list);
 }
 
-// ---------- Add/Edit modal ----------
-
-function openAddModal() {
-  el("modal-title").textContent = "Add Question";
-  el("modal-text").value = "";
-
-  const select = el("modal-assign");
-  select.innerHTML = "";
-  const libOpt = document.createElement("option");
-  libOpt.value = "";
-  libOpt.textContent = "Library (unassigned)";
-  select.appendChild(libOpt);
-  PEOPLE.forEach((p) => {
-    const opt = document.createElement("option");
-    opt.value = p.id;
-    opt.textContent = p.label;
-    select.appendChild(opt);
-  });
-  select.value = activeTab === "library" ? "" : activeTab;
-
-  el("modal-backdrop").hidden = false;
-  el("modal-text").focus();
-}
-
-function closeModal() {
-  el("modal-backdrop").hidden = true;
-}
-
-function setupModal() {
-  el("add-question-btn").addEventListener("click", openAddModal);
-  el("modal-cancel-btn").addEventListener("click", closeModal);
-  el("modal-backdrop").addEventListener("click", (e) => {
-    if (e.target.id === "modal-backdrop") closeModal();
-  });
-  el("modal-save-btn").addEventListener("click", () => {
-    const text = el("modal-text").value.trim();
-    if (!text) return;
-    const assignedTo = el("modal-assign").value || null;
-    addQuestion(text, assignedTo);
-    closeModal();
-  });
-}
-
-// ---------- Init ----------
-
 export function mountQuestions() {
-  setupModal();
-  el("random-next-btn").addEventListener("click", () => {
-    renderRandomCard(questionsForTab(activeTab));
-  });
-  el("import-bank-btn").addEventListener("click", importQuestionBank);
-  render();
+  el("random-next-btn").addEventListener("click", nextRandomQuestion);
+  el("random-show-answer-btn").addEventListener("click", toggleAnswer);
+  el("random-correct-btn").addEventListener("click", () => answerCurrent(true));
+  el("random-wrong-btn").addEventListener("click", () => answerCurrent(false));
 
-  ready.then((firestoreDb) => {
-    db = firestoreDb;
-    db.collection("questions").onSnapshot(
-      (snapshot) => {
-        allQuestions = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        render();
-      },
-      (err) => console.error(err)
-    );
+  subscribeUsers((updated) => {
+    users = updated;
+    render();
+  });
+  subscribeQuestions((updated) => {
+    allQuestions = updated;
+    render();
   });
 }

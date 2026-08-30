@@ -1,11 +1,11 @@
 # Bible Questions
 
-A tiny family Bible app with four sections, tabbed across the top:
+A tiny family Bible app with five sections, tabbed across the top:
 
-- **Questions** — tabs for **Asher**, **Ollie**, and **Parents**, plus a
-  shared **Library** of questions that aren't assigned to anyone yet. Add,
-  edit, delete, and reassign questions from any tab, or import a starter
-  bank of ~100 Bible trivia questions with one click.
+- **Questions** — one tab per family member, each showing a random-question
+  quiz card (with answer reveal, and ✅ Correct / ❌ Wrong buttons that track
+  a score and automatically resurface missed questions). Read-only and
+  kid-safe — no editing controls live here.
 - **Bible** — read the KJV, WEB, BBE, or WEBBE translation, any book and
   chapter, with Previous/Next chapter navigation.
 - **Planner** — build a custom reading plan between any two chapters (e.g.
@@ -14,7 +14,14 @@ A tiny family Bible app with four sections, tabbed across the top:
 - **Memorize** — a bank of King James verses with two practice modes:
   guess the reference from the verse (multiple choice or type-in), and
   fill in the first letter of each word given the reference, with 5
-  difficulty levels from mostly-filled-in to completely blank.
+  difficulty levels from mostly-filled-in to completely blank. A "Who's
+  memorizing?" picker tracks each person's own attempts/correct count.
+- **🔒 Settings** — passcode-gated (see below). This is where you add
+  family members (each assigned to one or more age groups), and where all
+  question authoring lives: add/edit/delete questions, assign them to an
+  age group (2–3, 4–6, 7–10, 11–15, Adult), and the two bulk-import
+  buttons. A family member's Questions tab shows the union of every age
+  group they belong to.
 
 Everything syncs live across every phone and computer that has the site
 open, using a free Firebase project. It's a static site — installable on
@@ -61,7 +68,15 @@ service cloud.firestore {
 
 Click **Publish**. This means only devices that have opened the app (and
 silently signed in anonymously) can read or write any of the app's data
-(questions, reading plans, memory verses).
+(questions, family members, reading plans, memory verses).
+
+Note the **Settings** section's "1967" passcode is a separate, much
+weaker layer on top of this — it's a plain string checked in the browser
+(`js/settings.js`), not real access control. Anyone who opens the
+browser's dev tools can read it straight out of the page. It's there to
+keep a curious kid from poking around, not to protect sensitive data —
+don't rely on it for anything you actually need to keep private. Change
+it by editing the `PASSWORD` constant near the top of `js/settings.js`.
 
 ### 3. Host the site
 
@@ -85,20 +100,37 @@ repo:
 
 ### Questions
 
-- Tap a tab (**Asher**, **Ollie**, **Parents**, **Library**) to switch
-  who you're asking.
-- On a person's tab, the big card at the top shows a random question for
-  them — tap **🎲 Another question** to get a different one. Below that
-  is the full list assigned to them.
-- **+ Add Question** opens a form to type a new question and choose who
-  it's for (or leave it in the **Library** if you haven't decided yet).
-- Every question row has a dropdown to reassign it (e.g. move it from
-  Library to Ollie, or from Asher over to Parents), plus **Edit** and
-  **Delete** buttons.
-- On the **Library** tab, **📥 Import Question Bank** adds a starter set
-  of ~100 Bible trivia questions (see `js/question-bank-data.js`) as
-  unassigned questions — it skips any that already match text you've
-  already added, so it's safe to click more than once.
+- Tap a family member's tab. The big card at the top shows a random
+  question from any age group they belong to — tap **👁️ Show Answer** to
+  reveal the answer, then **✅ Correct** or **❌ Wrong** to score it and
+  move to the next one (or **🎲 Skip** to move on without scoring).
+- Missed questions (❌) are marked **🔁 needs review** and get
+  preferentially resurfaced until answered correctly — scores are tracked
+  per person, so two kids sharing an age group don't share a score.
+- Below the card is a plain list of that person's questions with their
+  running score. There's no editing here by design — see **Settings**.
+
+### 🔒 Settings
+
+- Enter the passcode (default `1967`, see the security note above) to
+  unlock **Family Members** and **All Questions** management.
+- **Family Members**: **+ Add Member** to name someone and check which
+  age group(s) they belong to (a person can be in more than one — e.g. a
+  10-year-old could also be checked into 11–15 if they're ready for
+  harder questions). Edit or delete anyone here.
+- **All Questions**: filter by age group (or **Library (unassigned)** /
+  **All questions**). Each row has an age-group dropdown to (re)assign
+  it, **Edit**, **Delete**, and (once it has a score) **Reset Score**
+  (clears everyone's progress on that question).
+- **+ Add Question** opens a form for the question text, an optional
+  answer, and which age group to assign it to (or leave it in the
+  **Library** if undecided).
+- **📥 Import Our Family's Questions** adds the fact-checked family list
+  (see `js/family-question-bank.js`) into the Library, with answers.
+  **📥 Import Question Bank** adds a starter set of ~100 general Bible
+  trivia questions (see `js/question-bank-data.js`). Both skip anything
+  whose text already matches a question you have, so they're safe to
+  click more than once.
 - Changes sync instantly to everyone else with the app open.
 
 ### Bible
@@ -128,6 +160,9 @@ aren't included — you're welcome to add one yourself in
 
 ### Memorize
 
+- Pick **Who's memorizing?** at the top (family members are managed in
+  Settings) so attempts get tracked under the right person — this is
+  optional; practicing without picking anyone just won't record a score.
 - Add a verse by typing its reference (e.g. `John 3:16` or
   `Psalm 23:1-3`) — the King James text is looked up automatically.
 - **🔤 Guess the Reference**: shown the verse text, pick the right
@@ -143,29 +178,43 @@ aren't included — you're welcome to add one yourself in
   - **Expert**: every word is blank — pure recall.
   - After checking, **Show Full Verse** reveals the whole text.
 
-## Adding another person/tab later
+## Adding another person, or another age group
 
-Open `js/questions.js` and add an entry to the `PEOPLE` array near the
-top, e.g.:
+Adding a person is just **+ Add Member** in Settings — no code changes
+needed. Age groups, on the other hand, are a fixed list in code (since
+they double as the assignment target for every question). To add or
+rename one, edit the `AGE_GROUPS` array in `js/age-groups-data.js`:
 
 ```js
-export const PEOPLE = [
-  { id: "asher", label: "Asher" },
-  { id: "ollie", label: "Ollie" },
-  { id: "parents", label: "Parents" },
-  { id: "grandma", label: "Grandma" },
+export const AGE_GROUPS = [
+  { id: "2-3", label: "2–3 years" },
+  { id: "4-6", label: "4–6 years" },
+  { id: "7-10", label: "7–10 years" },
+  { id: "11-15", label: "11–15 years" },
+  { id: "adult", label: "Adult" },
 ];
 ```
 
-Commit and push — the new tab shows up for everyone automatically.
+Commit and push — the new group shows up everywhere (member checkboxes,
+question assignment dropdown) automatically. Don't remove an id that's
+already in use, or those questions/memberships will silently stop
+matching anything.
 
 ## Files
 
 - `index.html` / `style.css` — page shell and all styling.
 - `js/main.js` — top-level section navigation and app bootstrapping.
 - `js/firebase.js` — shared Firebase init (anonymous auth + Firestore).
-- `js/questions.js` / `js/question-bank-data.js` — the Questions section
-  and its bundled trivia bank.
+- `js/users.js` — shared "family members" Firestore collection (state +
+  CRUD), used by Questions, Memorize, and Settings.
+- `js/age-groups-data.js` — the fixed list of age groups.
+- `js/questions-data.js` — shared "questions" Firestore collection (state
+  + CRUD + bulk import), used by both the quiz view and Settings.
+- `js/questions.js` — the kid-facing Questions quiz view (read-only).
+- `js/question-bank-data.js` / `js/family-question-bank.js` — the two
+  bundled question banks importable from Settings.
+- `js/settings.js` — the passcode-gated Settings section (member +
+  question administration).
 - `js/bible-data.js` — the 66-book/chapter-count table and the list of
   available translations.
 - `js/bible-api.js` — fetches chapter/verse text from bible-api.com, with
