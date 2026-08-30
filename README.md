@@ -3,15 +3,16 @@
 A tiny family Bible app with five sections, reached from the ☰ menu (tap
 the icon at the top-left):
 
+- **Reading Plan** — the default landing page. The daily plan (see
+  below) plus custom reading plans between any two chapters (e.g. all
+  of Judges, or 1 Samuel through 2 Kings for "the kings of Israel"),
+  with a checklist to track progress.
 - **Questions** — one tab per family member, each showing a random-question
   quiz card (with answer reveal, and ✅ Correct / ❌ Wrong buttons that track
   a score and automatically resurface missed questions). Read-only and
   kid-safe — no editing controls live here.
 - **Bible** — read the KJV, WEB, BBE, or WEBBE translation, any book and
   chapter, with Previous/Next chapter navigation.
-- **Planner** — build a custom reading plan between any two chapters (e.g.
-  all of Judges, or 1 Samuel through 2 Kings for "the kings of Israel"),
-  and check off chapters as you read them.
 - **Memorize** — a bank of King James verses with two practice modes:
   guess the reference from the verse (multiple choice or type-in), and
   fill in the first letter of each word given the reference, with 5
@@ -161,7 +162,7 @@ needing the Setup passcode. Same fields as Setup's question form
 the current book/chapter — and age-group assignment); it adds straight
 into the shared question pool.
 
-### Planner
+### Reading Plan
 
 - **Daily Reading** (top of the section): the classic "Bible Companion"
   plan — two Old Testament passages plus one New Testament passage per
@@ -243,7 +244,7 @@ matching anything.
 - `js/bible-api.js` — fetches chapter/verse text from bible-api.com, with
   localStorage caching.
 - `js/bible-reader.js` — the Bible reading section.
-- `js/planner.js` — the daily reading card and the custom reading planner.
+- `js/planner.js` — the Reading Plan section (daily reading card + custom reading plans).
 - `js/default-reading-plan.js` — the 365-day default reading plan data
   and its passage-label parser (used to jump to a reading in the Bible
   section).

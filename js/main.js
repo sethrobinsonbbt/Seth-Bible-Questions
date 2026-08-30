@@ -5,12 +5,14 @@ import { mountPlanner } from "./planner.js";
 import { mountMemorize } from "./memorize.js";
 import { mountSettings } from "./settings.js";
 
-// "settings" gets a visual divider in the menu (see renderSideMenu) since
-// it's an admin-only area, distinct from the family-facing sections above it.
+// "planner" (Reading Plan) is listed first, so it's both the top menu item
+// and the default landing section. "settings" gets a visual divider in the
+// menu (see renderSideMenu) since it's an admin-only area, distinct from
+// the family-facing sections above it.
 const SECTIONS = [
+  { id: "planner", label: "Reading Plan", mount: mountPlanner },
   { id: "questions", label: "Questions", mount: mountQuestions },
   { id: "bible", label: "Bible", mount: mountBibleReader },
-  { id: "planner", label: "Planner", mount: mountPlanner },
   { id: "memorize", label: "Memorize", mount: mountMemorize },
   { id: "settings", label: "🔒 Setup", mount: mountSettings, divider: true },
 ];
