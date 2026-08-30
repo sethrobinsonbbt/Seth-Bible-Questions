@@ -156,8 +156,9 @@ aren't included — you're welcome to add one yourself in
 - **Daily Reading** (top of the section): the classic "Bible Companion"
   plan — two Old Testament passages plus one New Testament passage per
   calendar day, repeating every year (see `js/default-reading-plan.js`).
-  Opens to today by default; use **‹ / ›** to browse other days and
-  **Jump to Today** to snap back. Each of the day's three readings has
+  Opens to today by default; use **‹ / ›** to step a day at a time, the
+  **month/day dropdowns** to jump straight to any date, or **Jump to
+  Today** to snap back. Each of the day's three readings has
   its own checkbox (synced across devices) and a **Read** button that
   jumps straight to it in the **Bible** section.
 - **Custom Reading Plans** (below that): **+ New Plan** lets you name a

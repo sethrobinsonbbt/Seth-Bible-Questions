@@ -555,6 +555,22 @@ body {
   border-radius: 999px;
 }
 
+.daily-reading-picker {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.daily-reading-picker select {
+  flex: 1 1 auto;
+  border: none;
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+  font-size: 1rem;
+  background: rgba(255,255,255,0.92);
+  color: var(--text);
+}
+
 #daily-today-btn {
   margin-bottom: 0.6rem;
 }

@@ -13,6 +13,12 @@ let dailyProgress = { read1: false, read2: false, read3: false };
 let dailyUnsub = null;
 let refs = {};
 
+const MONTH_NAMES = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
+];
+const DAYS_IN_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31];
+
 function buildSkeleton(container) {
   container.innerHTML = `
     <div class="daily-reading-card">
@@ -20,6 +26,10 @@ function buildSkeleton(container) {
         <button id="daily-prev-btn" class="nav-icon-btn" aria-label="Previous day">‹</button>
         <div class="daily-reading-date" id="daily-reading-date"></div>
         <button id="daily-next-btn" class="nav-icon-btn" aria-label="Next day">›</button>
+      </div>
+      <div class="daily-reading-picker">
+        <select id="daily-month-select"></select>
+        <select id="daily-day-select"></select>
       </div>
       <button id="daily-today-btn" class="btn btn-small" hidden>Jump to Today</button>
       <ul class="plan-checklist" id="daily-reading-list"></ul>
@@ -63,10 +73,24 @@ function buildSkeleton(container) {
   refs.dailyDateLabel = container.querySelector("#daily-reading-date");
   refs.dailyTodayBtn = container.querySelector("#daily-today-btn");
   refs.dailyList = container.querySelector("#daily-reading-list");
+  refs.dailyMonthSelect = container.querySelector("#daily-month-select");
+  refs.dailyDaySelect = container.querySelector("#daily-day-select");
 
   refs.dailyPrevBtn.addEventListener("click", () => shiftDailyDate(-1));
   refs.dailyNextBtn.addEventListener("click", () => shiftDailyDate(1));
   refs.dailyTodayBtn.addEventListener("click", jumpToToday);
+
+  MONTH_NAMES.forEach((name, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i + 1);
+    opt.textContent = name;
+    refs.dailyMonthSelect.appendChild(opt);
+  });
+  refs.dailyMonthSelect.addEventListener("change", () => {
+    populateDaySelect(Number(refs.dailyMonthSelect.value));
+    goToPickedDate();
+  });
+  refs.dailyDaySelect.addEventListener("change", goToPickedDate);
 
   refs.tabs = container.querySelector("#plan-tabs");
   refs.detail = container.querySelector("#plan-detail");
@@ -282,6 +306,29 @@ function toggleDailyRead(index) {
     .set({ [field]: !dailyProgress[field] }, { merge: true });
 }
 
+function populateDaySelect(month) {
+  const count = DAYS_IN_MONTH[month - 1];
+  const previous = refs.dailyDaySelect.value;
+  refs.dailyDaySelect.innerHTML = "";
+  for (let i = 1; i <= count; i++) {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = String(i);
+    refs.dailyDaySelect.appendChild(opt);
+  }
+  refs.dailyDaySelect.value = previous && Number(previous) <= count ? previous : "1";
+}
+
+function goToPickedDate() {
+  const month = Number(refs.dailyMonthSelect.value);
+  const day = Number(refs.dailyDaySelect.value);
+  const d = new Date(dailyDate);
+  d.setMonth(month - 1, day);
+  dailyDate = d;
+  subscribeDaily(dailyDate);
+  renderDaily();
+}
+
 function shiftDailyDate(delta) {
   const d = new Date(dailyDate);
   d.setDate(d.getDate() + delta);
@@ -304,6 +351,11 @@ function renderDaily() {
     dailyDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) +
     (isToday ? " · Today" : "");
   refs.dailyTodayBtn.hidden = isToday;
+
+  const month = dailyDate.getMonth() + 1;
+  refs.dailyMonthSelect.value = String(month);
+  populateDaySelect(month);
+  refs.dailyDaySelect.value = String(dailyDate.getDate());
 
   refs.dailyList.innerHTML = "";
   if (!readings) return;
