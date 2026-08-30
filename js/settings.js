@@ -490,13 +490,18 @@ function downloadFile(filename, content, mimeType) {
   URL.revokeObjectURL(url);
 }
 
-// A paste-or-upload JSON import flow: parses rows, flags ones that look like
-// duplicates of something already here (matched via `keyFn`), and shows a
-// preview with counts before anything is actually added. Duplicates are
-// skipped by default and existing items are never touched — this is
-// strictly additive — so re-importing the same file twice is always safe
-// unless "import duplicates too" is deliberately checked.
-function openImportModal({ title, hint, sampleText, existingItems, keyFn, parseRows, describeRow, onImportRow, downloadTemplate }) {
+// A paste-or-upload JSON import flow: parses rows, matches each one against
+// what's already here, and shows a preview with counts before anything is
+// actually added. A row that matches an existing item updates it in place
+// (including any text change) instead of adding a duplicate; only rows that
+// don't match anything become new items — so re-importing the same file
+// (edited or not) is always safe.
+//
+// Matching is either `matchFn(row, existingItems)` — for callers that want
+// ID-first matching (an "id" column, when present and still valid, wins;
+// otherwise it falls back to a content key) — or the simpler `keyFn(item)`,
+// used to build a one-time lookup map when there's no id column at all.
+function openImportModal({ title, hint, sampleText, existingItems, keyFn, matchFn, parseRows, describeRow, onImportRow, downloadTemplate }) {
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
   backdrop.innerHTML = `
@@ -546,7 +551,8 @@ function openImportModal({ title, hint, sampleText, existingItems, keyFn, parseR
     reader.readAsText(file);
   });
 
-  const existingByKey = new Map(existingItems.map((item) => [keyFn(item), item]));
+  const existingByKey = keyFn ? new Map(existingItems.map((item) => [keyFn(item), item])) : null;
+  const findMatch = matchFn ? (row) => matchFn(row, existingItems) : (row) => existingByKey.get(keyFn(row));
   let readyRows = null;
 
   previewBtn.addEventListener("click", () => {
@@ -569,7 +575,7 @@ function openImportModal({ title, hint, sampleText, existingItems, keyFn, parseR
       return;
     }
 
-    readyRows = rows.map((row) => ({ row, existingMatch: existingByKey.get(keyFn(row)) }));
+    readyRows = rows.map((row) => ({ row, existingMatch: findMatch(row) }));
     const updateCount = readyRows.filter((r) => r.existingMatch).length;
 
     previewEl.hidden = false;
@@ -1038,7 +1044,22 @@ function questionKey(item) {
   return normalizeForMatch(item.text);
 }
 
+// A row with a still-valid "id" matches that exact question, however much
+// its text has changed — that's what lets you rename a question on
+// re-import instead of just editing everything but the wording. A row
+// without an id (freshly typed, or from an export made before this column
+// existed) falls back to matching by text, same as before.
+function questionMatchFn(row, existingItems) {
+  if (row.id) {
+    const byId = existingItems.find((q) => q.id === row.id);
+    if (byId) return byId;
+  }
+  const key = questionKey(row);
+  return existingItems.find((q) => questionKey(q) === key) || null;
+}
+
 const QUESTION_CSV_HEADERS = [
+  "id",
   "text",
   "answer",
   "reference",
@@ -1071,6 +1092,7 @@ function joinPipe(list) {
 
 function exportQuestions() {
   const rows = questions.map((q) => ({
+    id: q.id,
     text: q.text,
     answer: q.answer || "",
     reference: q.reference || "",
@@ -1125,6 +1147,7 @@ function parseQuestionRows(raw) {
     const type = QUESTION_TYPES.some((t) => t.id === rawType) ? rawType : "classic";
 
     const row = {
+      id: (item.id || "").toString().trim() || null,
       text,
       answer: (item.answer || "").toString().trim(),
       reference: (item.reference || "").toString().trim(),
@@ -1180,10 +1203,10 @@ function openQuestionImportModal() {
     title: "Import Questions",
     hint: `Open the template in Excel/Sheets, fill in a row per question, then either save it as a .csv and upload it, or just copy the cells and paste them below. Columns: text, answer, reference (optional), assignedTo — one of ${AGE_GROUPS.map(
       (g) => `"${g.id}"`
-    ).join(", ")} (or leave it blank for Unassigned). Leave "type" blank for a classic question. For Multiple Choice, set type to "multiple-choice" and fill "choices" and "correctChoice" (choices separated by | , e.g. "Genesis|Exodus|Leviticus"). For Put in Order, set type to "order" and list "items" separated by | in the correct order. For Select All, set type to "select-all" and fill "options" and "correctOptions" (also | -separated). Download the template below for worked examples of each.`,
+    ).join(", ")} (or leave it blank for Unassigned). Leave "type" blank for a classic question. For Multiple Choice, set type to "multiple-choice" and fill "choices" and "correctChoice" (choices separated by | , e.g. "Genesis|Exodus|Leviticus"). For Put in Order, set type to "order" and list "items" separated by | in the correct order. For Select All, set type to "select-all" and fill "options" and "correctOptions" (also | -separated). "id" is filled in automatically when you Export — leave it in place to update that exact question (even a text change is treated as an edit, not a new question) or clear it to add a brand-new one. Download the template below for worked examples of each.`,
     sampleText: "text, answer, reference, assignedTo\nWho built the ark?, Noah, Genesis 6:14, 7-10",
     existingItems: questions,
-    keyFn: questionKey,
+    matchFn: questionMatchFn,
     parseRows: parseQuestionRows,
     describeRow: (row) => row.text + (row.answer ? ` — ${row.answer}` : row.type !== "classic" ? ` (${questionTypeLabel(row.type)})` : ""),
     onImportRow: (row, existingMatch) => {

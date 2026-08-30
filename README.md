@@ -382,14 +382,21 @@ a Switch Family action:
   (also still accepts an old JSON export) — **⬇️ Download template**
   in the Import dialog gives you a starter file with the right columns.
   Import shows a preview before anything is added (now properly
-  scrollable if it runs long): rows whose text matches a question
-  already in the library (tolerating the odd curly-quote/whitespace
-  changes Excel/Sheets tend to introduce on a round-trip) update that
-  question's answer/reference/assignment in place instead of adding a
-  duplicate — the whole point being that exporting your questions,
-  editing them, and re-importing is a safe way to bulk-edit, not
-  something that doubles everything up. Only genuinely new question
-  text gets added as a new question.
+  scrollable if it runs long): the exported CSV's first column is an
+  **id** — a row whose id still matches a question here updates that
+  exact question in place (text, answer, reference, type, everything),
+  *even if you changed the wording* — so renaming a question is a normal
+  edit, not something that creates a duplicate or orphans the old one.
+  Clear the id (or leave it blank on a freshly-typed row) to add a
+  brand-new question instead. Rows with no id, or an id that no longer
+  matches anything, fall back to matching by the question's text
+  (tolerating the odd curly-quote/whitespace change Excel/Sheets tend to
+  introduce on a round-trip) — this is what makes an old export (from
+  before the id column existed) or a hand-typed row still work sensibly.
+  The whole point is that exporting your questions, editing them
+  (renames included), and re-importing is a safe way to bulk-edit, not
+  something that doubles everything up or loses everyone's progress on a
+  question you just wanted to reword.
   - **Question types** — the **Type** dropdown on Add/Edit switches
     between four kinds. **Classic** is the original type an answer,
     self-graded Right/Wrong. **Multiple Choice** shows a few choices and
