@@ -1771,6 +1771,31 @@ body {
   font-size: 1.3rem;
 }
 
+.about-service {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+}
+
+.about-service-detail {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.import-dupe-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0.4rem 0;
+}
+
 .question-filter-row {
   display: flex;
   gap: 0.5rem;

@@ -23,6 +23,7 @@ import {
 import {
   subscribeMemoryVerses,
   subscribeVerseCategories,
+  addMemoryVerse,
   addVerseCategory,
   updateVerseCategory,
   deleteVerseCategory,
@@ -53,7 +54,41 @@ let addingCategory = false;
 // open the subpage, so browsing questions never accidentally exposes
 // edit/delete controls until you deliberately tap to unlock them.
 let libraryUnlocked = false;
+// About/Credits lists real account details (an email, a username, a
+// monthly cost) — not just admin controls — so it gets the same
+// re-locks-every-time treatment as the Question Library, on top of the
+// outer Setup passcode.
+let aboutUnlocked = false;
 let refs = {};
+
+// What this site runs on — shown (passcode-gated) on the About subpage.
+// Not a secret from the family, but real account details that shouldn't
+// be casually stumbled into, since this is a public site with no real
+// login (see the passcode fineprint above).
+const ABOUT_SERVICES = [
+  {
+    icon: "🌐",
+    name: "GitHub Pages",
+    detail: "Hosts this site's files (free, static — no server). Account: seth@bigbrandtire.com.",
+  },
+  {
+    icon: "🔥",
+    name: "Firebase",
+    detail: "Firestore database + anonymous sign-in — this is what syncs family members, questions, and progress across devices (free Spark plan). Account: sethjrobinson@gmail.com (Google).",
+  },
+  {
+    icon: "🐷",
+    name: "Porkbun",
+    detail:
+      "Domain registration. Username: sethjrobinson. Renews yearly, next due August 29, 2027 for all three: " +
+      "christadelphian.family ($31.41/yr), christadelphian.bible ($41.88/yr), christadelphian.shop ($31.41/yr).",
+  },
+  {
+    icon: "📖",
+    name: "bible-api.com",
+    detail: "Free public Bible text API — kept only as an automatic fallback now that the KJV text is bundled with the app itself.",
+  },
+];
 
 function isUnlocked() {
   try {
@@ -323,6 +358,134 @@ function buildFamilyView(container) {
   renderReadingPlanStat();
 }
 
+// ---------- Bulk import/export (shared by Question Library & Memory Verses) ----------
+
+function downloadJson(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// A paste-or-upload JSON import flow: parses rows, flags ones that look like
+// duplicates of something already here (matched via `keyFn`), and shows a
+// preview with counts before anything is actually added. Duplicates are
+// skipped by default and existing items are never touched — this is
+// strictly additive — so re-importing the same file twice is always safe
+// unless "import duplicates too" is deliberately checked.
+function openImportModal({ title, hint, sampleText, existingItems, keyFn, parseRows, describeRow, onImportRow }) {
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  backdrop.innerHTML = `
+    <div class="modal">
+      <h3>${escapeHtml(title)}</h3>
+      <p class="settings-fineprint">${hint}</p>
+      <label for="import-file-input">Upload a .json file</label>
+      <input id="import-file-input" type="file" accept="application/json,.json" />
+      <label for="import-textarea">…or paste JSON here</label>
+      <textarea id="import-textarea" rows="8" placeholder="${escapeHtml(sampleText)}"></textarea>
+      <p id="import-error" class="form-error" hidden></p>
+      <div id="import-preview" class="settings-panel" hidden></div>
+      <div class="modal-actions">
+        <button id="import-cancel-btn" class="btn">Cancel</button>
+        <button id="import-preview-btn" class="btn">Preview</button>
+        <button id="import-confirm-btn" class="btn btn-primary" hidden>Import</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const close = () => backdrop.remove();
+  backdrop.addEventListener("click", (e) => {
+    if (e.target === backdrop) close();
+  });
+  backdrop.querySelector("#import-cancel-btn").addEventListener("click", close);
+
+  const fileInput = backdrop.querySelector("#import-file-input");
+  const textarea = backdrop.querySelector("#import-textarea");
+  const errorEl = backdrop.querySelector("#import-error");
+  const previewEl = backdrop.querySelector("#import-preview");
+  const previewBtn = backdrop.querySelector("#import-preview-btn");
+  const confirmBtn = backdrop.querySelector("#import-confirm-btn");
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      textarea.value = reader.result;
+    };
+    reader.readAsText(file);
+  });
+
+  const existingKeys = new Set(existingItems.map(keyFn));
+  let readyRows = null;
+
+  previewBtn.addEventListener("click", () => {
+    errorEl.hidden = true;
+    previewEl.hidden = true;
+    confirmBtn.hidden = true;
+    readyRows = null;
+
+    let rows;
+    try {
+      rows = parseRows(textarea.value);
+    } catch (err) {
+      errorEl.textContent = err.message || "Couldn't read that as JSON.";
+      errorEl.hidden = false;
+      return;
+    }
+    if (rows.length === 0) {
+      errorEl.textContent = "No rows found.";
+      errorEl.hidden = false;
+      return;
+    }
+
+    readyRows = rows.map((row) => ({ row, isDuplicate: existingKeys.has(keyFn(row)) }));
+    const dupCount = readyRows.filter((r) => r.isDuplicate).length;
+
+    previewEl.hidden = false;
+    previewEl.innerHTML = `
+      <p>${rows.length} row${rows.length === 1 ? "" : "s"} found${
+        dupCount > 0 ? ` — ${dupCount} look${dupCount === 1 ? "s" : ""} like ${dupCount === 1 ? "a duplicate" : "duplicates"} of something already here` : ""
+      }.</p>
+      ${dupCount > 0 ? `<label class="import-dupe-toggle"><input type="checkbox" id="import-include-dupes" /> Import duplicates too (adds a second copy instead of skipping them)</label>` : ""}
+      <ul class="question-list">
+        ${readyRows
+          .slice(0, 20)
+          .map(
+            ({ row, isDuplicate }) =>
+              `<li class="question-card"><p class="question-text">${escapeHtml(describeRow(row))}</p>${
+                isDuplicate ? `<p class="question-score">🔁 looks like a duplicate</p>` : ""
+              }</li>`
+          )
+          .join("")}
+        ${readyRows.length > 20 ? `<li>…and ${readyRows.length - 20} more</li>` : ""}
+      </ul>
+    `;
+    confirmBtn.hidden = false;
+  });
+
+  confirmBtn.addEventListener("click", () => {
+    if (!readyRows) return;
+    const includeDupesBox = backdrop.querySelector("#import-include-dupes");
+    const includeDupes = includeDupesBox ? includeDupesBox.checked : false;
+    let count = 0;
+    readyRows.forEach(({ row, isDuplicate }) => {
+      if (isDuplicate && !includeDupes) return;
+      onImportRow(row);
+      count++;
+    });
+    close();
+    alert(`Imported ${count} ${count === 1 ? "item" : "items"}.${count < readyRows.length ? ` (${readyRows.length - count} duplicate${readyRows.length - count === 1 ? "" : "s"} skipped.)` : ""}`);
+  });
+}
+
 // ---------- Question Library subpage ----------
 
 function filteredQuestions() {
@@ -509,6 +672,57 @@ function closeAddQuestionModal() {
   refs.qModalBackdrop.hidden = true;
 }
 
+function questionKey(item) {
+  return (item.text || "").trim().toLowerCase();
+}
+
+function exportQuestions() {
+  const data = questions.map((q) => ({
+    text: q.text,
+    answer: q.answer || "",
+    reference: q.reference || "",
+    assignedTo: q.assignedTo || "",
+  }));
+  downloadJson(`questions-export-${new Date().toISOString().slice(0, 10)}.json`, data);
+}
+
+function parseQuestionRows(raw) {
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    throw new Error("That's not valid JSON.");
+  }
+  if (!Array.isArray(data)) {
+    throw new Error('Expected a JSON array, e.g. [{"text": "...", "answer": "...", "reference": "...", "assignedTo": "..."}].');
+  }
+  return data.map((item, i) => {
+    const text = ((item && item.text) || "").toString().trim();
+    if (!text) throw new Error(`Row ${i + 1} is missing "text".`);
+    return {
+      text,
+      answer: ((item && item.answer) || "").toString().trim(),
+      reference: ((item && item.reference) || "").toString().trim(),
+      assignedTo: ((item && item.assignedTo) || "").toString().trim() || null,
+    };
+  });
+}
+
+function openQuestionImportModal() {
+  openImportModal({
+    title: "Import Questions",
+    hint: `Paste or upload a JSON array of questions. "assignedTo" is one of ${AGE_GROUPS.map((g) => `"${g.id}"`).join(
+      ", "
+    )} (or leave it blank for Unassigned).`,
+    sampleText: '[\n  {"text": "Who built the ark?", "answer": "Noah", "reference": "Genesis 6:14", "assignedTo": "7-10"}\n]',
+    existingItems: questions,
+    keyFn: questionKey,
+    parseRows: parseQuestionRows,
+    describeRow: (row) => row.text + (row.answer ? ` — ${row.answer}` : ""),
+    onImportRow: (row) => addQuestion(row.text, row.answer, row.reference, row.assignedTo),
+  });
+}
+
 function buildLibraryView(container) {
   refs = {};
   container.innerHTML = `
@@ -524,7 +738,11 @@ function buildLibraryView(container) {
     </div>
     ${
       libraryUnlocked
-        ? `<div class="list-toolbar-actions"><button id="add-question-btn" class="btn btn-primary">+ Add Question</button></div>`
+        ? `<div class="list-toolbar-actions">
+            <button id="add-question-btn" class="btn btn-primary">+ Add Question</button>
+            <button id="export-questions-btn" class="btn btn-small">⬇️ Export</button>
+            <button id="import-questions-btn" class="btn btn-small">⬆️ Import</button>
+          </div>`
         : `<p class="settings-fineprint">🔒 Locked — tap the lock above to reassign, edit, or delete questions.</p>`
     }
     <ul id="admin-question-list" class="question-list"></ul>
@@ -582,6 +800,8 @@ function buildLibraryView(container) {
     refs.qModalError = container.querySelector("#settings-question-error");
 
     container.querySelector("#add-question-btn").addEventListener("click", openAddQuestionModal);
+    container.querySelector("#export-questions-btn").addEventListener("click", exportQuestions);
+    container.querySelector("#import-questions-btn").addEventListener("click", openQuestionImportModal);
     container.querySelector("#settings-question-cancel-btn").addEventListener("click", closeAddQuestionModal);
     refs.qModalBackdrop.addEventListener("click", (e) => {
       if (e.target === refs.qModalBackdrop) closeAddQuestionModal();
@@ -757,6 +977,53 @@ function renderVersesAdmin() {
   });
 }
 
+function verseKey(item) {
+  return (item.reference || "").trim().toLowerCase();
+}
+
+function exportVerses() {
+  const data = memoryVerses.map((v) => {
+    const cat = verseCategories.find((c) => c.id === v.categoryId);
+    return { reference: v.reference, text: v.text, category: cat ? cat.name : "" };
+  });
+  downloadJson(`memory-verses-export-${new Date().toISOString().slice(0, 10)}.json`, data);
+}
+
+function parseVerseRows(raw) {
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    throw new Error("That's not valid JSON.");
+  }
+  if (!Array.isArray(data)) {
+    throw new Error('Expected a JSON array, e.g. [{"reference": "John 3:16", "text": "...", "category": "Salvation"}].');
+  }
+  return data.map((item, i) => {
+    const reference = ((item && item.reference) || "").toString().trim();
+    const text = ((item && item.text) || "").toString().trim();
+    if (!reference || !text) throw new Error(`Row ${i + 1} needs both "reference" and "text".`);
+    const categoryName = ((item && item.category) || "").toString().trim();
+    const match = categoryName && verseCategories.find((c) => c.name.toLowerCase() === categoryName.toLowerCase());
+    return { reference, text, categoryId: match ? match.id : null, categoryName };
+  });
+}
+
+function openVerseImportModal() {
+  openImportModal({
+    title: "Import Memory Verses",
+    hint: 'Paste or upload a JSON array of verses. "category" should match an existing category name exactly (see above) — anything else, or left blank, comes in Uncategorized.',
+    sampleText: '[\n  {"reference": "John 3:16", "text": "For God so loved the world...", "category": "Salvation"}\n]',
+    existingItems: memoryVerses,
+    keyFn: verseKey,
+    parseRows: parseVerseRows,
+    describeRow: (row) =>
+      `${row.reference} — ${row.text.length > 70 ? row.text.slice(0, 70) + "…" : row.text}` +
+      (row.categoryName && !row.categoryId ? ` (category "${row.categoryName}" not found — will be Uncategorized)` : ""),
+    onImportRow: (row) => addMemoryVerse(row.reference, row.text, row.categoryId),
+  });
+}
+
 function buildMemoryVersesView(container) {
   refs = {};
   container.innerHTML = `
@@ -778,6 +1045,10 @@ function buildMemoryVersesView(container) {
     <div class="settings-panel">
       <div class="list-toolbar">
         <h2>All Verses</h2>
+        <div class="list-toolbar-actions">
+          <button id="export-verses-btn" class="btn btn-small">⬇️ Export</button>
+          <button id="import-verses-btn" class="btn btn-small">⬆️ Import</button>
+        </div>
       </div>
       <ul id="verse-admin-list" class="question-list"></ul>
       <p id="verse-admin-empty" class="empty-state" hidden>No memory verses yet — add some from the Memorize page.</p>
@@ -794,9 +1065,76 @@ function buildMemoryVersesView(container) {
     addingCategory = true;
     renderCategories();
   });
+  container.querySelector("#export-verses-btn").addEventListener("click", exportVerses);
+  container.querySelector("#import-verses-btn").addEventListener("click", openVerseImportModal);
 
   renderCategories();
   renderVersesAdmin();
+}
+
+// ---------- About / Credits subpage ----------
+
+function buildAboutView(container) {
+  refs = {};
+
+  if (!aboutUnlocked) {
+    container.innerHTML = `
+      <div class="settings-header">
+        <button id="about-back-btn" class="btn btn-small">← Setup</button>
+        <h2>ℹ️ About</h2>
+        <span></span>
+      </div>
+      <div class="settings-lock">
+        <p>This page lists the actual accounts this site runs on — enter the passcode again to view it.</p>
+        <input id="about-password-input" type="password" inputmode="numeric" placeholder="Passcode" />
+        <p id="about-password-error" class="form-error" hidden>That's not it — try again.</p>
+        <button id="about-unlock-btn" class="btn btn-primary">Unlock</button>
+      </div>
+    `;
+    container.querySelector("#about-back-btn").addEventListener("click", () => buildMainView(container));
+    const input = container.querySelector("#about-password-input");
+    const submit = () => {
+      if (input.value === SETUP_PASSWORD) {
+        aboutUnlocked = true;
+        buildAboutView(container);
+      } else {
+        container.querySelector("#about-password-error").hidden = false;
+        input.value = "";
+        input.focus();
+      }
+    };
+    container.querySelector("#about-unlock-btn").addEventListener("click", submit);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") submit();
+    });
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="settings-header">
+      <button id="about-back-btn" class="btn btn-small">← Setup</button>
+      <h2>ℹ️ About</h2>
+      <button id="about-lock-btn" class="btn btn-small">🔓 Viewing</button>
+    </div>
+    <p class="settings-fineprint">What this site runs on. This list includes real account details —
+    it's tucked behind the passcode, but remember that's a soft deterrent, not real security
+    (see the note on the main Setup screen).</p>
+    <ul class="settings-nav-list">
+      ${ABOUT_SERVICES.map(
+        (s) => `
+        <li class="about-service">
+          <span class="settings-nav-icon">${s.icon}</span>
+          <span class="settings-nav-text"><strong>${escapeHtml(s.name)}</strong><span class="about-service-detail">${escapeHtml(s.detail)}</span></span>
+        </li>`
+      ).join("")}
+    </ul>
+  `;
+
+  container.querySelector("#about-back-btn").addEventListener("click", () => buildMainView(container));
+  container.querySelector("#about-lock-btn").addEventListener("click", () => {
+    aboutUnlocked = false;
+    buildAboutView(container);
+  });
 }
 
 // ---------- Data export ----------
@@ -866,6 +1204,11 @@ function buildMainView(container) {
         <span class="settings-nav-text"><strong>Memory Verses</strong><span id="memverses-count"></span></span>
         <span class="settings-nav-chevron">›</span>
       </button></li>
+      <li><button id="open-about-btn" class="settings-nav-link">
+        <span class="settings-nav-icon">ℹ️</span>
+        <span class="settings-nav-text"><strong>About</strong><span>What this site runs on</span></span>
+        <span class="settings-nav-chevron">›</span>
+      </button></li>
     </ul>
 
     <div class="settings-panel">
@@ -894,6 +1237,10 @@ function buildMainView(container) {
     buildLibraryView(container);
   });
   container.querySelector("#open-memverses-btn").addEventListener("click", () => buildMemoryVersesView(container));
+  container.querySelector("#open-about-btn").addEventListener("click", () => {
+    aboutUnlocked = false; // always opens locked; tap through with the passcode to view
+    buildAboutView(container);
+  });
 
   renderNavCounts();
 }

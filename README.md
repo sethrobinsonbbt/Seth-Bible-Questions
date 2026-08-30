@@ -257,7 +257,7 @@ device, so it doesn't need to be reselected every visit.
 ### 🔒 Setup
 
 Enter the passcode (default `1967`, see the security note above) to
-unlock the landing page, which just links to three subpages, plus a
+unlock the landing page, which just links to four subpages, plus a
 Backup panel:
 
 - **👪 Family Members** — **+ Add Member** to name someone and check
@@ -281,14 +281,34 @@ Backup panel:
   e.g. "Genesis 1:3", and an age-group assignment or leave it
   **Unassigned**). Editing an existing question still allows a blank
   answer, since some imported questions (e.g. "Name some of the Ten
-  Commandments") are intentionally open-ended.
+  Commandments") are intentionally open-ended. While unlocked, **⬇️
+  Export** / **⬆️ Import** let you bulk-manage the library as JSON —
+  handy for drafting a big batch of questions elsewhere (a spreadsheet,
+  a text editor, asking an AI to generate some) and bringing them in at
+  once. Import shows a preview before anything is added: rows whose
+  text exactly matches a question already in the library are flagged as
+  likely duplicates and skipped by default (existing questions are
+  never overwritten), with a checkbox to import them anyway if you
+  really do want a second copy.
 - **✍️ Memory Verses** — **Categories**: **+ Add Category** to name a
   group (e.g. "Salvation", "Peace"); **Rename** or **Delete** any of them
   (deleting a category un-categorizes its verses rather than deleting
   the verses themselves). **All Verses**: every memory verse with a
-  dropdown to file it under a category (or leave it **Uncategorized**).
-  Adding verses themselves still happens from the Memorize page (see
-  below) — this subpage is just for organizing what's already there.
+  dropdown to file it under a category (or leave it **Uncategorized**),
+  plus its own **⬇️ Export** / **⬆️ Import** for bulk-adding verses the
+  same way as the Question Library above (matched to a category by
+  name; an unrecognized or missing category name comes in
+  Uncategorized). Adding verses one at a time still happens from the
+  Memorize page (see below) — this subpage is for organizing what's
+  already there and bulk import/export.
+- **ℹ️ About** — opens its own passcode prompt (re-entered every time,
+  like the Question Library's edit lock) before showing what this site
+  actually runs on: the GitHub account hosting it, the Firebase project
+  behind the family data, and the Porkbun account/domains/renewal dates.
+  This is real account information, not just admin controls, so it's
+  worth remembering the passcode note above applies here too — anyone
+  reading this repo's source on GitHub, or a browser's dev tools, can
+  see it regardless of the passcode.
 - **Backup**: **⬇️ Export All Data** downloads every collection (family
   members, questions, memory verses, verse categories, reading plans,
   and all reading progress) as one JSON file — a manual safety net
