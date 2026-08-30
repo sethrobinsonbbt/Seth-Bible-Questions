@@ -34,8 +34,8 @@ device, driving whose score gets tracked wherever progress applies
   since there's nothing to hide from the adult reading it to them.
   Adding/deleting questions still lives in Setup.
 - **Memorize** — a bank of King James verses, filed into three per-person
-  buckets (Memorizing — a brain icon / Future Memorization — a calendar
-  / Already Memorized — a lightbulb with a checkmark; pick one per verse
+  buckets (Memorizing — a brain icon / Future — a calendar
+  / Complete — a lightbulb with a checkmark; pick one per verse
   from a compact icon-only dropdown), and further filterable by any
   custom categories you make in Setup. A small
   mastery dot per verse (gray until practiced, then green-to-red by how
@@ -524,13 +524,13 @@ Attempts get tracked under whoever's picked in the **User** dropdown in
 the header — this is optional; practicing without picking anyone just
 won't record a score.
 
-The home view: a **Memorizing / Future Memorization / Already Memorized**
+The home view: a **Memorizing / Future / Complete**
 tab row along the top — three per-person buckets a verse can be filed
 under (see the per-verse picker below), defaulting to Memorizing so
 every newly-added verse (and anything added before buckets existed)
 starts in the main working set — a brain icon for Memorizing (actively
-working on it), a calendar for Future Memorization, a lightbulb with a
-checkmark for Already Memorized (got it). Below that, category chips —
+working on it), a calendar for Future, a lightbulb with a
+checkmark for Complete (got it). Below that, category chips —
 skipped entirely until you make at
 least one custom category in Setup — a **✍️ Fill in the Blank** /
 **🗂️ Flashcards** tab that picks which mode

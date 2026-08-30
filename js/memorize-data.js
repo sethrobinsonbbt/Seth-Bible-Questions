@@ -96,8 +96,8 @@ export function recordVerseProgress(verseId, userId, wasCorrect, attemptScore) {
     });
 }
 
-// Which of the three per-user buckets (Memorizing / Future Memorization /
-// Already Memorized — see BUCKETS in memorize.js) a verse is filed under.
+// Which of the three per-user buckets (Memorizing / Future / Complete —
+// see BUCKETS in memorize.js) a verse is filed under.
 export function setVerseBucket(verseId, userId, bucket) {
   if (!db || !userId) return;
   db.collection("memoryVerses").doc(verseId).update({ [`buckets.${userId}`]: bucket });

@@ -1,5 +1,5 @@
-// Verse memorization. Home view: a Memorizing/Future Memorization/Already
-// Memorized bucket tab row (per-user, see BUCKETS below), category chips
+// Verse memorization. Home view: a Memorizing/Future/Complete bucket tab
+// row (per-user, see BUCKETS below), category chips
 // below that (skipped entirely if no custom categories exist yet), a
 // Fill in the Blank / Flashcards mode tab, a Play button, and the verse
 // list itself — each card showing a mastery dot and an icon-only bucket
@@ -52,18 +52,18 @@ const MAX_WRONG_ATTEMPTS = 3;
 
 // The three per-user buckets a verse can be filed under, replacing the
 // old "Delete" action — verses aren't removed, just moved between piles.
-// Same head silhouette for all three, distinguished only by the small
-// badge on the forehead (gear/clock/check) — see bucketIconSvg below.
+// The ids are stored as-is in Firestore (see setVerseBucket), so only the
+// display labels change if these get renamed again — never the ids.
 const BUCKETS = [
   { id: "memorizing", label: "Memorizing" },
-  { id: "future", label: "Future Memorization" },
-  { id: "memorized", label: "Already Memorized" },
+  { id: "future", label: "Future" },
+  { id: "memorized", label: "Complete" },
 ];
 
 // Three standalone icons (no head/silhouette) marking which bucket this
-// is — a brain (actively working on it — Memorizing), a calendar (Future
-// Memorization), or a lightbulb with a checkmark and idea rays (got it —
-// Already Memorized). Pure line art via currentColor, so it's
+// is — a brain (actively working on it — Memorizing), a calendar
+// (Future), or a lightbulb with a checkmark and idea rays (got it —
+// Complete). Pure line art via currentColor, so it's
 // automatically monochrome and adapts to the light/dark theme.
 const BUCKET_ICONS = {
   memorizing:

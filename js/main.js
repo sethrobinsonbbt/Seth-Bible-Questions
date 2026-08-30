@@ -77,7 +77,9 @@ function applyTheme() {
   }
   const btn = document.getElementById("theme-toggle-btn");
   if (!btn) return;
-  btn.textContent = pref === "dark" ? "🌙" : pref === "light" ? "☀️" : "🌓";
+  const icon = pref === "dark" ? "🌙" : pref === "light" ? "☀️" : "🌓";
+  const label = pref === "dark" ? "Dark" : pref === "light" ? "Light" : "Auto";
+  btn.textContent = `${icon} Theme: ${label}`;
   btn.setAttribute("aria-label", `Theme: ${pref || "auto"} — tap to change`);
 }
 
