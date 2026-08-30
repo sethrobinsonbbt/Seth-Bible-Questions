@@ -88,6 +88,16 @@ body {
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
 }
+.banner p {
+  margin: 0;
+}
+.app-banner {
+  max-width: 720px;
+  margin: 0 auto 1rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  box-sizing: border-box;
+}
 
 .random-card {
   background: linear-gradient(135deg, var(--indigo), var(--indigo-dark));
@@ -122,7 +132,15 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
   margin-bottom: 0.6rem;
+}
+
+.list-toolbar-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .list-toolbar h2 {
@@ -268,4 +286,245 @@ body {
   .modal {
     border-radius: 18px;
   }
+}
+
+/* ---------- Bible reader ---------- */
+
+.bible-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.bible-select {
+  flex: 1 1 auto;
+  min-width: 120px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  background: white;
+}
+
+.bible-nav-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.bible-content {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+}
+
+.bible-chapter-heading {
+  margin: 0 0 0.8rem;
+  font-size: 1.05rem;
+}
+
+.bible-verse {
+  margin: 0 0 0.6rem;
+  line-height: 1.55;
+}
+
+.bible-verse sup {
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-right: 0.15rem;
+}
+
+.bible-status {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 1.5rem 0;
+}
+
+.bible-error {
+  color: var(--danger);
+}
+
+/* ---------- Reading planner ---------- */
+
+.plan-tabs {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.plan-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+.plan-range {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+}
+
+.plan-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.plan-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.8rem;
+}
+
+.plan-row input[type="checkbox"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+}
+
+.plan-row-label {
+  flex: 1 1 auto;
+}
+
+.plan-row-done .plan-row-label {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.form-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin: 0.2rem 0 0;
+}
+
+/* ---------- Memorization ---------- */
+
+.add-verse-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.add-verse-row input {
+  flex: 1 1 auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  font-size: 1rem;
+}
+
+.practice-launch-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+
+.practice-launch-row[hidden] {
+  display: none;
+}
+
+.back-btn {
+  margin-bottom: 0.8rem;
+}
+
+.difficulty-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.memorize-verse-text {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  margin-bottom: 0.9rem;
+}
+
+.memorize-reference {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 0.3rem;
+}
+
+.blank-help {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0.2rem 0 0.8rem;
+}
+
+#blanks-level-select {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+.blank-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.3rem;
+  line-height: 2.4;
+  margin-bottom: 0.8rem;
+}
+
+.blank-word {
+  white-space: nowrap;
+}
+
+.letter-input {
+  width: 1.6rem;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.2rem;
+  font-size: 1rem;
+  text-transform: uppercase;
+}
+
+.letter-input.letter-correct {
+  border-color: #1a7a41;
+  background: #e6f6ec;
+}
+
+.letter-input.letter-wrong {
+  border-color: var(--danger);
+  background: #fde8e8;
+}
+
+.guess-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.guess-option-btn {
+  text-align: left;
+}
+
+.practice-feedback {
+  font-weight: 600;
+  min-height: 1.2em;
+}
+
+.feedback-correct {
+  color: #1a7a41;
+}
+
+.feedback-wrong {
+  color: var(--danger);
 }

@@ -1,9 +1,9 @@
-// Bible Questions app
-// Data model: Firestore collection "questions", each doc:
-//   { text: string, assignedTo: "asher" | "ollie" | "parents" | null, createdAt }
-// assignedTo === null means the question sits in the shared "Library" (unassigned).
+// "Questions" section: per-person tabs (Asher/Ollie/Parents) + a shared
+// Library of unassigned questions. See README.md for the data model.
+import { ready } from "./firebase.js";
+import { QUESTION_BANK } from "./question-bank-data.js";
 
-const PEOPLE = [
+export const PEOPLE = [
   { id: "asher", label: "Asher" },
   { id: "ollie", label: "Ollie" },
   { id: "parents", label: "Parents" },
@@ -22,65 +22,6 @@ const el = (id) => document.getElementById(id);
 function personLabel(id) {
   const p = PEOPLE.find((p) => p.id === id);
   return p ? p.label : id;
-}
-
-// ---------- Firebase setup ----------
-
-function isConfigPlaceholder() {
-  const cfg = window.FIREBASE_CONFIG || {};
-  return !cfg.apiKey || cfg.apiKey === "YOUR_API_KEY";
-}
-
-function initFirebase() {
-  const statusEl = el("connection-status");
-  const bannerEl = el("setup-banner");
-
-  if (isConfigPlaceholder()) {
-    bannerEl.hidden = false;
-    statusEl.hidden = false;
-    statusEl.textContent = "Not configured";
-    return;
-  }
-
-  try {
-    firebase.initializeApp(window.FIREBASE_CONFIG);
-    db = firebase.firestore();
-    statusEl.hidden = false;
-    statusEl.textContent = "Connecting…";
-
-    // Silent anonymous sign-in so the Firestore data isn't wide open to the
-    // public internet, without requiring an actual login screen. See README.md.
-    firebase
-      .auth()
-      .signInAnonymously()
-      .catch((err) => {
-        console.error(err);
-        statusEl.textContent = "Auth error";
-        statusEl.classList.remove("ok");
-      });
-
-    firebase.auth().onAuthStateChanged((user) => {
-      if (!user) return;
-      db.collection("questions").onSnapshot(
-        (snapshot) => {
-          allQuestions = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-          statusEl.textContent = "Synced";
-          statusEl.classList.add("ok");
-          render();
-        },
-        (err) => {
-          console.error(err);
-          statusEl.textContent = "Connection error";
-          statusEl.classList.remove("ok");
-        }
-      );
-    });
-  } catch (err) {
-    console.error(err);
-    bannerEl.hidden = false;
-    statusEl.hidden = false;
-    statusEl.textContent = "Config error";
-  }
 }
 
 // ---------- Firestore actions ----------
@@ -107,6 +48,27 @@ function updateQuestionAssignment(id, assignedTo) {
 function deleteQuestion(id) {
   if (!db) return;
   db.collection("questions").doc(id).delete();
+}
+
+function importQuestionBank() {
+  if (!db) return;
+  const existingText = new Set(allQuestions.map((q) => q.text.trim().toLowerCase()));
+  const toAdd = QUESTION_BANK.filter((text) => !existingText.has(text.trim().toLowerCase()));
+  if (toAdd.length === 0) {
+    alert("Every question from the built-in bank is already in your list.");
+    return;
+  }
+  if (!confirm(`Add ${toAdd.length} question(s) from the built-in Bible trivia bank into the Library?`)) return;
+  const batch = db.batch();
+  const col = db.collection("questions");
+  toAdd.forEach((text) => {
+    batch.set(col.doc(), {
+      text,
+      assignedTo: null,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+  batch.commit();
 }
 
 // ---------- Rendering ----------
@@ -181,6 +143,8 @@ function renderList(list) {
 
   el("list-title").textContent =
     activeTab === "library" ? "Library (unassigned)" : `${personLabel(activeTab)}'s Questions`;
+
+  el("import-bank-btn").hidden = activeTab !== "library";
 
   if (list.length === 0) {
     emptyEl.hidden = false;
@@ -313,15 +277,22 @@ function setupModal() {
 
 // ---------- Init ----------
 
-document.addEventListener("DOMContentLoaded", () => {
+export function mountQuestions() {
   setupModal();
   el("random-next-btn").addEventListener("click", () => {
     renderRandomCard(questionsForTab(activeTab));
   });
+  el("import-bank-btn").addEventListener("click", importQuestionBank);
   render();
-  initFirebase();
 
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js").catch(() => {});
-  }
-});
+  ready.then((firestoreDb) => {
+    db = firestoreDb;
+    db.collection("questions").onSnapshot(
+      (snapshot) => {
+        allQuestions = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        render();
+      },
+      (err) => console.error(err)
+    );
+  });
+}

@@ -22,30 +22,43 @@
   <div id="connection-status" class="status-pill" hidden></div>
 </header>
 
-<nav class="tabs" id="tabs"></nav>
+<nav class="tabs primary-tabs" id="primary-tabs"></nav>
+
+<section id="setup-banner" class="banner app-banner" hidden>
+  <p><strong>Almost there!</strong> This app needs a free Firebase project so everyone's data stays in sync.
+  Open <code>firebase-config.js</code> and paste in your project's config. See <code>README.md</code> for
+  step-by-step instructions.</p>
+</section>
 
 <main id="app">
-  <section id="setup-banner" class="banner" hidden>
-    <p><strong>Almost there!</strong> This app needs a free Firebase project so everyone's questions stay in sync.
-    Open <code>firebase-config.js</code> and paste in your project's config. See <code>README.md</code> for
-    step-by-step instructions.</p>
-  </section>
 
-  <section id="random-card" class="random-card" hidden>
-    <div class="random-label" id="random-label">Question for <span id="random-person"></span></div>
-    <p class="random-text" id="random-text"></p>
-    <div class="random-actions">
-      <button id="random-next-btn" class="btn btn-primary">🎲 Another question</button>
+  <div id="section-questions" class="section">
+    <nav class="tabs" id="tabs"></nav>
+
+    <section id="random-card" class="random-card" hidden>
+      <div class="random-label" id="random-label">Question for <span id="random-person"></span></div>
+      <p class="random-text" id="random-text"></p>
+      <div class="random-actions">
+        <button id="random-next-btn" class="btn btn-primary">🎲 Another question</button>
+      </div>
+    </section>
+
+    <div class="list-toolbar">
+      <h2 id="list-title">Questions</h2>
+      <div class="list-toolbar-actions">
+        <button id="import-bank-btn" class="btn" hidden>📥 Import Question Bank</button>
+        <button id="add-question-btn" class="btn btn-primary">+ Add Question</button>
+      </div>
     </div>
-  </section>
 
-  <div class="list-toolbar">
-    <h2 id="list-title">Questions</h2>
-    <button id="add-question-btn" class="btn btn-primary">+ Add Question</button>
+    <ul id="question-list" class="question-list"></ul>
+    <p id="empty-state" class="empty-state" hidden>No questions here yet.</p>
   </div>
 
-  <ul id="question-list" class="question-list"></ul>
-  <p id="empty-state" class="empty-state" hidden>No questions here yet.</p>
+  <div id="section-bible" class="section" hidden></div>
+  <div id="section-planner" class="section" hidden></div>
+  <div id="section-memorize" class="section" hidden></div>
+
 </main>
 
 <div id="modal-backdrop" class="modal-backdrop" hidden>
@@ -68,6 +81,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="app.js"></script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>
