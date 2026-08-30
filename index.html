@@ -58,29 +58,28 @@
     </div>
 
     <section id="random-card" class="random-card" hidden>
-      <div class="random-label" id="random-label">Question for <span id="random-person"></span></div>
+      <div class="random-card-top">
+        <div class="random-label" id="random-label">Question for <span id="random-person"></span></div>
+        <span class="random-question-stat" id="random-question-stat" hidden></span>
+      </div>
       <div class="random-score" id="random-score"></div>
       <p class="random-text" id="random-text"></p>
-      <p class="random-review-tag" id="random-review-tag" hidden>🔁 Needs review — got this one wrong before</p>
       <p class="random-answer" id="random-answer" hidden></p>
       <p class="random-verse-text" id="random-verse-text" hidden></p>
       <div class="random-nav-row">
         <button id="random-back-btn" class="nav-link-btn" disabled>‹ Back</button>
-        <button id="random-show-answer-btn" class="nav-link-btn" hidden>👁️ Show Answer</button>
         <button id="random-edit-btn" class="nav-link-btn">✏️ Edit</button>
         <button id="random-next-btn" class="nav-link-btn">Next ›</button>
       </div>
-      <div class="random-actions random-actions-score">
+      <div class="random-actions" id="random-reveal-actions">
+        <button id="random-show-answer-btn" class="btn btn-primary btn-block">👁️ Show Answer</button>
+      </div>
+      <div class="random-actions random-actions-score" id="random-grade-actions" hidden>
         <button id="random-wrong-btn" class="btn btn-danger">❌ Wrong</button>
         <button id="random-correct-btn" class="btn btn-success">✅ Correct</button>
       </div>
     </section>
 
-    <div class="list-toolbar">
-      <h2 id="list-title">Questions</h2>
-    </div>
-
-    <ul id="question-list" class="question-list"></ul>
     <p id="empty-state" class="empty-state" hidden>No questions assigned to this person's age group(s) yet.</p>
 
     <div id="q-edit-modal-backdrop" class="modal-backdrop" hidden>

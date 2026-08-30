@@ -11,7 +11,7 @@
 // Verses are added via a book/chapter/verse-range picker (see
 // verse-picker.js) — categorizing verses happens in Setup, not here.
 import { subscribeActiveUser } from "./active-user.js";
-import { subscribeMemoryVerses, subscribeVerseCategories, addMemoryVerse, deleteMemoryVerse, recordVerseProgress } from "./memorize-data.js";
+import { subscribeMemoryVerses, subscribeVerseCategories, addMemoryVerse, recordVerseProgress, setVerseBucket } from "./memorize-data.js";
 import {
   populateBookSelect,
   populateChapterSelect,
@@ -35,7 +35,9 @@ const STOPWORDS = new Set([
   "hast","hath","doth","O","one","also","upon","among","because","therefore","behold",
 ]);
 
-const REVEAL_FRACTIONS = [0.6, 0.3, 0.1, 0];
+// Fraction of blankable words actually blanked out at each difficulty —
+// Easy leaves most of the verse visible, Blanks Only shows none of it.
+const BLANK_FRACTIONS = [0.25, 0.5, 0.75, 1];
 const LEVEL_LABELS = ["Easy", "Medium", "Hard", "Blanks Only"];
 const LEVEL_HINTS = ["Few blanks", "Half blanks", "Most blanks", "No words given"];
 const LEVEL_DOT_CLASSES = ["dot-easy", "dot-medium", "dot-hard", "dot-blanksonly"];
@@ -43,14 +45,33 @@ const MODE_KEY = "bible-questions-memorize-mode";
 const LEVEL_KEY = "bible-questions-memorize-level";
 const STARTWITH_KEY = "bible-questions-memorize-startwith";
 
+// Wrong letter-attempts on one blank before it's auto-filled and practice
+// moves on to the next blank — same threshold the IDK button skips to
+// immediately, for whichever blank currently has focus.
+const MAX_WRONG_ATTEMPTS = 3;
+
+// The three per-user buckets a verse can be filed under, replacing the
+// old "Delete" action — verses aren't removed, just moved between piles.
+const BUCKETS = [
+  { id: "memorizing", icon: "🧠", label: "Memorizing" },
+  { id: "future", icon: "⏳", label: "Future Memorization" },
+  { id: "memorized", icon: "✅", label: "Already Memorized" },
+];
+
+// How many recently-practiced verses to avoid immediately repeating via
+// "Next Verse" — mirrors the same recency window used by the Questions quiz.
+const VERSE_RECENCY_WINDOW = 10;
+
 let verses = [];
 let categories = [];
 let activeUserId = null;
 let refs = {};
 let selectedCategoryId = ""; // "" = All
+let selectedBucket = "memorizing";
 let practiceMode = loadPref(MODE_KEY, "fitb"); // "fitb" | "flashcard"
 let view = "list"; // "list" | "practice"
 let currentVerseId = null;
+let verseHistory = []; // verse ids practiced this session, most recent last
 let pickerVerses = []; // verses of the chapter currently loaded in the add-verse modal
 
 // ---------- Small localStorage helpers ----------
@@ -106,22 +127,50 @@ function testamentForVerse(v) {
   return idx < OT_BOOK_COUNT ? "OT" : "NT";
 }
 
-function versesForSelectedCategory() {
-  if (!selectedCategoryId) return verses;
+// Which of the three BUCKETS a verse is currently filed under for the
+// active user — missing/no-user defaults to "memorizing" so pre-existing
+// verses (added before buckets existed) show up in the main working set.
+function bucketForVerse(v) {
+  return (activeUserId && v.buckets && v.buckets[activeUserId]) || "memorizing";
+}
+
+function versesInSelectedBucket() {
+  return verses.filter((v) => bucketForVerse(v) === selectedBucket);
+}
+
+function filteredVerses() {
+  let list = versesInSelectedBucket();
   if (selectedCategoryId === "OT" || selectedCategoryId === "NT") {
-    return verses.filter((v) => testamentForVerse(v) === selectedCategoryId);
+    list = list.filter((v) => testamentForVerse(v) === selectedCategoryId);
+  } else if (selectedCategoryId) {
+    list = list.filter((v) => v.categoryId === selectedCategoryId);
   }
-  return verses.filter((v) => v.categoryId === selectedCategoryId);
+  return list;
+}
+
+function renderBucketTabs() {
+  const row = refs.bucketTabs;
+  row.innerHTML = BUCKETS.map((b) => {
+    const count = verses.filter((v) => bucketForVerse(v) === b.id).length;
+    return `<button class="mem-mode-tab ${selectedBucket === b.id ? "active" : ""}" data-bucket="${b.id}">${b.icon} ${b.label} (${count})</button>`;
+  }).join("");
+  row.querySelectorAll(".mem-mode-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedBucket = btn.dataset.bucket;
+      renderHome();
+    });
+  });
 }
 
 function renderCategoryRow() {
   const row = refs.categoryRow;
   row.hidden = false;
   row.innerHTML = "";
+  const base = versesInSelectedBucket();
 
   const allChip = document.createElement("button");
   allChip.className = "chip" + (selectedCategoryId === "" ? " active" : "");
-  allChip.textContent = `All (${verses.length})`;
+  allChip.textContent = `All (${base.length})`;
   allChip.addEventListener("click", () => {
     selectedCategoryId = "";
     renderCategoryRow();
@@ -129,26 +178,27 @@ function renderCategoryRow() {
   });
   row.appendChild(allChip);
 
-  if (categories.length === 0) {
-    // No custom categories yet — offer the Old/New Testament split as a
-    // built-in default instead of just hiding the row.
-    ["OT", "NT"].forEach((testament) => {
-      const count = verses.filter((v) => testamentForVerse(v) === testament).length;
-      const chip = document.createElement("button");
-      chip.className = "chip" + (selectedCategoryId === testament ? " active" : "");
-      chip.textContent = `${testament} (${count})`;
-      chip.addEventListener("click", () => {
-        selectedCategoryId = testament;
-        renderCategoryRow();
-        renderVerseList();
-      });
-      row.appendChild(chip);
+  // Old/New Testament are auto-assigned from each verse's reference, so
+  // they're always available alongside any custom categories — not just
+  // a fallback for when no custom categories have been made yet.
+  [
+    ["OT", "Old Testament"],
+    ["NT", "New Testament"],
+  ].forEach(([testament, label]) => {
+    const count = base.filter((v) => testamentForVerse(v) === testament).length;
+    const chip = document.createElement("button");
+    chip.className = "chip" + (selectedCategoryId === testament ? " active" : "");
+    chip.textContent = `${label} (${count})`;
+    chip.addEventListener("click", () => {
+      selectedCategoryId = testament;
+      renderCategoryRow();
+      renderVerseList();
     });
-    return;
-  }
+    row.appendChild(chip);
+  });
 
   categories.forEach((cat) => {
-    const count = verses.filter((v) => v.categoryId === cat.id).length;
+    const count = base.filter((v) => v.categoryId === cat.id).length;
     const chip = document.createElement("button");
     chip.className = "chip" + (selectedCategoryId === cat.id ? " active" : "");
     chip.textContent = `${cat.name} (${count})`;
@@ -168,7 +218,7 @@ function renderModeTabs() {
 }
 
 function renderVerseList() {
-  const list = versesForSelectedCategory();
+  const list = filteredVerses();
   refs.listEl.innerHTML = "";
   refs.emptyEl.hidden = verses.length !== 0;
   refs.listEl.hidden = list.length === 0;
@@ -199,19 +249,29 @@ function renderVerseList() {
 
     li.appendChild(body);
 
-    const deleteBtn = document.createElement("button");
-    deleteBtn.className = "btn btn-danger btn-small mem-verse-delete";
-    deleteBtn.textContent = "Delete";
-    deleteBtn.addEventListener("click", () => {
-      if (confirm("Remove this verse from your memory list?")) deleteMemoryVerse(v.id);
+    const bucketRow = document.createElement("div");
+    bucketRow.className = "mem-bucket-toggle";
+    const currentBucket = bucketForVerse(v);
+    BUCKETS.forEach((b) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "mem-bucket-btn" + (currentBucket === b.id ? " active" : "");
+      btn.title = b.label;
+      btn.textContent = b.icon;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setVerseBucket(v.id, activeUserId, b.id);
+      });
+      bucketRow.appendChild(btn);
     });
-    li.appendChild(deleteBtn);
+    li.appendChild(bucketRow);
 
     refs.listEl.appendChild(li);
   });
 }
 
 function renderHome() {
+  renderBucketTabs();
   renderCategoryRow();
   renderModeTabs();
   renderVerseList();
@@ -320,11 +380,69 @@ function closePractice() {
   renderHome();
 }
 
+// Recency-weighted mastery for one user on one verse, from the last (up
+// to) 5 practice-attempt scores — null means never practiced.
+function verseStatsFor(v, userId) {
+  const p = (v.progress && v.progress[userId]) || {};
+  const scores = p.recentScores || [];
+  return {
+    avg: scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null,
+    practiced: scores.length > 0,
+  };
+}
+
+function verseWeightFor(v, userId) {
+  const { avg } = verseStatsFor(v, userId);
+  return 1 + (1 - (avg === null ? 1 : avg)) * 3;
+}
+
+// Same shape as the Questions quiz's picker: never-practiced verses first,
+// then a weighted pick favoring ones scored poorly, avoiding anything
+// practiced in the last VERSE_RECENCY_WINDOW attempts if there's an
+// alternative.
+function pickNextVerse(pool, userId, recentIds) {
+  if (pool.length === 0) return null;
+  const recentSet = new Set((recentIds || []).slice(-VERSE_RECENCY_WINDOW));
+  const notRecent = pool.filter((v) => !recentSet.has(v.id));
+  const candidates = notRecent.length > 0 ? notRecent : pool;
+
+  const unpracticed = candidates.filter((v) => !verseStatsFor(v, userId).practiced);
+  if (unpracticed.length > 0) {
+    return unpracticed[Math.floor(Math.random() * unpracticed.length)];
+  }
+
+  const weights = candidates.map((v) => verseWeightFor(v, userId));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < candidates.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return candidates[i];
+  }
+  return candidates[candidates.length - 1];
+}
+
+// Moves straight into practicing another verse from the current
+// bucket/category pool — skipping the difficulty-picker screen, same as
+// "Next" on the Questions quiz.
+function goToNextVerse() {
+  verseHistory.push(currentVerseId);
+  const pool = filteredVerses();
+  const next = pickNextVerse(pool, activeUserId, verseHistory);
+  if (!next) {
+    closePractice();
+    return;
+  }
+  currentVerseId = next.id;
+  if (practiceMode === "fitb") startFitbBlanks(next.id);
+  else startFlashcard(next.id);
+}
+
 // ---------- Fill in the Blank ----------
 
 let blanksLevel = Number(loadPref(LEVEL_KEY, "0"));
 let blanksTokens = [];
 let hadWrongInSession = false;
+let showingFullVerseDuringPractice = false;
 
 function buildBlanksTokens(text) {
   const rawTokens = text.trim().split(/\s+/);
@@ -337,6 +455,8 @@ function buildBlanksTokens(text) {
       prefix: raw.slice(0, m.index),
       core: m[0],
       suffix: raw.slice(m.index + m[0].length),
+      wrongAttempts: 0,
+      helped: false,
     };
   });
 
@@ -351,8 +471,10 @@ function buildBlanksTokens(text) {
     return ta.core.length - tb.core.length;
   });
 
-  const revealFraction = REVEAL_FRACTIONS[blanksLevel];
-  const revealCount = Math.round(revealFraction * priority.length);
+  // BLANK_FRACTIONS is the fraction to blank out; priority is sorted
+  // easiest-to-reveal first, so what's LEFT UN-blanked comes off the front.
+  const blankFraction = BLANK_FRACTIONS[blanksLevel];
+  const revealCount = Math.round((1 - blankFraction) * priority.length);
   const revealedSet = new Set(priority.slice(0, revealCount));
 
   tokens.forEach((t, i) => {
@@ -369,7 +491,7 @@ function startFitbChallenge(verseId) {
     return;
   }
   refs.practiceArea.innerHTML = `
-    <button id="practice-close-btn" class="btn btn-small back-btn">✕ My Verses</button>
+    <button id="practice-close-btn" class="btn btn-small back-btn">← Back to Verse Library</button>
     <p class="mem-challenge-label">Ready to Memorize?</p>
     <div class="mem-ref-pill">🖐 ${escapeHtml(verse.reference)}</div>
     <div class="mem-challenge-verse-card">"${escapeHtml(verse.text)}"</div>
@@ -406,6 +528,7 @@ function startFitbBlanks(verseId) {
     return;
   }
   hadWrongInSession = false;
+  showingFullVerseDuringPractice = false;
   blanksTokens = buildBlanksTokens(verse.text);
   renderFitbBlanks(verse);
 }
@@ -424,29 +547,50 @@ function renderFitbBlanks(verse) {
       return `<span class="blank-word blank-pending" data-index="${i}">${escapeHtml(t.prefix)}<input class="letter-input" style="width:${blankWidth(t.core)}" data-index="${i}" maxlength="1" autocomplete="off" autocapitalize="off">${escapeHtml(t.suffix)}</span>`;
     })
     .join(" ");
+  const isComplete = !blanksTokens.some((t) => t.blankable && !t.revealed && !t.resolved);
 
   refs.practiceArea.innerHTML = `
-    <button id="practice-close-btn" class="btn btn-small back-btn">✕ My Verses</button>
+    <button id="practice-close-btn" class="btn btn-small back-btn">← Back to Verse Library</button>
     <div class="mem-practice-header">
       <span class="mem-ref-pill">🖐 ${escapeHtml(verse.reference)} (KJV)</span>
       <span class="mem-difficulty-pill"><span class="dot ${LEVEL_DOT_CLASSES[blanksLevel]}"></span>${LEVEL_LABELS[blanksLevel]}</span>
     </div>
+    ${
+      isComplete
+        ? ""
+        : `<div class="mem-blanks-toolbar">
+            <button id="fitb-show-full-btn" class="btn btn-small">${showingFullVerseDuringPractice ? "🙈 Hide Full Verse" : "👁️ Show Full Verse"}</button>
+            <button id="fitb-idk-btn" class="btn btn-small">🤷 IDK</button>
+          </div>`
+    }
     <div class="mem-blanks-card">${wordsHtml}</div>
     <p id="fitb-feedback" class="practice-feedback"></p>
-    <p id="fitb-full-text" class="memorize-verse-text" hidden>${escapeHtml(verse.text)}</p>
+    <p id="fitb-full-text" class="memorize-verse-text" ${showingFullVerseDuringPractice ? "" : "hidden"}>${escapeHtml(verse.text)}</p>
     <div class="modal-actions">
-      <button id="fitb-reveal-btn" class="btn" hidden>Show Full Verse</button>
       <button id="fitb-restart-btn" class="btn" hidden>Try Again</button>
-      <button id="fitb-next-btn" class="btn btn-primary" hidden>← My Verses</button>
+      <button id="fitb-next-verse-btn" class="btn" hidden>Next Verse →</button>
+      <button id="fitb-next-btn" class="btn btn-primary" hidden>Back to Verse Library</button>
     </div>
   `;
 
   refs.practiceArea.querySelector("#practice-close-btn").addEventListener("click", closePractice);
+  const showFullBtn = refs.practiceArea.querySelector("#fitb-show-full-btn");
+  if (showFullBtn) {
+    showFullBtn.addEventListener("click", () => {
+      showingFullVerseDuringPractice = !showingFullVerseDuringPractice;
+      renderFitbBlanks(verse);
+    });
+  }
+  const idkBtn = refs.practiceArea.querySelector("#fitb-idk-btn");
+  if (idkBtn) idkBtn.addEventListener("click", () => applyIdk(verse));
   setupFitbInputs();
 
-  const first = refs.practiceArea.querySelector(".letter-input");
-  if (first) first.focus();
-  else checkFitbComplete(verse); // a verse with no blankable words at all
+  if (!isComplete) {
+    const first = refs.practiceArea.querySelector(".letter-input");
+    if (first) first.focus();
+  } else {
+    checkFitbComplete(verse);
+  }
 }
 
 function setupFitbInputs() {
@@ -460,18 +604,41 @@ function setupFitbInputs() {
       const wordSpan = input.closest(".blank-word");
 
       if (given === expected) {
-        wordSpan.textContent = token.raw;
-        wordSpan.classList.remove("blank-pending");
-        wordSpan.classList.add("blank-correct");
-        focusNextBlank(idx);
-        checkFitbComplete(verses.find((v) => v.id === currentVerseId));
+        resolveBlank(idx, wordSpan, false);
       } else {
         hadWrongInSession = true;
-        flashWrong(wordSpan);
-        input.value = "";
+        token.wrongAttempts++;
+        if (token.wrongAttempts >= MAX_WRONG_ATTEMPTS) {
+          resolveBlank(idx, wordSpan, true);
+        } else {
+          flashWrong(wordSpan);
+          input.value = "";
+        }
       }
     });
   });
+}
+
+// Fills in a blank — either because it was typed correctly, or because it
+// was auto-filled (3 wrong attempts, or IDK) — and advances to the next one.
+function resolveBlank(idx, wordSpan, helped) {
+  const token = blanksTokens[idx];
+  token.resolved = true;
+  token.helped = helped;
+  wordSpan.textContent = token.raw;
+  wordSpan.classList.remove("blank-pending");
+  wordSpan.classList.add(helped ? "blank-helped" : "blank-correct");
+  focusNextBlank(idx);
+  checkFitbComplete(verses.find((v) => v.id === currentVerseId));
+}
+
+// IDK always applies to the first not-yet-filled blank — in practice
+// that's whichever one the person is currently stuck on.
+function applyIdk(verse) {
+  const pendingSpan = refs.practiceArea.querySelector(".blank-pending");
+  if (!pendingSpan) return;
+  const idx = Number(pendingSpan.dataset.index);
+  resolveBlank(idx, pendingSpan, true);
 }
 
 function focusNextBlank(fromIndex) {
@@ -494,17 +661,35 @@ function flashWrong(wordSpan) {
 
 function checkFitbComplete(verse) {
   if (refs.practiceArea.querySelectorAll(".blank-pending").length > 0) return;
-  recordVerseProgress(currentVerseId, activeUserId, !hadWrongInSession);
+
+  const blankable = blanksTokens.filter((t) => t.blankable && !t.revealed);
+  const helpedCount = blankable.filter((t) => t.helped).length;
+  const attemptScore = blankable.length > 0 ? (blankable.length - helpedCount) / blankable.length : 1;
+  const wasCorrect = helpedCount === 0;
+  recordVerseProgress(currentVerseId, activeUserId, wasCorrect, attemptScore);
+
+  // The in-progress toolbar (Show Full Verse / IDK) is redundant once every
+  // word is already showing — drop it rather than re-rendering the card.
+  const toolbar = refs.practiceArea.querySelector(".mem-blanks-toolbar");
+  if (toolbar) toolbar.remove();
+  showingFullVerseDuringPractice = false;
+  const fullTextEl = refs.practiceArea.querySelector("#fitb-full-text");
+  if (fullTextEl) fullTextEl.hidden = true;
+
   const feedback = refs.practiceArea.querySelector("#fitb-feedback");
   feedback.textContent = hadWrongInSession ? "✅ Completed — you got there!" : "🌟 Perfect — first try!";
   feedback.className = "practice-feedback " + (hadWrongInSession ? "" : "feedback-correct");
-  refs.practiceArea.querySelector("#fitb-reveal-btn").hidden = false;
+
+  const pool = filteredVerses();
+  const hasNextVerse = pool.length > 1;
+
   refs.practiceArea.querySelector("#fitb-restart-btn").hidden = false;
+  refs.practiceArea.querySelector("#fitb-next-verse-btn").hidden = !hasNextVerse;
   refs.practiceArea.querySelector("#fitb-next-btn").hidden = false;
-  refs.practiceArea.querySelector("#fitb-reveal-btn").addEventListener("click", () => {
-    refs.practiceArea.querySelector("#fitb-full-text").hidden = false;
-  });
   refs.practiceArea.querySelector("#fitb-restart-btn").addEventListener("click", () => startFitbBlanks(verse.id));
+  if (hasNextVerse) {
+    refs.practiceArea.querySelector("#fitb-next-verse-btn").addEventListener("click", goToNextVerse);
+  }
   refs.practiceArea.querySelector("#fitb-next-btn").addEventListener("click", closePractice);
 }
 
@@ -512,9 +697,15 @@ function checkFitbComplete(verse) {
 
 let flashcardStartWith = loadPref(STARTWITH_KEY, "verse"); // "verse" | "reference"
 let flashcardFlipped = false;
+let flashcardGraded = false;
+
+// Maps a self-grade to a 0..1 attempt score, feeding the same recency-
+// weighted mastery used by Fill in the Blank and by "Next Verse".
+const GRADE_SCORES = { fail: 0, hard: 0.33, good: 0.67, easy: 1 };
 
 function startFlashcard(verseId) {
   flashcardFlipped = false;
+  flashcardGraded = false;
   renderFlashcard(verseId);
 }
 
@@ -524,6 +715,29 @@ function renderFlashcard(verseId) {
     closePractice();
     return;
   }
+
+  if (flashcardGraded) {
+    const pool = filteredVerses();
+    const hasNextVerse = pool.length > 1;
+    refs.practiceArea.innerHTML = `
+      <button id="practice-close-btn" class="btn btn-small back-btn">← Back to Verse Library</button>
+      <div class="mem-practice-header"><span class="mem-ref-pill">🖐 ${escapeHtml(verse.reference)} (KJV)</span></div>
+      <p class="practice-feedback feedback-correct">✅ Recorded!</p>
+      <div class="modal-actions">
+        <button id="flashcard-again-btn" class="btn">Practice Again</button>
+        <button id="flashcard-next-verse-btn" class="btn" ${hasNextVerse ? "" : "hidden"}>Next Verse →</button>
+        <button id="flashcard-done-btn" class="btn btn-primary">Back to Verse Library</button>
+      </div>
+    `;
+    refs.practiceArea.querySelector("#practice-close-btn").addEventListener("click", closePractice);
+    refs.practiceArea.querySelector("#flashcard-again-btn").addEventListener("click", () => startFlashcard(verseId));
+    if (hasNextVerse) {
+      refs.practiceArea.querySelector("#flashcard-next-verse-btn").addEventListener("click", goToNextVerse);
+    }
+    refs.practiceArea.querySelector("#flashcard-done-btn").addEventListener("click", closePractice);
+    return;
+  }
+
   const startWithVerse = flashcardStartWith === "verse";
   const front = startWithVerse ? verse.text : verse.reference;
   const back = startWithVerse ? verse.reference : verse.text;
@@ -534,7 +748,7 @@ function renderFlashcard(verseId) {
     : `<p class="mem-flashcard-main">${escapeHtml(front)}</p>`;
 
   refs.practiceArea.innerHTML = `
-    <button id="practice-close-btn" class="btn btn-small back-btn">← My Verses</button>
+    <button id="practice-close-btn" class="btn btn-small back-btn">← Back to Verse Library</button>
     <div class="mem-practice-header"><span class="mem-ref-pill">🖐 ${escapeHtml(verse.reference)} (KJV)</span></div>
     <div class="mem-flashcard">${cardHtml}</div>
     ${
@@ -566,8 +780,10 @@ function renderFlashcard(verseId) {
   }
   refs.practiceArea.querySelectorAll(".mem-grade-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      recordVerseProgress(verseId, activeUserId, btn.dataset.grade !== "fail");
-      closePractice();
+      const grade = btn.dataset.grade;
+      recordVerseProgress(verseId, activeUserId, grade !== "fail", GRADE_SCORES[grade]);
+      flashcardGraded = true;
+      renderFlashcard(verseId);
     });
   });
   refs.practiceArea.querySelectorAll(".mem-startwith-btn").forEach((btn) => {
@@ -589,6 +805,7 @@ function buildSkeleton(container) {
         <h2>Memory Verses</h2>
         <button id="add-verse-btn" class="btn btn-primary">+ Add Verse</button>
       </div>
+      <div class="mem-mode-tabs" id="mem-bucket-tabs"></div>
       <div class="chip-row" id="mem-category-row"></div>
       <div class="mem-mode-tabs" id="mem-mode-tabs">
         <button class="mem-mode-tab" data-mode="fitb">✍️ Fill in the Blank</button>
@@ -630,6 +847,7 @@ function buildSkeleton(container) {
   `;
 
   refs.listView = container.querySelector("#mem-list-view");
+  refs.bucketTabs = container.querySelector("#mem-bucket-tabs");
   refs.categoryRow = container.querySelector("#mem-category-row");
   refs.modeTabs = container.querySelector("#mem-mode-tabs");
   refs.listEl = container.querySelector("#verse-list");
@@ -678,7 +896,7 @@ export function mountMemorize(container) {
 
   subscribeActiveUser((id) => {
     activeUserId = id;
-    if (view === "list") renderVerseList();
+    if (view === "list") renderHome();
   });
 
   subscribeMemoryVerses((updated) => {

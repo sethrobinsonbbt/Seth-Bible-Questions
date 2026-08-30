@@ -2,12 +2,19 @@
 // CRUD. The "who's memorizing" selection itself lives in active-user.js,
 // shared across the whole app, not just Memorize.
 //
-// memoryVerses doc shape: { reference, text, categoryId, progress, createdAt }.
+// memoryVerses doc shape: { reference, text, categoryId, progress, buckets, createdAt }.
 // `categoryId` is a verseCategories doc id, or null for uncategorized.
 // `progress` is a map keyed by user id:
-// { [userId]: { correctCount, attempts, needsReview } } — written by both
-// practice modes (Fill in the Blank and Flashcards) so "needs review" and
-// star/mastery ratings reflect practice from either one.
+// { [userId]: { correctCount, attempts, needsReview, recentScores } } —
+// written by both practice modes (Fill in the Blank and Flashcards) so
+// "needs review" and star/mastery ratings reflect practice from either
+// one. `recentScores` holds up to the last 5 attempt scores (0..1, newest
+// last) — the basis for the recency-weighted mastery used to prioritize
+// "Next Verse".
+// `buckets` is a map keyed by user id: { [userId]: "memorizing" |
+// "future" | "memorized" } — which of the three per-user buckets a verse
+// is currently filed under (see BUCKETS in memorize.js). Missing entries
+// default to "memorizing".
 //
 // verseCategories doc shape: { name, createdAt }.
 import { ready } from "./firebase.js";
@@ -67,11 +74,16 @@ export function assignVerseCategory(verseId, categoryId) {
   db.collection("memoryVerses").doc(verseId).update({ categoryId: categoryId || null });
 }
 
-export function recordVerseProgress(verseId, userId, wasCorrect) {
+// `attemptScore` is a 0..1 score for this one practice attempt (e.g. the
+// fraction of blanks filled in without help, or a flashcard self-grade
+// mapped to a number) — kept as a rolling window of the last 5 so
+// "Next Verse" can weight toward verses recently scored poorly.
+export function recordVerseProgress(verseId, userId, wasCorrect, attemptScore) {
   if (!db || !userId) return;
   const v = verses.find((v) => v.id === verseId);
   if (!v) return;
-  const prev = (v.progress && v.progress[userId]) || { correctCount: 0, attempts: 0, needsReview: false };
+  const prev = (v.progress && v.progress[userId]) || { correctCount: 0, attempts: 0, needsReview: false, recentScores: [] };
+  const recentScores = [...(prev.recentScores || []), typeof attemptScore === "number" ? attemptScore : wasCorrect ? 1 : 0].slice(-5);
   db.collection("memoryVerses")
     .doc(verseId)
     .update({
@@ -79,8 +91,16 @@ export function recordVerseProgress(verseId, userId, wasCorrect) {
         correctCount: (prev.correctCount || 0) + (wasCorrect ? 1 : 0),
         attempts: (prev.attempts || 0) + 1,
         needsReview: !wasCorrect,
+        recentScores,
       },
     });
+}
+
+// Which of the three per-user buckets (Memorizing / Future Memorization /
+// Already Memorized — see BUCKETS in memorize.js) a verse is filed under.
+export function setVerseBucket(verseId, userId, bucket) {
+  if (!db || !userId) return;
+  db.collection("memoryVerses").doc(verseId).update({ [`buckets.${userId}`]: bucket });
 }
 
 // Clears one user's progress on every memory verse (used by Setup's

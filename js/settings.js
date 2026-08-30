@@ -45,15 +45,13 @@ let planStats = null;
 let editingUserId = null;
 let addingUser = false;
 let editingQuestionId = null;
-let questionFilter = "all"; // "all" | "unassigned" | an age-group id
+// Empty set = no filter (show everything). Otherwise each entry is an
+// age-group id or "unassigned" — a question matches if its assignment is
+// in this set. Multi-select, so you can e.g. see "7-10" and "11-15" at once.
+let questionFilters = new Set();
 let questionSearch = "";
 let editingCategoryId = null;
 let addingCategory = false;
-// The Question Library subpage has its own edit lock, separate from (and
-// on top of) the outer Setup passcode — it defaults locked every time you
-// open the subpage, so browsing questions never accidentally exposes
-// edit/delete controls until you deliberately tap to unlock them.
-let libraryUnlocked = false;
 // About/Credits lists real account details (an email, a username, a
 // monthly cost) — not just admin controls — so it gets the same
 // re-locks-every-time treatment as the Question Library, on top of the
@@ -111,6 +109,101 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
+}
+
+// ---------- CSV/TSV parsing (Excel paste- and upload-friendly) ----------
+// Excel/Sheets exports/uploads as CSV; copying cells and pasting directly
+// pastes as TSV. Both are parsed the same way (RFC4180-ish: quoted fields
+// may contain the delimiter, newlines, and "" for a literal quote). Header
+// names are normalized (lowercased, spaces/underscores stripped) so
+// "Assigned To" and "assignedTo" both resolve the same way, whether the
+// data arrived as a spreadsheet or as pasted JSON from an older export.
+function normalizeHeader(h) {
+  return (h || "").toString().trim().toLowerCase().replace(/[\s_]+/g, "");
+}
+
+function splitDelimited(raw, delimiter) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (raw[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += c;
+      }
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === delimiter) {
+      row.push(field);
+      field = "";
+    } else if (c === "\n") {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+    } else if (c === "\r") {
+      // ignore — \n (if any) handles the line break
+    } else {
+      field += c;
+    }
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows;
+}
+
+// Parses pasted/uploaded input into an array of plain objects keyed by
+// normalized header name. Accepts CSV, TSV (an Excel copy/paste), or a
+// JSON array (for anyone re-importing an older export) — auto-detected.
+function parseTabularInput(raw) {
+  const trimmed = (raw || "").trim();
+  if (!trimmed) return [];
+
+  if (trimmed[0] === "[") {
+    const data = JSON.parse(trimmed);
+    if (!Array.isArray(data)) throw new Error("Expected a JSON array of rows.");
+    return data.map((item) => {
+      const obj = {};
+      Object.keys(item || {}).forEach((k) => (obj[normalizeHeader(k)] = item[k]));
+      return obj;
+    });
+  }
+
+  const firstLine = trimmed.split(/\r?\n/)[0];
+  const tabCount = (firstLine.match(/\t/g) || []).length;
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const delimiter = tabCount > commaCount ? "\t" : ",";
+
+  const table = splitDelimited(trimmed, delimiter).filter((r) => r.some((c) => c.trim() !== ""));
+  if (table.length < 2) return [];
+  const header = table[0].map(normalizeHeader);
+  return table.slice(1).map((r) => {
+    const obj = {};
+    header.forEach((h, i) => (obj[h] = (r[i] || "").toString().trim()));
+    return obj;
+  });
+}
+
+function csvEscape(value) {
+  const str = value === null || value === undefined ? "" : String(value);
+  return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+}
+
+function toCsv(headers, rows) {
+  const lines = [headers.join(",")];
+  rows.forEach((row) => lines.push(headers.map((h) => csvEscape(row[h])).join(",")));
+  return lines.join("\r\n");
 }
 
 // ---------- Lock screen ----------
@@ -360,8 +453,8 @@ function buildFamilyView(container) {
 
 // ---------- Bulk import/export (shared by Question Library & Memory Verses) ----------
 
-function downloadJson(filename, data) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+function downloadFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -378,16 +471,17 @@ function downloadJson(filename, data) {
 // skipped by default and existing items are never touched — this is
 // strictly additive — so re-importing the same file twice is always safe
 // unless "import duplicates too" is deliberately checked.
-function openImportModal({ title, hint, sampleText, existingItems, keyFn, parseRows, describeRow, onImportRow }) {
+function openImportModal({ title, hint, sampleText, existingItems, keyFn, parseRows, describeRow, onImportRow, downloadTemplate }) {
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
   backdrop.innerHTML = `
     <div class="modal">
       <h3>${escapeHtml(title)}</h3>
       <p class="settings-fineprint">${hint}</p>
-      <label for="import-file-input">Upload a .json file</label>
-      <input id="import-file-input" type="file" accept="application/json,.json" />
-      <label for="import-textarea">…or paste JSON here</label>
+      ${downloadTemplate ? `<div class="import-template-row"><button id="import-template-btn" type="button" class="btn btn-small">⬇️ Download template (Excel-friendly)</button></div>` : ""}
+      <label for="import-file-input">Upload a .csv file (or paste from Excel/Sheets below)</label>
+      <input id="import-file-input" type="file" accept="text/csv,.csv,.tsv,text/tab-separated-values,application/json,.json" />
+      <label for="import-textarea">…or copy cells from Excel/Sheets and paste here</label>
       <textarea id="import-textarea" rows="8" placeholder="${escapeHtml(sampleText)}"></textarea>
       <p id="import-error" class="form-error" hidden></p>
       <div id="import-preview" class="settings-panel" hidden></div>
@@ -399,6 +493,10 @@ function openImportModal({ title, hint, sampleText, existingItems, keyFn, parseR
     </div>
   `;
   document.body.appendChild(backdrop);
+
+  if (downloadTemplate) {
+    backdrop.querySelector("#import-template-btn").addEventListener("click", downloadTemplate);
+  }
 
   const close = () => backdrop.remove();
   backdrop.addEventListener("click", (e) => {
@@ -436,12 +534,12 @@ function openImportModal({ title, hint, sampleText, existingItems, keyFn, parseR
     try {
       rows = parseRows(textarea.value);
     } catch (err) {
-      errorEl.textContent = err.message || "Couldn't read that as JSON.";
+      errorEl.textContent = err.message || "Couldn't read that — check it matches the template.";
       errorEl.hidden = false;
       return;
     }
     if (rows.length === 0) {
-      errorEl.textContent = "No rows found.";
+      errorEl.textContent = "No rows found. Make sure the first row is a header (text, answer, reference, assignedTo, etc.).";
       errorEl.hidden = false;
       return;
     }
@@ -490,8 +588,9 @@ function openImportModal({ title, hint, sampleText, existingItems, keyFn, parseR
 
 function filteredQuestions() {
   let list = questions;
-  if (questionFilter === "unassigned") list = list.filter((q) => !q.assignedTo);
-  else if (questionFilter !== "all") list = list.filter((q) => q.assignedTo === questionFilter);
+  if (questionFilters.size > 0) {
+    list = list.filter((q) => questionFilters.has(q.assignedTo || "unassigned"));
+  }
 
   const term = questionSearch.trim().toLowerCase();
   if (term) {
@@ -513,24 +612,20 @@ function aggregateScore(q) {
   return { correct, wrong };
 }
 
-function renderQuestionFilterSelect() {
-  const select = refs.filterSelect;
-  select.innerHTML = "";
-  const allOpt = document.createElement("option");
-  allOpt.value = "all";
-  allOpt.textContent = "All questions";
-  select.appendChild(allOpt);
-  const unassignedOpt = document.createElement("option");
-  unassignedOpt.value = "unassigned";
-  unassignedOpt.textContent = "Unassigned";
-  select.appendChild(unassignedOpt);
-  AGE_GROUPS.forEach((g) => {
-    const opt = document.createElement("option");
-    opt.value = g.id;
-    opt.textContent = g.label;
-    select.appendChild(opt);
+function questionFilterLabel() {
+  if (questionFilters.size === 0) return "🔎 Filter: All";
+  if (questionFilters.size === 1) {
+    const [only] = questionFilters;
+    return `🔎 Filter: ${only === "unassigned" ? "Unassigned" : ageGroupLabel(only)}`;
+  }
+  return `🔎 Filter: ${questionFilters.size} selected`;
+}
+
+function renderQuestionFilterDropdown() {
+  refs.filterSummary.textContent = questionFilterLabel();
+  refs.filterPanel.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+    cb.checked = questionFilters.has(cb.value);
   });
-  select.value = questionFilter;
 }
 
 function renderQuestionsAdmin() {
@@ -543,7 +638,7 @@ function renderQuestionsAdmin() {
     const li = document.createElement("li");
     li.className = "question-card";
 
-    if (libraryUnlocked && editingQuestionId === q.id) {
+    if (editingQuestionId === q.id) {
       const textarea = document.createElement("textarea");
       textarea.className = "edit-textarea";
       textarea.value = q.text;
@@ -610,45 +705,43 @@ function renderQuestionsAdmin() {
         li.appendChild(scoreLine);
       }
 
-      if (libraryUnlocked) {
-        const actions = document.createElement("div");
-        actions.className = "question-row-actions";
+      const actions = document.createElement("div");
+      actions.className = "question-row-actions";
 
-        const assignSelect = buildAgeGroupSelect(q.assignedTo);
-        assignSelect.addEventListener("change", () => {
-          updateQuestionAssignment(q.id, assignSelect.value);
+      const assignSelect = buildAgeGroupSelect(q.assignedTo);
+      assignSelect.addEventListener("change", () => {
+        updateQuestionAssignment(q.id, assignSelect.value);
+      });
+      actions.appendChild(assignSelect);
+
+      const editBtn = document.createElement("button");
+      editBtn.className = "btn btn-small";
+      editBtn.textContent = "Edit";
+      editBtn.addEventListener("click", () => {
+        editingQuestionId = q.id;
+        renderQuestionsAdmin();
+      });
+      actions.appendChild(editBtn);
+
+      if (correct > 0 || wrong > 0) {
+        const resetBtn = document.createElement("button");
+        resetBtn.className = "btn btn-small";
+        resetBtn.textContent = "Reset Score";
+        resetBtn.addEventListener("click", () => {
+          if (confirm("Reset everyone's score on this question? This can't be undone.")) resetProgress(q.id);
         });
-        actions.appendChild(assignSelect);
-
-        const editBtn = document.createElement("button");
-        editBtn.className = "btn btn-small";
-        editBtn.textContent = "Edit";
-        editBtn.addEventListener("click", () => {
-          editingQuestionId = q.id;
-          renderQuestionsAdmin();
-        });
-        actions.appendChild(editBtn);
-
-        if (correct > 0 || wrong > 0) {
-          const resetBtn = document.createElement("button");
-          resetBtn.className = "btn btn-small";
-          resetBtn.textContent = "Reset Score";
-          resetBtn.addEventListener("click", () => {
-            if (confirm("Reset everyone's score on this question? This can't be undone.")) resetProgress(q.id);
-          });
-          actions.appendChild(resetBtn);
-        }
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.className = "btn btn-danger btn-small";
-        deleteBtn.textContent = "Delete";
-        deleteBtn.addEventListener("click", () => {
-          if (confirm("Delete this question?")) deleteQuestion(q.id);
-        });
-        actions.appendChild(deleteBtn);
-
-        li.appendChild(actions);
+        actions.appendChild(resetBtn);
       }
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "btn btn-danger btn-small";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.addEventListener("click", () => {
+        if (confirm("Delete this question?")) deleteQuestion(q.id);
+      });
+      actions.appendChild(deleteBtn);
+
+      li.appendChild(actions);
     }
 
     listEl.appendChild(li);
@@ -660,7 +753,8 @@ function openAddQuestionModal() {
   refs.qModalAnswer.value = "";
   refs.qModalReference.value = "";
   refs.qModalError.hidden = true;
-  const select = buildAgeGroupSelect(questionFilter === "unassigned" || questionFilter === "all" ? "" : questionFilter);
+  const onlyFilter = questionFilters.size === 1 ? [...questionFilters][0] : "";
+  const select = buildAgeGroupSelect(onlyFilter === "unassigned" ? "" : onlyFilter);
   refs.qModalAssignWrap.innerHTML = "";
   refs.qModalAssignWrap.appendChild(select);
   refs.qModalAssign = select;
@@ -676,34 +770,39 @@ function questionKey(item) {
   return (item.text || "").trim().toLowerCase();
 }
 
+const QUESTION_CSV_HEADERS = ["text", "answer", "reference", "assignedTo"];
+
 function exportQuestions() {
-  const data = questions.map((q) => ({
+  const rows = questions.map((q) => ({
     text: q.text,
     answer: q.answer || "",
     reference: q.reference || "",
     assignedTo: q.assignedTo || "",
   }));
-  downloadJson(`questions-export-${new Date().toISOString().slice(0, 10)}.json`, data);
+  downloadFile(`questions-export-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(QUESTION_CSV_HEADERS, rows), "text/csv");
+}
+
+function downloadQuestionTemplate() {
+  downloadFile(
+    "questions-template.csv",
+    toCsv(QUESTION_CSV_HEADERS, [
+      { text: "Who built the ark?", answer: "Noah", reference: "Genesis 6:14", assignedTo: "7-10" },
+      { text: "What is the first book of the Bible?", answer: "Genesis", reference: "", assignedTo: "adult" },
+    ]),
+    "text/csv"
+  );
 }
 
 function parseQuestionRows(raw) {
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch (e) {
-    throw new Error("That's not valid JSON.");
-  }
-  if (!Array.isArray(data)) {
-    throw new Error('Expected a JSON array, e.g. [{"text": "...", "answer": "...", "reference": "...", "assignedTo": "..."}].');
-  }
+  const data = parseTabularInput(raw);
   return data.map((item, i) => {
-    const text = ((item && item.text) || "").toString().trim();
-    if (!text) throw new Error(`Row ${i + 1} is missing "text".`);
+    const text = ((item.text ?? item.question) || "").toString().trim();
+    if (!text) throw new Error(`Row ${i + 1} is missing a question ("text").`);
     return {
       text,
-      answer: ((item && item.answer) || "").toString().trim(),
-      reference: ((item && item.reference) || "").toString().trim(),
-      assignedTo: ((item && item.assignedTo) || "").toString().trim() || null,
+      answer: ((item.answer) || "").toString().trim(),
+      reference: ((item.reference) || "").toString().trim(),
+      assignedTo: ((item.assignedto) || "").toString().trim() || null,
     };
   });
 }
@@ -711,15 +810,16 @@ function parseQuestionRows(raw) {
 function openQuestionImportModal() {
   openImportModal({
     title: "Import Questions",
-    hint: `Paste or upload a JSON array of questions. "assignedTo" is one of ${AGE_GROUPS.map((g) => `"${g.id}"`).join(
-      ", "
-    )} (or leave it blank for Unassigned).`,
-    sampleText: '[\n  {"text": "Who built the ark?", "answer": "Noah", "reference": "Genesis 6:14", "assignedTo": "7-10"}\n]',
+    hint: `Open the template in Excel/Sheets, fill in a row per question, then either save it as a .csv and upload it, or just copy the cells and paste them below. Columns: text, answer, reference (optional), assignedTo — one of ${AGE_GROUPS.map(
+      (g) => `"${g.id}"`
+    ).join(", ")} (or leave it blank for Unassigned).`,
+    sampleText: "text, answer, reference, assignedTo\nWho built the ark?, Noah, Genesis 6:14, 7-10",
     existingItems: questions,
     keyFn: questionKey,
     parseRows: parseQuestionRows,
     describeRow: (row) => row.text + (row.answer ? ` — ${row.answer}` : ""),
     onImportRow: (row) => addQuestion(row.text, row.answer, row.reference, row.assignedTo),
+    downloadTemplate: downloadQuestionTemplate,
   });
 }
 
@@ -729,22 +829,28 @@ function buildLibraryView(container) {
     <div class="settings-header">
       <button id="library-back-btn" class="btn btn-small">← Setup</button>
       <h2>📚 Question Library</h2>
-      <button id="library-lock-btn" class="btn btn-small">${libraryUnlocked ? "🔓 Editing" : "🔒 Locked"}</button>
+      <span></span>
     </div>
 
     <div class="question-filter-row">
-      <select id="question-filter-select" class="assign-select"></select>
       <input id="question-search-input" type="text" placeholder="🔍 Search questions…" />
     </div>
-    ${
-      libraryUnlocked
-        ? `<div class="list-toolbar-actions">
-            <button id="add-question-btn" class="btn btn-primary">+ Add Question</button>
-            <button id="export-questions-btn" class="btn btn-small">⬇️ Export</button>
-            <button id="import-questions-btn" class="btn btn-small">⬆️ Import</button>
-          </div>`
-        : `<p class="settings-fineprint">🔒 Locked — tap the lock above to reassign, edit, or delete questions.</p>`
-    }
+    <div class="list-toolbar-actions">
+      <button id="add-question-btn" class="btn btn-primary">+ Add Question</button>
+      <details class="filter-dropdown" id="question-filter-dropdown">
+        <summary class="btn btn-small" id="question-filter-summary">🔎 Filter: All</summary>
+        <div class="filter-dropdown-panel">
+          <label class="filter-check"><input type="checkbox" value="unassigned" /> Unassigned</label>
+          ${AGE_GROUPS.map((g) => `<label class="filter-check"><input type="checkbox" value="${g.id}" /> ${g.label}</label>`).join("")}
+          <div class="filter-dropdown-actions">
+            <button type="button" id="question-filter-clear-btn" class="btn btn-small">Clear</button>
+            <button type="button" id="question-filter-done-btn" class="btn btn-small btn-primary">Done</button>
+          </div>
+        </div>
+      </details>
+      <button id="export-questions-btn" class="btn btn-small">⬇️ Export</button>
+      <button id="import-questions-btn" class="btn btn-small">⬆️ Import</button>
+    </div>
     <ul id="admin-question-list" class="question-list"></ul>
     <p id="admin-question-empty" class="empty-state" hidden>No questions match this filter.</p>
 
@@ -770,18 +876,28 @@ function buildLibraryView(container) {
 
   refs.adminQuestionList = container.querySelector("#admin-question-list");
   refs.adminQuestionEmpty = container.querySelector("#admin-question-empty");
-  refs.filterSelect = container.querySelector("#question-filter-select");
+  refs.filterDropdown = container.querySelector("#question-filter-dropdown");
+  refs.filterSummary = container.querySelector("#question-filter-summary");
+  refs.filterPanel = container.querySelector(".filter-dropdown-panel");
 
   container.querySelector("#library-back-btn").addEventListener("click", () => buildMainView(container));
-  container.querySelector("#library-lock-btn").addEventListener("click", () => {
-    libraryUnlocked = !libraryUnlocked;
-    buildLibraryView(container);
-  });
 
-  renderQuestionFilterSelect();
-  refs.filterSelect.addEventListener("change", () => {
-    questionFilter = refs.filterSelect.value;
+  renderQuestionFilterDropdown();
+  refs.filterPanel.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+    cb.addEventListener("change", () => {
+      if (cb.checked) questionFilters.add(cb.value);
+      else questionFilters.delete(cb.value);
+      renderQuestionFilterDropdown();
+      renderQuestionsAdmin();
+    });
+  });
+  container.querySelector("#question-filter-clear-btn").addEventListener("click", () => {
+    questionFilters.clear();
+    renderQuestionFilterDropdown();
     renderQuestionsAdmin();
+  });
+  container.querySelector("#question-filter-done-btn").addEventListener("click", () => {
+    refs.filterDropdown.open = false;
   });
 
   refs.searchInput = container.querySelector("#question-search-input");
@@ -791,40 +907,38 @@ function buildLibraryView(container) {
     renderQuestionsAdmin();
   });
 
-  if (libraryUnlocked) {
-    refs.qModalBackdrop = container.querySelector("#settings-question-modal-backdrop");
-    refs.qModalText = container.querySelector("#settings-question-text");
-    refs.qModalAnswer = container.querySelector("#settings-question-answer");
-    refs.qModalReference = container.querySelector("#settings-question-reference");
-    refs.qModalAssignWrap = container.querySelector("#settings-question-assign-wrap");
-    refs.qModalError = container.querySelector("#settings-question-error");
+  refs.qModalBackdrop = container.querySelector("#settings-question-modal-backdrop");
+  refs.qModalText = container.querySelector("#settings-question-text");
+  refs.qModalAnswer = container.querySelector("#settings-question-answer");
+  refs.qModalReference = container.querySelector("#settings-question-reference");
+  refs.qModalAssignWrap = container.querySelector("#settings-question-assign-wrap");
+  refs.qModalError = container.querySelector("#settings-question-error");
 
-    container.querySelector("#add-question-btn").addEventListener("click", openAddQuestionModal);
-    container.querySelector("#export-questions-btn").addEventListener("click", exportQuestions);
-    container.querySelector("#import-questions-btn").addEventListener("click", openQuestionImportModal);
-    container.querySelector("#settings-question-cancel-btn").addEventListener("click", closeAddQuestionModal);
-    refs.qModalBackdrop.addEventListener("click", (e) => {
-      if (e.target === refs.qModalBackdrop) closeAddQuestionModal();
-    });
-    container.querySelector("#settings-question-save-btn").addEventListener("click", () => {
-      const text = refs.qModalText.value.trim();
-      const answer = refs.qModalAnswer.value.trim();
-      if (!text) {
-        refs.qModalError.textContent = "Give the question some text.";
-        refs.qModalError.hidden = false;
-        return;
-      }
-      if (!answer) {
-        refs.qModalError.textContent = "An answer is required (reference is optional).";
-        refs.qModalError.hidden = false;
-        return;
-      }
-      const reference = refs.qModalReference.value.trim();
-      const assignedTo = refs.qModalAssign.value || null;
-      addQuestion(text, answer, reference, assignedTo);
-      closeAddQuestionModal();
-    });
-  }
+  container.querySelector("#add-question-btn").addEventListener("click", openAddQuestionModal);
+  container.querySelector("#export-questions-btn").addEventListener("click", exportQuestions);
+  container.querySelector("#import-questions-btn").addEventListener("click", openQuestionImportModal);
+  container.querySelector("#settings-question-cancel-btn").addEventListener("click", closeAddQuestionModal);
+  refs.qModalBackdrop.addEventListener("click", (e) => {
+    if (e.target === refs.qModalBackdrop) closeAddQuestionModal();
+  });
+  container.querySelector("#settings-question-save-btn").addEventListener("click", () => {
+    const text = refs.qModalText.value.trim();
+    const answer = refs.qModalAnswer.value.trim();
+    if (!text) {
+      refs.qModalError.textContent = "Give the question some text.";
+      refs.qModalError.hidden = false;
+      return;
+    }
+    if (!answer) {
+      refs.qModalError.textContent = "An answer is required (reference is optional).";
+      refs.qModalError.hidden = false;
+      return;
+    }
+    const reference = refs.qModalReference.value.trim();
+    const assignedTo = refs.qModalAssign.value || null;
+    addQuestion(text, answer, reference, assignedTo);
+    closeAddQuestionModal();
+  });
 
   renderQuestionsAdmin();
 }
@@ -981,29 +1095,31 @@ function verseKey(item) {
   return (item.reference || "").trim().toLowerCase();
 }
 
+const VERSE_CSV_HEADERS = ["reference", "text", "category"];
+
 function exportVerses() {
-  const data = memoryVerses.map((v) => {
+  const rows = memoryVerses.map((v) => {
     const cat = verseCategories.find((c) => c.id === v.categoryId);
     return { reference: v.reference, text: v.text, category: cat ? cat.name : "" };
   });
-  downloadJson(`memory-verses-export-${new Date().toISOString().slice(0, 10)}.json`, data);
+  downloadFile(`memory-verses-export-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(VERSE_CSV_HEADERS, rows), "text/csv");
+}
+
+function downloadVerseTemplate() {
+  downloadFile(
+    "memory-verses-template.csv",
+    toCsv(VERSE_CSV_HEADERS, [{ reference: "John 3:16", text: "For God so loved the world...", category: "Salvation" }]),
+    "text/csv"
+  );
 }
 
 function parseVerseRows(raw) {
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch (e) {
-    throw new Error("That's not valid JSON.");
-  }
-  if (!Array.isArray(data)) {
-    throw new Error('Expected a JSON array, e.g. [{"reference": "John 3:16", "text": "...", "category": "Salvation"}].');
-  }
+  const data = parseTabularInput(raw);
   return data.map((item, i) => {
-    const reference = ((item && item.reference) || "").toString().trim();
-    const text = ((item && item.text) || "").toString().trim();
-    if (!reference || !text) throw new Error(`Row ${i + 1} needs both "reference" and "text".`);
-    const categoryName = ((item && item.category) || "").toString().trim();
+    const reference = ((item.reference) || "").toString().trim();
+    const text = ((item.text) || "").toString().trim();
+    if (!reference || !text) throw new Error(`Row ${i + 1} needs both a reference and text.`);
+    const categoryName = ((item.category) || "").toString().trim();
     const match = categoryName && verseCategories.find((c) => c.name.toLowerCase() === categoryName.toLowerCase());
     return { reference, text, categoryId: match ? match.id : null, categoryName };
   });
@@ -1012,8 +1128,8 @@ function parseVerseRows(raw) {
 function openVerseImportModal() {
   openImportModal({
     title: "Import Memory Verses",
-    hint: 'Paste or upload a JSON array of verses. "category" should match an existing category name exactly (see above) — anything else, or left blank, comes in Uncategorized.',
-    sampleText: '[\n  {"reference": "John 3:16", "text": "For God so loved the world...", "category": "Salvation"}\n]',
+    hint: 'Open the template in Excel/Sheets, fill in a row per verse, then either save it as a .csv and upload it, or just copy the cells and paste them below. "category" should match an existing category name exactly (see above) — anything else, or left blank, comes in Uncategorized.',
+    sampleText: "reference, text, category\nJohn 3:16, For God so loved the world..., Salvation",
     existingItems: memoryVerses,
     keyFn: verseKey,
     parseRows: parseVerseRows,
@@ -1021,6 +1137,7 @@ function openVerseImportModal() {
       `${row.reference} — ${row.text.length > 70 ? row.text.slice(0, 70) + "…" : row.text}` +
       (row.categoryName && !row.categoryId ? ` (category "${row.categoryName}" not found — will be Uncategorized)` : ""),
     onImportRow: (row) => addMemoryVerse(row.reference, row.text, row.categoryId),
+    downloadTemplate: downloadVerseTemplate,
   });
 }
 
@@ -1232,10 +1349,7 @@ function buildMainView(container) {
   });
 
   container.querySelector("#open-family-btn").addEventListener("click", () => buildFamilyView(container));
-  container.querySelector("#open-library-btn").addEventListener("click", () => {
-    libraryUnlocked = false; // always opens locked/read-only; tap the lock to edit
-    buildLibraryView(container);
-  });
+  container.querySelector("#open-library-btn").addEventListener("click", () => buildLibraryView(container));
   container.querySelector("#open-memverses-btn").addEventListener("click", () => buildMemoryVersesView(container));
   container.querySelector("#open-about-btn").addEventListener("click", () => {
     aboutUnlocked = false; // always opens locked; tap through with the passcode to view

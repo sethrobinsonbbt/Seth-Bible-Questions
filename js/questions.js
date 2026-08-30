@@ -25,6 +25,11 @@ let includedKidIds = [];
 let verseTextCache = {};
 let editingQuestionId = null;
 
+// How many recently-shown questions to avoid immediately repeating — a
+// question (right OR wrong) won't come up again until at least this many
+// others have been shown first.
+const RECENCY_WINDOW = 10;
+
 const el = (id) => document.getElementById(id);
 
 function isAdult(user) {
@@ -83,15 +88,50 @@ function activeUser() {
   return users.find((u) => u.id === activeUserId) || null;
 }
 
-function pickRandomQuestion(list, userId, excludeId) {
-  const reviewPool = list.filter((q) => q.progress && q.progress[userId] && q.progress[userId].needsReview);
-  const pool = reviewPool.length > 0 ? reviewPool : list;
-  let candidates = pool;
-  if (excludeId && pool.length > 1) {
-    const filtered = pool.filter((q) => q.id !== excludeId);
-    if (filtered.length > 0) candidates = filtered;
+// Per-question stats for one user: how many times they've been asked this
+// one and how many of those they got right.
+function questionStatsFor(q, userId) {
+  const p = (q.progress && q.progress[userId]) || {};
+  const correctCount = p.correctCount || 0;
+  const wrongCount = p.wrongCount || 0;
+  return { correctCount, wrongCount, asked: correctCount + wrongCount };
+}
+
+// Weighted so a question this user gets wrong more often comes up more
+// often, without ever fully excluding the ones they know well — a 100%
+// wrong question is picked ~4x as often as a perfect one.
+function weightFor(q, userId) {
+  const { wrongCount, asked } = questionStatsFor(q, userId);
+  if (asked === 0) return 1;
+  return 1 + (wrongCount / asked) * 3;
+}
+
+function weightedRandomPick(list, userId) {
+  const weights = list.map((q) => weightFor(q, userId));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < list.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return list[i];
   }
-  return candidates[Math.floor(Math.random() * candidates.length)];
+  return list[list.length - 1];
+}
+
+// Picks the next question for this user: brand-new (never-asked) questions
+// first, then a weighted pick favoring ones they've gotten wrong more —
+// while avoiding repeating anything from the last RECENCY_WINDOW shown, so
+// a just-missed question doesn't immediately come right back around.
+function pickRandomQuestion(list, userId, recentIds) {
+  if (list.length === 0) return null;
+  const recentSet = new Set((recentIds || []).slice(-RECENCY_WINDOW));
+  const notRecent = list.filter((q) => !recentSet.has(q.id));
+  const pool = notRecent.length > 0 ? notRecent : list;
+
+  const newOnes = pool.filter((q) => questionStatsFor(q, userId).asked === 0);
+  if (newOnes.length > 0) {
+    return newOnes[Math.floor(Math.random() * newOnes.length)];
+  }
+  return weightedRandomPick(pool, userId);
 }
 
 // Renders the "Include: ..." chip row — only relevant for an Adult active
@@ -165,10 +205,16 @@ function loadVerseTextFor(reference, forRandomId) {
 function renderRandomCard(list) {
   const card = el("random-card");
   const user = activeUser();
-  if (!user || list.length === 0) {
+  if (!user) {
     card.hidden = true;
     return;
   }
+  if (list.length === 0) {
+    card.hidden = true;
+    el("empty-state").hidden = false;
+    return;
+  }
+  el("empty-state").hidden = true;
   card.hidden = false;
   el("random-person").textContent = user.name;
 
@@ -178,23 +224,34 @@ function renderRandomCard(list) {
 
   let pick = list.find((q) => q.id === currentRandomId);
   if (!pick) {
-    pick = pickRandomQuestion(list, user.id, currentRandomId);
+    pick = pickRandomQuestion(list, user.id, history);
     pushHistory(pick.id);
   }
 
   currentIsForSelf = isPickForSelf(pick, user);
-  const pickProgress = (pick.progress && pick.progress[user.id]) || {};
+  const { correctCount, asked } = questionStatsFor(pick, user.id);
+  const needsReview = !!(pick.progress && pick.progress[user.id] && pick.progress[user.id].needsReview);
+
+  const statEl = el("random-question-stat");
+  if (asked > 0) {
+    statEl.hidden = false;
+    statEl.textContent = `${correctCount}/${asked}`;
+    statEl.classList.toggle("random-question-stat-warn", needsReview);
+  } else {
+    statEl.hidden = true;
+  }
 
   el("random-text").textContent = pick.text;
-  el("random-review-tag").hidden = !pickProgress.needsReview;
 
-  const answerHidden = currentIsForSelf ? !showingAnswer : false;
-  el("random-answer").hidden = answerHidden;
+  const hasAnswerContent = !!(pick.answer || pick.reference);
+  const revealed = !currentIsForSelf || !hasAnswerContent || showingAnswer;
+
+  el("random-answer").hidden = !revealed;
   el("random-answer").textContent = [pick.answer && `Answer: ${pick.answer}`, pick.reference && `Reference: ${pick.reference}`]
     .filter(Boolean)
     .join(" — ");
-  el("random-show-answer-btn").hidden = !currentIsForSelf || (!pick.answer && !pick.reference);
-  el("random-show-answer-btn").textContent = showingAnswer ? "🙈 Hide Answer" : "👁️ Show Answer";
+  el("random-reveal-actions").hidden = revealed;
+  el("random-grade-actions").hidden = !revealed;
   el("random-back-btn").disabled = historyIndex <= 0;
 
   if (currentIsForSelf) {
@@ -228,7 +285,7 @@ function nextRandomQuestion() {
     currentRandomId = history[historyIndex];
     showingAnswer = false;
   } else {
-    pushHistory(pickRandomQuestion(list, user.id, currentRandomId).id);
+    pushHistory(pickRandomQuestion(list, user.id, history).id);
   }
   renderRandomCard(list);
 }
@@ -241,10 +298,9 @@ function previousQuestion() {
   renderRandomCard(questionsForUser(activeUser()));
 }
 
-function toggleAnswer() {
-  showingAnswer = !showingAnswer;
-  el("random-answer").hidden = !showingAnswer;
-  el("random-show-answer-btn").textContent = showingAnswer ? "🙈 Hide Answer" : "👁️ Show Answer";
+function revealAnswer() {
+  showingAnswer = true;
+  renderRandomCard(questionsForUser(activeUser()));
 }
 
 // In kid-mode, "Correct"/"Wrong" should credit every included kid whose
@@ -309,56 +365,13 @@ function saveEdit() {
   closeEditModal();
 }
 
-function renderList(list) {
-  const listEl = el("question-list");
-  const emptyEl = el("empty-state");
-  const user = activeUser();
-  listEl.innerHTML = "";
-
-  el("list-title").textContent = user ? `${user.name}'s Questions` : "Questions";
-
-  if (!user) {
-    emptyEl.hidden = true;
-    return;
-  }
-  if (list.length === 0) {
-    emptyEl.hidden = false;
-    return;
-  }
-  emptyEl.hidden = true;
-
-  list.forEach((q) => {
-    const li = document.createElement("li");
-    li.className = "question-card";
-
-    const p = document.createElement("p");
-    p.className = "question-text";
-    p.textContent = q.text;
-    li.appendChild(p);
-
-    const progress = (q.progress && q.progress[user.id]) || {};
-    const correct = progress.correctCount || 0;
-    const wrong = progress.wrongCount || 0;
-    if (correct > 0 || wrong > 0) {
-      const scoreLine = document.createElement("p");
-      scoreLine.className = "question-score";
-      scoreLine.textContent = `✅ ${correct} · ❌ ${wrong}${progress.needsReview ? " · 🔁 needs review" : ""}`;
-      li.appendChild(scoreLine);
-    }
-
-    listEl.appendChild(li);
-  });
-}
-
 function render() {
   if (users.length === 0) {
     el("no-users-msg").hidden = false;
     el("no-active-user-msg").hidden = true;
     el("include-kids-row").hidden = true;
     el("random-card").hidden = true;
-    el("question-list").innerHTML = "";
     el("empty-state").hidden = true;
-    el("list-title").textContent = "Questions";
     return;
   }
   el("no-users-msg").hidden = true;
@@ -368,9 +381,7 @@ function render() {
     el("no-active-user-msg").hidden = false;
     el("include-kids-row").hidden = true;
     el("random-card").hidden = true;
-    el("question-list").innerHTML = "";
     el("empty-state").hidden = true;
-    el("list-title").textContent = "Questions";
     return;
   }
   el("no-active-user-msg").hidden = true;
@@ -378,13 +389,12 @@ function render() {
   renderIncludeKidsRow();
   const list = questionsForUser(user);
   renderRandomCard(list);
-  renderList(list);
 }
 
 export function mountQuestions() {
   el("random-back-btn").addEventListener("click", previousQuestion);
   el("random-next-btn").addEventListener("click", nextRandomQuestion);
-  el("random-show-answer-btn").addEventListener("click", toggleAnswer);
+  el("random-show-answer-btn").addEventListener("click", revealAnswer);
   el("random-correct-btn").addEventListener("click", () => answerCurrent(true));
   el("random-wrong-btn").addEventListener("click", () => answerCurrent(false));
   el("random-edit-btn").addEventListener("click", tryEditCurrentQuestion);

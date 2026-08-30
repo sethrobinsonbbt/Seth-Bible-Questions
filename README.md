@@ -19,31 +19,45 @@ device, driving whose score gets tracked wherever progress applies
   plans between any two chapters (e.g. all of Judges, or 1 Samuel
   through 2 Kings for "the kings of Israel"), with a checklist to track
   progress, plus a start/streak/missed-days system for the daily plan.
-- **Questions** — a random-question quiz card for whoever's picked up top
-  (with answer reveal, and ✅ Correct / ❌ Wrong buttons that track a
-  score and automatically resurface missed questions). An Adult can fold
-  a kid's age group into their own quiz via an **Include:** chip row —
-  a question that's actually the kid's auto-shows its answer (and the
+- **Questions** — a quiz card for whoever's picked up top. Picks new
+  (never-asked) questions first, then weights toward ones this person
+  gets wrong more often — without ever fully hiding the ones they know
+  well, and never repeating anything from the last 10 questions shown. A
+  **👁️ Show Answer** button reveals the answer and swaps itself for
+  ✅ Correct / ❌ Wrong; each question shows its own right/asked tally
+  (e.g. `12/18`) once it's been asked at least once. An Adult can fold a
+  kid's age group into their own quiz via an **Include:** chip row — a
+  question that's actually the kid's auto-shows its answer (and the
   cited verse) instead of hiding it. A passcode-gated **✏️ Edit** button
   handles quick fixes right from the card, but adding/deleting questions
   still lives in Setup.
-- **Memorize** — a bank of King James verses, optionally grouped into
-  categories (falls back to a built-in **All / OT / NT** split until you
-  make your own), with a 0–3 ★ mastery rating per verse and two practice
-  modes chosen via a tab: **Fill in the Blank** (choose a difficulty,
-  type the first letter of each blanked word) and **Flashcards**
-  (verse-or-reference, flip, self-grade Fail/Hard/Good/Easy). Tracks
-  whoever's picked in the header's **User** dropdown.
+- **Memorize** — a bank of King James verses, filed into three per-person
+  buckets (**🧠 Memorizing** / **⏳ Future Memorization** / **✅ Already
+  Memorized**, toggled per verse), and further filterable by category —
+  a built-in **Old/New Testament** split (auto-detected from each verse's
+  reference) is always available alongside any custom categories you
+  make. A 0–3 ★ mastery rating per verse and two practice modes chosen
+  via a tab: **Fill in the Blank** (choose a difficulty — Easy/Medium/
+  Hard/Blanks Only blank out roughly 25/50/75/100% of the verse's words;
+  type the first letter of each blanked word, peek at the full verse any
+  time via a toggle, and an **IDK** button or 3 wrong attempts auto-fills
+  the current word and moves on) and **Flashcards** (verse-or-reference,
+  flip, self-grade Fail/Hard/Good/Easy). Either mode records a 0–1 score
+  per attempt (last 5 attempts averaged) and, once you finish a verse,
+  offers **Next Verse →** — same new-first/weighted-toward-poor-scores
+  logic as Questions. Tracks whoever's picked in the header's **User**
+  dropdown.
 - **🔒 Setup** — set off by a divider at the bottom of the ☰ menu, since
   it's an admin area rather than something a family member needs
   day-to-day. Passcode-gated (see below). A landing page links to four
   subpages: **👪 Family Members** (add/edit/delete, age groups, and
   per-person stats with a Reset Stats button), **📚 Question Library**
-  (its own separate lock, defaulting to read-only — add/edit/delete
-  questions, reassign their age group, and bulk import/export as JSON),
+  (add/edit/delete questions, reassign age group via a multi-select
+  filter, and bulk import/export as a spreadsheet-friendly CSV — Excel/
+  Sheets copy-paste works directly, with a downloadable template),
   **✍️ Memory Verses** (create/rename/delete categories, file verses
-  into them, and bulk import/export as JSON), and **ℹ️ About** (its own
-  passcode re-entry — what accounts/services this site runs on).
+  into them, and the same CSV bulk import/export), and **ℹ️ About** (its
+  own passcode re-entry — what accounts/services this site runs on).
 
 Everything syncs live across every phone and computer that has the site
 open, using a free Firebase project. It's a static site — installable on
@@ -240,15 +254,17 @@ device, so it doesn't need to be reselected every visit.
 ### Questions
 
 - Once someone's picked in the header's **User** dropdown, the big card
-  at the top shows a random question from any age group they belong to —
-  tap **👁️ Show Answer** to reveal the answer, then **✅ Correct** or
-  **❌ Wrong** to score it and move to the next one (**‹ Back** / **Next ›**
-  browse without scoring).
-- Missed questions (❌) are marked **🔁 needs review** and get
-  preferentially resurfaced until answered correctly — scores are tracked
-  per person, so two kids sharing an age group don't share a score.
-- Below the card is a plain list of that person's questions with their
-  running score.
+  at the top shows a question from any age group they belong to — new
+  (never-asked) questions come up first; once everything's been tried at
+  least once, questions this person tends to get wrong come up more
+  often (never exclusively — everything stays in the pool), and nothing
+  repeats within the last 10 questions shown. Tap **👁️ Show Answer** to
+  reveal the answer — it's replaced by **✅ Correct** / **❌ Wrong** to
+  score it and move to the next one (**‹ Back** / **Next ›** browse
+  without scoring). Once a question's been asked at least once, its
+  right/asked tally (e.g. `12/18`) shows top-right of the card, so you
+  can see at a glance how shaky it is — scores are tracked per person, so
+  two kids sharing an age group don't share a score.
 - **Quizzing a kid from your own login:** if the active user is an Adult
   and there are other family members, an **Include: [name] [name]...**
   chip row appears above the card — toggle on a kid to fold their age
@@ -279,11 +295,12 @@ Backup panel:
   everyone else's stays put), and **Delete**. A family-wide line at the
   top shows the Daily Reading Plan's current streak and completed/missed
   count (that one isn't per-person — it's one shared family log).
-- **📚 Question Library** — filterable by age group (or **Unassigned** /
-  **All questions**) and/or **🔍 Search questions…** by text or answer —
-  the two combine. It opens **🔒 Locked** (read-only, safe to browse)
-  every time; tap the lock to switch to **🔓 Editing**, which reveals
-  **+ Add Question** and, per row, an age-group dropdown to reassign it,
+- **📚 Question Library** — no separate lock (getting this far already
+  means the Setup passcode was entered): **🔎 Filter** is a multi-select
+  dropdown next to the import/export buttons — check any combination of
+  age groups and/or **Unassigned** to narrow the list, or leave it all
+  unchecked for everything; **🔍 Search questions…** by text or answer
+  combines with it. Every row gets an age-group dropdown to reassign it,
   **Edit**, **Delete**, and (once it has a score) **Reset Score** (clears
   *everyone's* progress on that one question — for one person's overall
   stats, use Family Members' Reset Stats instead). **+ Add Question**
@@ -291,24 +308,25 @@ Backup panel:
   e.g. "Genesis 1:3", and an age-group assignment or leave it
   **Unassigned**). Editing an existing question still allows a blank
   answer, since some imported questions (e.g. "Name some of the Ten
-  Commandments") are intentionally open-ended. While unlocked, **⬇️
-  Export** / **⬆️ Import** let you bulk-manage the library as JSON —
-  handy for drafting a big batch of questions elsewhere (a spreadsheet,
-  a text editor, asking an AI to generate some) and bringing them in at
-  once. Import shows a preview before anything is added: rows whose
-  text exactly matches a question already in the library are flagged as
-  likely duplicates and skipped by default (existing questions are
-  never overwritten), with a checkbox to import them anyway if you
-  really do want a second copy.
+  Commandments") are intentionally open-ended. **⬇️ Export** downloads
+  a `.csv` (opens directly in Excel/Sheets); **⬆️ Import** accepts a
+  `.csv` upload *or* pasting cells copied straight out of Excel/Sheets
+  (also still accepts an old JSON export) — **⬇️ Download template**
+  in the Import dialog gives you a starter file with the right columns.
+  Import shows a preview before anything is added (now properly
+  scrollable if it runs long): rows whose text exactly matches a
+  question already in the library are flagged as likely duplicates and
+  skipped by default (existing questions are never overwritten), with a
+  checkbox to import them anyway if you really do want a second copy.
 - **✍️ Memory Verses** — **Categories**: **+ Add Category** to name a
   group (e.g. "Salvation", "Peace"); **Rename** or **Delete** any of them
   (deleting a category un-categorizes its verses rather than deleting
   the verses themselves). **All Verses**: every memory verse with a
   dropdown to file it under a category (or leave it **Uncategorized**),
-  plus its own **⬇️ Export** / **⬆️ Import** for bulk-adding verses the
-  same way as the Question Library above (matched to a category by
-  name; an unrecognized or missing category name comes in
-  Uncategorized). Adding verses one at a time still happens from the
+  plus its own CSV **⬇️ Export** / **⬆️ Import** (with template) for
+  bulk-adding verses the same way as the Question Library above (matched
+  to a category by name; an unrecognized or missing category name comes
+  in Uncategorized). Adding verses one at a time still happens from the
   Memorize page (see below) — this subpage is for organizing what's
   already there and bulk import/export.
 - **ℹ️ About** — opens its own passcode prompt (re-entered every time,
@@ -489,16 +507,21 @@ Attempts get tracked under whoever's picked in the **User** dropdown in
 the header — this is optional; practicing without picking anyone just
 won't record a score.
 
-The home view: category chips along the top, a
-**✍️ Fill in the Blank** / **🗂️ Flashcards** tab that picks which mode
-tapping a verse launches you into, and the verse list itself, each verse
-showing a 0–3 ★ mastery rating built from that verse's past correct
-attempts. Tap a verse to start practicing it in whichever mode is
-selected; tap a category chip to filter the list down to it. Once
-you've made your own categories in Setup (see above), those are what
-show here; until then, the chips fall back to a built-in **All / OT /
-NT** split (by Old vs. New Testament) so there's still a quick way to
-narrow the list down.
+The home view: a **🧠 Memorizing / ⏳ Future Memorization / ✅ Already
+Memorized** tab row along the top — three per-person buckets a verse can
+be filed under (see the toggle below), defaulting to Memorizing so
+verses added before buckets existed still show up in the main working
+set. Below that, category chips (**All**, an always-available **Old
+Testament / New Testament** split auto-detected from each verse's
+reference, plus any custom categories made in Setup), a **✍️ Fill in the
+Blank** / **🗂️ Flashcards** tab that picks which mode tapping a verse
+launches you into, and the verse list itself, each verse showing a 0–3 ★
+mastery rating built from that verse's past correct attempts and a
+row of three small bucket-toggle buttons (🧠/⏳/✅) in place of a delete
+button — verses move between buckets, they're never deleted from here.
+Tap a verse to start practicing it in whichever mode is selected; tap a
+bucket tab or category chip to filter the list down to it (both narrow
+the list together).
 
 **+ Add Verse** opens a picker: choose a book and chapter (the King
 James text loads automatically), then narrow **From verse** / **To
@@ -512,16 +535,22 @@ The Bible page's **M⁺** badge (see above) opens the same picker
 pre-filled to whatever chapter you're reading.
 
 **✍️ Fill in the Blank**: tapping a verse first asks you to **choose your
-challenge** — Easy, Medium, Hard, or Blanks Only (no words given at
-all) — showing the full verse text so you know what you're about to
-attempt. **Start Game** drops into the verse with the harder/rarer words
-already blanked out based on that difficulty. Type the first letter of
-each blanked word: get it right and the whole word fills in, moving you
-to the next blank; get it wrong and a momentary ✗ flashes so you can just
-try that same word again — there's no penalty box to dig out of, only
-practice. Finishing the verse without ever slipping records a
-perfect ✅; finishing after a few misses still counts as done, just not
-first-try-perfect (that's what feeds the ★ rating above).
+challenge** — Easy (~25% of words blanked), Medium (~50%), Hard (~75%),
+or Blanks Only (100%, no words given at all) — showing the full verse
+text so you know what you're about to attempt. **Start Game** drops into
+the verse with the harder/rarer words blanked out first as the
+percentage climbs. Type the first letter of each blanked word: get it
+right and the whole word fills in, moving you to the next blank; get it
+wrong and a momentary ✗ flashes so you can try again — after 3 wrong
+attempts on the same word it's auto-filled for you and practice moves on
+(no permanent penalty, just unstuck). A **🤷 IDK** button does the same
+thing on demand for whatever word you're stuck on, and a **👁️ Show Full
+Verse** toggle lets you peek at the whole verse at any point while
+practicing (it's not shown once you've finished, since every word is
+already filled in on the card by then). Finishing the verse without ever
+needing help records a perfect ✅; finishing after some auto-filled words
+still counts as done, just not first-try-perfect (that's what feeds the
+★ rating above).
 
 **🗂️ Flashcards**: shows either the verse text or just the reference —
 your choice, via the **Start with: Verse / Reference** toggle at the
@@ -530,6 +559,18 @@ side, then grade yourself honestly: **Fail** / **Hard** / **Good** /
 **Easy**. Only **Fail** counts against you — Hard/Good/Easy all count as
 a successful recall (just at varying confidence), matching how real
 spaced-repetition flashcard apps grade.
+
+Either mode scores the attempt from 0 to 1 (Fill in the Blank: the
+fraction of words gotten right without help; Flashcards: Fail/Hard/Good/
+Easy map to 0/0.33/0.67/1) and keeps a rolling window of your last 5
+attempts per verse — that recency-weighted average is what "Next Verse"
+below uses to spot a verse you're currently struggling with, even if you
+aced it the first few times. After finishing a verse, **Next Verse →**
+jumps straight into another one from the same bucket/category view —
+never-practiced verses first, then weighted toward ones scored poorly
+recently, never repeating anything from the last 10 verses practiced (a
+"Back to Verse Library" button is always there too, if you'd rather
+stop).
 
 ## Adding another person, or another age group
 
@@ -575,8 +616,9 @@ matching anything.
   and any other passcode-gated spot (the Questions page's Edit button).
 - `js/settings.js` — the passcode-gated Setup landing page and its four
   subpages (Family Members + stats/reset, Question Library, Memory
-  Verses categories, About), each with bulk JSON import/export where
-  noted above, plus Backup.
+  Verses categories, About), each with bulk CSV import/export (Excel/
+  Sheets-friendly, with a downloadable template; also still accepts a
+  pasted JSON array) where noted above, plus Backup.
 - `js/bible-data.js` — the 66-book/chapter-count table, the list of
   available translations, and `resolveBookName` (common abbreviations —
   "Ex", "1Cor", "Ps", etc. — to canonical book name) used by the Bible
@@ -599,12 +641,14 @@ matching anything.
   section).
 - `js/daily-plan-data.js` — tracks whether the Daily Reading plan has
   been "started" and computes completed/missed-day stats since then.
-- `js/memorize.js` — the verse memorization section (categories or the
-  built-in OT/NT fallback, mode tabs, verse list with mastery stars,
-  Fill in the Blank, Flashcards).
+- `js/memorize.js` — the verse memorization section (per-user
+  Memorizing/Future/Memorized buckets, categories alongside the always-on
+  OT/NT split, mode tabs, verse list with mastery stars, Fill in the
+  Blank, Flashcards, and the shared "Next Verse" picker both modes use).
 - `js/memorize-data.js` — shared "memoryVerses" and "verseCategories"
-  Firestore collections (state + CRUD + per-user progress reset), used
-  by Memorize, the Bible page's M⁺ button, and Setup.
+  Firestore collections (state + CRUD + per-user progress reset, a
+  rolling last-5-attempt-score window per verse, and per-user bucket
+  assignment), used by Memorize, the Bible page's M⁺ button, and Setup.
 - `js/verse-picker.js` — the shared book/chapter/From-verse/To-verse
   picker logic (fetch a chapter, collapse a verse range into a reference
   like "John 3:16-18") used by both Memorize's + Add Verse and the Bible
