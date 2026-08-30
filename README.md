@@ -107,9 +107,20 @@ service cloud.firestore {
     match /families/{familyId}/{document=**} {
       allow read, write: if request.auth != null;
     }
+    match /codeRequests/{requestId} {
+      allow read, write: if request.auth != null;
+    }
   }
 }
 ```
+
+`codeRequests` is a small, deliberately separate top-level collection for
+the "forgot your code?" flow (see **Multi-family support** below) — a
+requester who's lost their code has no `families/{familyId}` to write
+under, so these live outside the per-family tree. Any signed-in device can
+read the whole thing, same soft-security tradeoff as everything else here
+— what's stored is just a family-name guess plus a contact, not anything
+sensitive.
 
 Click **Publish**. This means only devices that have opened the app (and
 silently signed in anonymously) can read or write data, and only within
@@ -202,6 +213,15 @@ Firebase project, fully isolated from each other:
   (`js/question-bank-data.js`, `js/family-question-bank.js`) are bundled
   content every family can import from Setup, not Firestore data, so they
   aren't affected by any of this.
+- **Forgot your code?** On the Join tab, a device without the code can
+  leave a note — the family's name plus their own email or phone — via a
+  small link below the Join button. There's no automated emailing or
+  texting (this is a static site, no server to send anything from): the
+  note just shows up as a **📨 Code Requests** panel in Setup for whoever
+  set up that family, matched by name (a casual match, not exact — a
+  family with a common name might see a request meant for someone else's
+  "The Smiths," and just ignore it). The family owner reaches out and
+  sends the code themselves, then dismisses the request.
 
 ### 3. Host the site
 
@@ -684,10 +704,11 @@ matching anything.
   unused, in case a bulk-import feature is wanted again later.
 - `js/family.js` — the multi-family data model: family id storage,
   create/join, the per-family `scopedCollection()` helper every other
-  data module uses, and the family's name/passcode.
+  data module uses, the family's name/passcode, and the "forgot your
+  code?" request/dismiss functions.
 - `js/family-gate.js` — the one-time "Create a Family" / "Join a Family"
   screen shown before the app mounts on a device with no family picked
-  yet.
+  yet, plus its "Forgot your code?" mini-form.
 - `js/settings.js` — the passcode-gated Setup landing page and its four
   subpages (Family Members + stats/reset, Question Library, Memory
   Verses categories, About), each with bulk CSV import/export (Excel/

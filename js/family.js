@@ -115,6 +115,52 @@ export function updateFamilyPasscode(db, passcode) {
   db.collection("families").doc(familyId).update({ passcode });
 }
 
+// ---------- "Forgot the code?" ----------
+// A requester who's lost their family's code has no families/{familyId}
+// to write under, so these live in their own top-level collection
+// instead. Matching a request back to a family is just a casual name
+// comparison (not unique, not a security boundary) — the family's own
+// owner sees anything that looks like theirs in Setup and reaches out
+// themselves; there's no automated emailing or texting here.
+function nameMatchKey(name) {
+  return (name || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-");
+}
+
+export function requestCodeReminder(db, familyNameHint, contact) {
+  if (!db) return Promise.reject(new Error("Not connected yet — check your internet connection and try again."));
+  return db.collection("codeRequests").add({
+    familyNameHint: familyNameHint.trim(),
+    contact: contact.trim(),
+    requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
+  });
+}
+
+// Registers a callback for live updates to the requests matching
+// `familyName`, immediately invoked with the current list. Returns an
+// unsubscribe function.
+export function subscribeCodeRequests(db, familyName, callback) {
+  if (!db) return () => {};
+  const key = nameMatchKey(familyName);
+  return db.collection("codeRequests").onSnapshot(
+    (snapshot) => {
+      const matches = snapshot.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((r) => nameMatchKey(r.familyNameHint) === key);
+      callback(matches);
+    },
+    (err) => console.error(err)
+  );
+}
+
+export function dismissCodeRequest(db, requestId) {
+  if (!db) return;
+  db.collection("codeRequests").doc(requestId).delete();
+}
+
 // Synchronous reads of the currently-loaded family info (populated by the
 // onSnapshot listener below, same pattern as active-user.js) — used by
 // the Setup passcode gates, which need a plain equality check, not a

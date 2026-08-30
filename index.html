@@ -39,6 +39,17 @@
       <input id="family-code-input" type="text" placeholder="e.g. AB3XQK9P" autocapitalize="characters" autocomplete="off" spellcheck="false" />
       <p id="family-join-error" class="form-error" hidden></p>
       <button id="family-join-btn" class="btn btn-primary btn-block">Join</button>
+
+      <button type="button" id="forgot-code-toggle" class="family-gate-link-btn">Forgot your code?</button>
+      <div id="forgot-code-panel" hidden>
+        <label for="forgot-family-name">Family name</label>
+        <input id="forgot-family-name" type="text" placeholder="e.g. The Robinsons" autocomplete="off" />
+        <label for="forgot-contact">Your email or phone</label>
+        <input id="forgot-contact" type="text" placeholder="So they know how to reach you" autocomplete="off" />
+        <p id="forgot-code-error" class="form-error" hidden></p>
+        <p id="forgot-code-success" class="settings-fineprint" hidden>Sent! Whoever set up that family will see this next time they open Setup, and can send you the code themselves.</p>
+        <button id="forgot-code-submit-btn" class="btn btn-small">Let Them Know</button>
+      </div>
     </div>
 
     <div id="family-gate-create" class="family-gate-panel" hidden>

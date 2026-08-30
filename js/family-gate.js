@@ -5,7 +5,7 @@
 // time, scoped to whatever family is active; reloading is the simplest
 // way to make sure all of them start fresh against the new family.
 import { ready } from "./firebase.js";
-import { getFamilyId, normalizeCode, createFamily, joinFamily } from "./family.js";
+import { getFamilyId, normalizeCode, createFamily, joinFamily, requestCodeReminder } from "./family.js";
 
 function familyCodeFromUrl() {
   try {
@@ -35,6 +35,13 @@ export function mountFamilyGate(onReady) {
   const passcodeInput = document.getElementById("family-passcode-input");
   const createBtn = document.getElementById("family-create-btn");
   const createError = document.getElementById("family-create-error");
+  const forgotToggle = document.getElementById("forgot-code-toggle");
+  const forgotPanel = document.getElementById("forgot-code-panel");
+  const forgotNameInput = document.getElementById("forgot-family-name");
+  const forgotContactInput = document.getElementById("forgot-contact");
+  const forgotError = document.getElementById("forgot-code-error");
+  const forgotSuccess = document.getElementById("forgot-code-success");
+  const forgotSubmitBtn = document.getElementById("forgot-code-submit-btn");
 
   function showTab(tab) {
     tabs.forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tab));
@@ -76,6 +83,39 @@ export function mountFamilyGate(onReady) {
       joinError.textContent = "Couldn't connect — check your internet connection and try again.";
       joinError.hidden = false;
       setBusy(false);
+    }
+  });
+
+  forgotToggle.addEventListener("click", () => {
+    forgotPanel.hidden = !forgotPanel.hidden;
+  });
+
+  forgotSubmitBtn.addEventListener("click", async () => {
+    forgotError.hidden = true;
+    forgotSuccess.hidden = true;
+    const familyNameHint = forgotNameInput.value.trim();
+    const contact = forgotContactInput.value.trim();
+    if (!familyNameHint || !contact) {
+      forgotError.textContent = "Enter both the family name and how to reach you.";
+      forgotError.hidden = false;
+      return;
+    }
+    const originalText = forgotSubmitBtn.textContent;
+    forgotSubmitBtn.disabled = true;
+    forgotSubmitBtn.textContent = "Sending…";
+    try {
+      const db = await ready;
+      await requestCodeReminder(db, familyNameHint, contact);
+      forgotSuccess.hidden = false;
+      forgotNameInput.value = "";
+      forgotContactInput.value = "";
+    } catch (err) {
+      console.error(err);
+      forgotError.textContent = "Couldn't send that — check your internet connection and try again.";
+      forgotError.hidden = false;
+    } finally {
+      forgotSubmitBtn.disabled = false;
+      forgotSubmitBtn.textContent = originalText;
     }
   });
 

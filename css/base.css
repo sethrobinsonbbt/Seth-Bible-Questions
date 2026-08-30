@@ -674,3 +674,20 @@ body {
   color: var(--text-muted);
   font-size: 0.9rem;
 }
+
+.family-gate-link-btn {
+  display: block;
+  margin: 0.75rem auto 0;
+  border: none;
+  background: none;
+  color: var(--indigo);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+#forgot-code-panel {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}

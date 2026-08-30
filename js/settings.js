@@ -32,7 +32,15 @@ import {
 } from "./memorize-data.js";
 import { subscribePlanState, refreshPlanStats, resetPlan } from "./daily-plan-data.js";
 import { ready } from "./firebase.js";
-import { getFamilyId, getFamilyPasscode, subscribeFamilyInfo, setFamilyId, scopedCollection } from "./family.js";
+import {
+  getFamilyId,
+  getFamilyPasscode,
+  subscribeFamilyInfo,
+  setFamilyId,
+  scopedCollection,
+  subscribeCodeRequests,
+  dismissCodeRequest,
+} from "./family.js";
 
 const UNLOCK_KEY = "bible-questions-settings-unlocked";
 
@@ -43,6 +51,8 @@ let verseCategories = [];
 let planStates = {}; // {[userId]: {startDate}} — from daily-plan-data.js
 let planStatsByUser = {}; // {[userId]: stats} — from daily-plan-data.js
 let familyName = null;
+let codeRequests = [];
+let codeRequestsUnsub = null;
 let editingUserId = null;
 let addingUser = false;
 let editingQuestionId = null;
@@ -1380,6 +1390,15 @@ function buildMainView(container) {
       <button id="copy-join-link-btn" class="btn btn-small">📋 Copy Join Link</button>
     </div>
 
+    <div id="code-requests-panel" class="settings-panel" hidden>
+      <div class="list-toolbar">
+        <h2>📨 Code Requests</h2>
+      </div>
+      <p class="settings-fineprint">Someone tried to join using this family's name but didn't have the
+      code. Reach out yourself with the contact info below, then dismiss it.</p>
+      <ul id="code-requests-list" class="question-list"></ul>
+    </div>
+
     <ul class="settings-nav-list">
       <li><button id="open-family-btn" class="settings-nav-link">
         <span class="settings-nav-icon">👪</span>
@@ -1488,8 +1507,42 @@ function buildMainView(container) {
     migrateBtn.addEventListener("click", () => migrateLegacyData(container));
   }
 
+  refs.codeRequestsPanel = container.querySelector("#code-requests-panel");
+  refs.codeRequestsList = container.querySelector("#code-requests-list");
+
   renderNavCounts();
   renderFamilyName();
+  renderCodeRequests();
+}
+
+function renderCodeRequests() {
+  const panel = refs.codeRequestsPanel;
+  const listEl = refs.codeRequestsList;
+  if (!panel || !listEl) return;
+  panel.hidden = codeRequests.length === 0;
+  listEl.innerHTML = "";
+  codeRequests.forEach((r) => {
+    const li = document.createElement("li");
+    li.className = "question-card";
+
+    const contactEl = document.createElement("p");
+    contactEl.className = "question-text";
+    contactEl.textContent = r.contact;
+    li.appendChild(contactEl);
+
+    const actions = document.createElement("div");
+    actions.className = "question-row-actions";
+    const dismissBtn = document.createElement("button");
+    dismissBtn.className = "btn btn-small";
+    dismissBtn.textContent = "Got it — dismiss";
+    dismissBtn.addEventListener("click", () => {
+      ready.then((db) => dismissCodeRequest(db, r.id));
+    });
+    actions.appendChild(dismissBtn);
+    li.appendChild(actions);
+
+    listEl.appendChild(li);
+  });
 }
 
 function renderNavCounts() {
@@ -1544,5 +1597,17 @@ export function mountSettings(container) {
   subscribeFamilyInfo((info) => {
     familyName = info ? info.name : null;
     renderFamilyName();
+    if (codeRequestsUnsub) {
+      codeRequestsUnsub();
+      codeRequestsUnsub = null;
+    }
+    if (familyName) {
+      ready.then((db) => {
+        codeRequestsUnsub = subscribeCodeRequests(db, familyName, (matches) => {
+          codeRequests = matches;
+          renderCodeRequests();
+        });
+      });
+    }
   });
 }
