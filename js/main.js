@@ -68,6 +68,30 @@ function setThemePref(value) {
   }
 }
 
+// Plain line-art sun/moon/half-and-half glyphs (currentColor fill/stroke)
+// instead of colored emoji, so the toggle reads as a monochrome icon that
+// automatically matches the app's light/dark text color either way.
+const THEME_ICONS = {
+  light:
+    '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="4.5" fill="currentColor"/>' +
+    '<g stroke="currentColor" stroke-width="1.7" stroke-linecap="round">' +
+    '<line x1="12" y1="1.5" x2="12" y2="4.2"/><line x1="12" y1="19.8" x2="12" y2="22.5"/>' +
+    '<line x1="1.5" y1="12" x2="4.2" y2="12"/><line x1="19.8" y1="12" x2="22.5" y2="12"/>' +
+    '<line x1="4.4" y1="4.4" x2="6.3" y2="6.3"/><line x1="17.7" y1="17.7" x2="19.6" y2="19.6"/>' +
+    '<line x1="4.4" y1="19.6" x2="6.3" y2="17.7"/><line x1="17.7" y1="6.3" x2="19.6" y2="4.4"/>' +
+    "</g></svg>",
+  dark:
+    '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path d="M20 14.6A8.6 8.6 0 1 1 9.4 4 7 7 0 0 0 20 14.6z" fill="currentColor"/>' +
+    "</svg>",
+  auto:
+    '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7"/>' +
+    '<path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/>' +
+    "</svg>",
+};
+
 function applyTheme() {
   const pref = getThemePref();
   if (pref === "light" || pref === "dark") {
@@ -77,9 +101,9 @@ function applyTheme() {
   }
   const btn = document.getElementById("theme-toggle-btn");
   if (!btn) return;
-  const icon = pref === "dark" ? "🌙" : pref === "light" ? "☀️" : "🌓";
+  const key = pref === "dark" ? "dark" : pref === "light" ? "light" : "auto";
   const label = pref === "dark" ? "Dark" : pref === "light" ? "Light" : "Auto";
-  btn.textContent = `${icon} Theme: ${label}`;
+  btn.innerHTML = `${THEME_ICONS[key]}<span>Theme: ${label}</span>`;
   btn.setAttribute("aria-label", `Theme: ${pref || "auto"} — tap to change`);
 }
 

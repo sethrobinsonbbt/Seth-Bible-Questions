@@ -214,13 +214,30 @@ body {
 }
 
 .side-menu-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   border-top: 1px solid var(--border);
-  padding: 0.5rem 0;
-  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  padding: 0.6rem 1.1rem;
+  padding-bottom: calc(0.6rem + env(safe-area-inset-bottom));
 }
 
 .side-menu-theme-btn {
-  width: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.side-menu-theme-btn svg {
+  flex: 0 0 auto;
 }
 
 .status-pill {
