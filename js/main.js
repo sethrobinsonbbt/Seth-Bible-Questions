@@ -6,6 +6,7 @@ import { mountMemorize } from "./memorize.js";
 import { mountSettings } from "./settings.js";
 import { subscribeUsers } from "./users.js";
 import { getActiveUser, setActiveUser } from "./active-user.js";
+import { mountFamilyGate } from "./family-gate.js";
 
 // "bible" is listed first, so it's both the top menu item and the default
 // landing section — it opens straight to today's first daily reading (see
@@ -199,14 +200,22 @@ window.addEventListener("bible:navigate", (e) => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  initSections();
-  setupMenu();
+  // Firebase connects immediately regardless of the family gate below —
+  // the gate's own Join/Create actions need it too.
   setupStatusBanner();
-  setupActiveUserBar();
+  setupMenu();
   applyTheme();
   document.getElementById("theme-toggle-btn").addEventListener("click", cycleTheme);
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch(() => {});
   }
+
+  // Everything family-scoped (sections, the User picker) waits for a
+  // family to be picked — see family-gate.js. mountFamilyGate calls back
+  // immediately if a family is already set for this device.
+  mountFamilyGate(() => {
+    initSections();
+    setupActiveUserBar();
+  });
 });

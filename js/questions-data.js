@@ -9,6 +9,7 @@
 // { [userId]: { correctCount, wrongCount, needsReview } } — tracked per
 // user so two kids sharing an age group don't share the same score.
 import { ready } from "./firebase.js";
+import { getFamilyId, scopedCollection } from "./family.js";
 
 let db = null;
 let questions = [];
@@ -16,6 +17,10 @@ const listeners = new Set();
 
 function notify() {
   listeners.forEach((cb) => cb(questions));
+}
+
+function questionsCollection() {
+  return scopedCollection(db, "questions");
 }
 
 export function subscribeQuestions(callback) {
@@ -30,7 +35,7 @@ export function getQuestions() {
 
 export function addQuestion(text, answer, reference, assignedTo) {
   if (!db) return;
-  db.collection("questions").add({
+  questionsCollection().add({
     text,
     answer: answer || null,
     reference: reference || null,
@@ -42,17 +47,17 @@ export function addQuestion(text, answer, reference, assignedTo) {
 
 export function updateQuestion(id, text, answer, reference) {
   if (!db) return;
-  db.collection("questions").doc(id).update({ text, answer: answer || null, reference: reference || null });
+  questionsCollection().doc(id).update({ text, answer: answer || null, reference: reference || null });
 }
 
 export function updateQuestionAssignment(id, assignedTo) {
   if (!db) return;
-  db.collection("questions").doc(id).update({ assignedTo: assignedTo || null });
+  questionsCollection().doc(id).update({ assignedTo: assignedTo || null });
 }
 
 export function deleteQuestion(id) {
   if (!db) return;
-  db.collection("questions").doc(id).delete();
+  questionsCollection().doc(id).delete();
 }
 
 export function recordAnswer(id, userId, wasCorrect) {
@@ -60,7 +65,7 @@ export function recordAnswer(id, userId, wasCorrect) {
   const q = questions.find((q) => q.id === id);
   if (!q) return;
   const prev = (q.progress && q.progress[userId]) || { correctCount: 0, wrongCount: 0, needsReview: false };
-  db.collection("questions")
+  questionsCollection()
     .doc(id)
     .update({
       [`progress.${userId}`]: {
@@ -73,7 +78,7 @@ export function recordAnswer(id, userId, wasCorrect) {
 
 export function resetProgress(id) {
   if (!db) return;
-  db.collection("questions").doc(id).update({ progress: {} });
+  questionsCollection().doc(id).update({ progress: {} });
 }
 
 // Clears one user's progress on every question (used by Setup's per-member
@@ -84,18 +89,20 @@ export function resetUserProgress(userId) {
   if (affected.length === 0) return;
   const batch = db.batch();
   affected.forEach((q) => {
-    batch.update(db.collection("questions").doc(q.id), { [`progress.${userId}`]: firebase.firestore.FieldValue.delete() });
+    batch.update(questionsCollection().doc(q.id), { [`progress.${userId}`]: firebase.firestore.FieldValue.delete() });
   });
   batch.commit();
 }
 
-ready.then((firestoreDb) => {
-  db = firestoreDb;
-  db.collection("questions").onSnapshot(
-    (snapshot) => {
-      questions = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      notify();
-    },
-    (err) => console.error(err)
-  );
-}).catch((err) => console.error(err));
+if (getFamilyId()) {
+  ready.then((firestoreDb) => {
+    db = firestoreDb;
+    questionsCollection().onSnapshot(
+      (snapshot) => {
+        questions = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        notify();
+      },
+      (err) => console.error(err)
+    );
+  }).catch((err) => console.error(err));
+}

@@ -23,6 +23,38 @@
 </head>
 <body>
 
+<div id="family-gate" class="family-gate-backdrop" hidden>
+  <div class="family-gate-card">
+    <img class="family-gate-logo" src="icons/icon-192.png" width="56" height="56" alt="" />
+    <h1>Bible Questions</h1>
+
+    <div id="family-gate-tabs" class="family-gate-tabs">
+      <button type="button" class="family-gate-tab active" data-tab="join">Join a Family</button>
+      <button type="button" class="family-gate-tab" data-tab="create">Create a Family</button>
+    </div>
+
+    <div id="family-gate-join" class="family-gate-panel">
+      <p class="settings-fineprint">Ask whoever set this up for your family's code.</p>
+      <label for="family-code-input">Family code</label>
+      <input id="family-code-input" type="text" placeholder="e.g. AB3XQK9P" autocapitalize="characters" autocomplete="off" spellcheck="false" />
+      <p id="family-join-error" class="form-error" hidden></p>
+      <button id="family-join-btn" class="btn btn-primary btn-block">Join</button>
+    </div>
+
+    <div id="family-gate-create" class="family-gate-panel" hidden>
+      <label for="family-name-input">Family name</label>
+      <input id="family-name-input" type="text" placeholder="e.g. The Robinsons" autocomplete="off" />
+      <label for="family-passcode-input">Setup passcode</label>
+      <input id="family-passcode-input" type="text" inputmode="numeric" placeholder="Pick a passcode" autocomplete="off" />
+      <p class="settings-fineprint">This unlocks the Setup area later for adding family members and questions — a soft deterrent, not real security.</p>
+      <p id="family-create-error" class="form-error" hidden></p>
+      <button id="family-create-btn" class="btn btn-primary btn-block">Create Family</button>
+    </div>
+
+    <p id="family-gate-status" class="family-gate-status" hidden></p>
+  </div>
+</div>
+
 <header class="app-header">
   <button id="menu-toggle-btn" class="menu-toggle-btn" aria-label="Open menu">☰</button>
   <h1 class="app-title">

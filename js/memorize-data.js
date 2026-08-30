@@ -18,12 +18,21 @@
 //
 // verseCategories doc shape: { name, createdAt }.
 import { ready } from "./firebase.js";
+import { getFamilyId, scopedCollection } from "./family.js";
 
 let db = null;
 let verses = [];
 let categories = [];
 const verseListeners = new Set();
 const categoryListeners = new Set();
+
+function versesCollection() {
+  return scopedCollection(db, "memoryVerses");
+}
+
+function categoriesCollection() {
+  return scopedCollection(db, "verseCategories");
+}
 
 function notifyVerses() {
   verseListeners.forEach((cb) => cb(verses));
@@ -55,7 +64,7 @@ export function getVerseCategories() {
 
 export function addMemoryVerse(reference, text, categoryId) {
   if (!db) return;
-  db.collection("memoryVerses").add({
+  versesCollection().add({
     reference,
     text,
     categoryId: categoryId || null,
@@ -66,12 +75,12 @@ export function addMemoryVerse(reference, text, categoryId) {
 
 export function deleteMemoryVerse(id) {
   if (!db) return;
-  db.collection("memoryVerses").doc(id).delete();
+  versesCollection().doc(id).delete();
 }
 
 export function assignVerseCategory(verseId, categoryId) {
   if (!db) return;
-  db.collection("memoryVerses").doc(verseId).update({ categoryId: categoryId || null });
+  versesCollection().doc(verseId).update({ categoryId: categoryId || null });
 }
 
 // `attemptScore` is a 0..1 score for this one practice attempt (e.g. the
@@ -84,7 +93,7 @@ export function recordVerseProgress(verseId, userId, wasCorrect, attemptScore) {
   if (!v) return;
   const prev = (v.progress && v.progress[userId]) || { correctCount: 0, attempts: 0, needsReview: false, recentScores: [] };
   const recentScores = [...(prev.recentScores || []), typeof attemptScore === "number" ? attemptScore : wasCorrect ? 1 : 0].slice(-5);
-  db.collection("memoryVerses")
+  versesCollection()
     .doc(verseId)
     .update({
       [`progress.${userId}`]: {
@@ -100,7 +109,7 @@ export function recordVerseProgress(verseId, userId, wasCorrect, attemptScore) {
 // see BUCKETS in memorize.js) a verse is filed under.
 export function setVerseBucket(verseId, userId, bucket) {
   if (!db || !userId) return;
-  db.collection("memoryVerses").doc(verseId).update({ [`buckets.${userId}`]: bucket });
+  versesCollection().doc(verseId).update({ [`buckets.${userId}`]: bucket });
 }
 
 // Clears one user's progress on every memory verse (used by Setup's
@@ -112,7 +121,7 @@ export function resetUserProgress(userId) {
   if (affected.length === 0) return;
   const batch = db.batch();
   affected.forEach((v) => {
-    batch.update(db.collection("memoryVerses").doc(v.id), { [`progress.${userId}`]: firebase.firestore.FieldValue.delete() });
+    batch.update(versesCollection().doc(v.id), { [`progress.${userId}`]: firebase.firestore.FieldValue.delete() });
   });
   batch.commit();
 }
@@ -121,12 +130,12 @@ export function resetUserProgress(userId) {
 
 export function addVerseCategory(name) {
   if (!db) return;
-  db.collection("verseCategories").add({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  categoriesCollection().add({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
 }
 
 export function updateVerseCategory(id, name) {
   if (!db) return;
-  db.collection("verseCategories").doc(id).update({ name });
+  categoriesCollection().doc(id).update({ name });
 }
 
 export function deleteVerseCategory(id) {
@@ -136,28 +145,30 @@ export function deleteVerseCategory(id) {
   const affected = verses.filter((v) => v.categoryId === id);
   const batch = db.batch();
   affected.forEach((v) => {
-    batch.update(db.collection("memoryVerses").doc(v.id), { categoryId: null });
+    batch.update(versesCollection().doc(v.id), { categoryId: null });
   });
-  batch.delete(db.collection("verseCategories").doc(id));
+  batch.delete(categoriesCollection().doc(id));
   batch.commit();
 }
 
-ready
-  .then((firestoreDb) => {
-    db = firestoreDb;
-    db.collection("memoryVerses").onSnapshot(
-      (snapshot) => {
-        verses = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        notifyVerses();
-      },
-      (err) => console.error(err)
-    );
-    db.collection("verseCategories").onSnapshot(
-      (snapshot) => {
-        categories = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        notifyCategories();
-      },
-      (err) => console.error(err)
-    );
-  })
-  .catch((err) => console.error(err));
+if (getFamilyId()) {
+  ready
+    .then((firestoreDb) => {
+      db = firestoreDb;
+      versesCollection().onSnapshot(
+        (snapshot) => {
+          verses = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          notifyVerses();
+        },
+        (err) => console.error(err)
+      );
+      categoriesCollection().onSnapshot(
+        (snapshot) => {
+          categories = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          notifyCategories();
+        },
+        (err) => console.error(err)
+      );
+    })
+    .catch((err) => console.error(err));
+}

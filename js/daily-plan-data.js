@@ -11,12 +11,21 @@
 // dailyReadingProgress docs from a user's own startDate through yesterday.
 import { ready } from "./firebase.js";
 import { dateKey } from "./default-reading-plan.js";
+import { getFamilyId, scopedCollection } from "./family.js";
 
 let db = null;
 let planStates = {}; // { [userId]: {startDate} }
 let planStatsByUser = {}; // { [userId]: {completed, missed, missedDates, totalDays, currentStreak} }
 const knownUserIds = new Set(); // users we've been asked to compute/keep stats for
 const listeners = new Set();
+
+function appStateCollection() {
+  return scopedCollection(db, "appState");
+}
+
+function dailyReadingProgressCollection() {
+  return scopedCollection(db, "dailyReadingProgress");
+}
 
 function notify() {
   listeners.forEach((cb) => cb({ planStates, planStatsByUser }));
@@ -34,14 +43,14 @@ export function subscribePlanState(callback) {
 
 export function startPlan(userId) {
   if (!db || !userId) return;
-  db.collection("appState")
+  appStateCollection()
     .doc("dailyPlan")
     .set({ [userId]: { startDate: dateKey(new Date()) } }, { merge: true });
 }
 
 export function resetPlan(userId) {
   if (!db || !userId) return;
-  db.collection("appState")
+  appStateCollection()
     .doc("dailyPlan")
     .update({ [userId]: firebase.firestore.FieldValue.delete() });
 }
@@ -52,7 +61,7 @@ export function resetPlan(userId) {
 export function markDailyReadingDone(dateKeyStr, index, userId) {
   if (!db || !userId) return;
   const field = `read${index + 1}`;
-  db.collection("dailyReadingProgress")
+  dailyReadingProgressCollection()
     .doc(dateKeyStr)
     .set({ [userId]: { [field]: true } }, { merge: true })
     .then(() => refreshPlanStats(userId));
@@ -63,7 +72,7 @@ export function markDailyReadingDone(dateKeyStr, index, userId) {
 // completed until the day is over).
 async function isTodayDone(userId) {
   const todayKey = dateKey(new Date());
-  const doc = await db.collection("dailyReadingProgress").doc(todayKey).get();
+  const doc = await dailyReadingProgressCollection().doc(todayKey).get();
   const d = (doc.exists && doc.data()[userId]) || {};
   return !!(d.read1 && d.read2 && d.read3);
 }
@@ -91,8 +100,7 @@ async function computeStatsFor(userId) {
       return;
     }
 
-    const snapshot = await db
-      .collection("dailyReadingProgress")
+    const snapshot = await dailyReadingProgressCollection()
       .where(firebase.firestore.FieldPath.documentId(), ">=", start)
       .where(firebase.firestore.FieldPath.documentId(), "<=", endKey)
       .get();
@@ -147,18 +155,20 @@ export function refreshPlanStats(userId) {
   computeStatsFor(userId);
 }
 
-ready
-  .then((firestoreDb) => {
-    db = firestoreDb;
-    db.collection("appState")
-      .doc("dailyPlan")
-      .onSnapshot(
-        (doc) => {
-          planStates = doc.exists ? doc.data() || {} : {};
-          notify();
-          knownUserIds.forEach((userId) => computeStatsFor(userId));
-        },
-        (err) => console.error(err)
-      );
-  })
-  .catch((err) => console.error(err));
+if (getFamilyId()) {
+  ready
+    .then((firestoreDb) => {
+      db = firestoreDb;
+      appStateCollection()
+        .doc("dailyPlan")
+        .onSnapshot(
+          (doc) => {
+            planStates = doc.exists ? doc.data() || {} : {};
+            notify();
+            knownUserIds.forEach((userId) => computeStatsFor(userId));
+          },
+          (err) => console.error(err)
+        );
+    })
+    .catch((err) => console.error(err));
+}

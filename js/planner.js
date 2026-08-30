@@ -6,6 +6,7 @@ import { BOOKS, computeChapterSequence } from "./bible-data.js";
 import { readingsForDate, parseReadingLabel, dateKey } from "./default-reading-plan.js";
 import { subscribePlanState, startPlan, resetPlan, refreshPlanStats } from "./daily-plan-data.js";
 import { getActiveUser, subscribeActiveUser } from "./active-user.js";
+import { scopedCollection } from "./family.js";
 
 let db = null;
 let plans = []; // [{id, name, startBook, startChapter, endBook, endChapter, chapters, progress: {[userId]: [bool,...]}}]
@@ -21,6 +22,14 @@ let activeUserId = null;
 let planStates = {}; // {[userId]: {startDate}} — from daily-plan-data.js
 let planStatsByUser = {}; // {[userId]: stats} — from daily-plan-data.js
 let refs = {};
+
+function readingPlansCollection() {
+  return scopedCollection(db, "readingPlans");
+}
+
+function dailyReadingProgressCollection() {
+  return scopedCollection(db, "dailyReadingProgress");
+}
 
 const MONTH_NAMES = [
   "January","February","March","April","May","June",
@@ -206,7 +215,7 @@ function savePlan() {
   closeModal();
 
   if (!db) return;
-  db.collection("readingPlans").add({
+  readingPlansCollection().add({
     name,
     startBook,
     startChapter,
@@ -221,7 +230,7 @@ function savePlan() {
 function deletePlan(id) {
   if (!db) return;
   if (!confirm("Delete this reading plan?")) return;
-  db.collection("readingPlans").doc(id).delete();
+  readingPlansCollection().doc(id).delete();
 }
 
 function progressForUser(plan, userId) {
@@ -236,7 +245,7 @@ function toggleChapter(plan, index) {
   if (!userId) return;
   const progress = progressForUser(plan, userId).slice();
   progress[index] = !progress[index];
-  db.collection("readingPlans")
+  readingPlansCollection()
     .doc(plan.id)
     .set({ progress: { [userId]: progress } }, { merge: true });
 }
@@ -439,7 +448,7 @@ function toggleDailyRead(index) {
   if (!userId) return;
   const field = `read${index + 1}`;
   const current = (dailyDocData[userId] || {})[field];
-  db.collection("dailyReadingProgress")
+  dailyReadingProgressCollection()
     .doc(dateKey(dailyDate))
     .set({ [userId]: { [field]: !current } }, { merge: true })
     .then(() => refreshPlanStats(userId));
@@ -449,7 +458,7 @@ function markAllDailyComplete() {
   if (!requireSignedIn()) return;
   if (!db) return;
   const userId = getActiveUser();
-  db.collection("dailyReadingProgress")
+  dailyReadingProgressCollection()
     .doc(dateKey(dailyDate))
     .set({ [userId]: { read1: true, read2: true, read3: true } }, { merge: true })
     .then(() => refreshPlanStats(userId));
@@ -597,7 +606,7 @@ function markDaysComplete(dateKeys, userId) {
   const batch = db.batch();
   dateKeys.forEach((key) => {
     batch.set(
-      db.collection("dailyReadingProgress").doc(key),
+      dailyReadingProgressCollection().doc(key),
       { [userId]: { read1: true, read2: true, read3: true } },
       { merge: true }
     );
@@ -684,7 +693,7 @@ export function mountPlanner(container) {
   ready.then((firestoreDb) => {
     db = firestoreDb;
     subscribeDaily(dailyDate);
-    db.collection("readingPlans").onSnapshot(
+    readingPlansCollection().onSnapshot(
       (snapshot) => {
         plans = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         if (!activePlanId && plans.length > 0) activePlanId = plans[0].id;

@@ -590,3 +590,87 @@ body {
 .verse-range-row select {
   width: 100%;
 }
+
+/* ---------- Family gate (create/join screen, shown before the app) ---------- */
+
+.family-gate-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  padding-top: max(1.5rem, env(safe-area-inset-top));
+  overflow-y: auto;
+}
+
+.family-gate-backdrop[hidden] {
+  display: none;
+}
+
+.family-gate-card {
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+}
+
+.family-gate-logo {
+  border-radius: 22%;
+  margin-bottom: 0.75rem;
+}
+
+.family-gate-card h1 {
+  font-size: 1.4rem;
+  margin: 0 0 1.25rem;
+}
+
+.family-gate-tabs {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem;
+  margin-bottom: 1.25rem;
+}
+
+.family-gate-tab {
+  flex: 1 1 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.5rem;
+  border-radius: 999px;
+}
+
+.family-gate-tab.active {
+  background: var(--indigo);
+  color: #fff;
+}
+
+.family-gate-panel {
+  text-align: left;
+}
+
+.family-gate-panel label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0.75rem 0 0.3rem;
+}
+
+.family-gate-panel input {
+  width: 100%;
+}
+
+.family-gate-panel .btn-block {
+  margin-top: 1rem;
+}
+
+.family-gate-status {
+  margin-top: 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}

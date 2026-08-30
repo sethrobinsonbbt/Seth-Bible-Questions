@@ -32,7 +32,7 @@ import {
 } from "./memorize-data.js";
 import { subscribePlanState, refreshPlanStats, resetPlan } from "./daily-plan-data.js";
 import { ready } from "./firebase.js";
-import { SETUP_PASSWORD } from "./setup-password.js";
+import { getFamilyPasscode, subscribeFamilyInfo, setFamilyId, scopedCollection } from "./family.js";
 
 const UNLOCK_KEY = "bible-questions-settings-unlocked";
 
@@ -42,6 +42,7 @@ let memoryVerses = [];
 let verseCategories = [];
 let planStates = {}; // {[userId]: {startDate}} — from daily-plan-data.js
 let planStatsByUser = {}; // {[userId]: stats} — from daily-plan-data.js
+let familyName = null;
 let editingUserId = null;
 let addingUser = false;
 let editingQuestionId = null;
@@ -223,7 +224,7 @@ function buildLockScreen(container) {
   `;
   const input = container.querySelector("#settings-password-input");
   const submit = () => {
-    if (input.value === SETUP_PASSWORD) {
+    if (input.value === getFamilyPasscode()) {
       setUnlocked(true);
       buildMainView(container);
     } else {
@@ -1208,7 +1209,7 @@ function buildAboutView(container) {
     container.querySelector("#about-back-btn").addEventListener("click", () => buildMainView(container));
     const input = container.querySelector("#about-password-input");
     const submit = () => {
-      if (input.value === SETUP_PASSWORD) {
+      if (input.value === getFamilyPasscode()) {
         aboutUnlocked = true;
         buildAboutView(container);
       } else {
@@ -1253,6 +1254,19 @@ function buildAboutView(container) {
 
 // ---------- Data export ----------
 
+// The 7 collections that used to live at the top level, before every
+// family got its own families/{familyId}/... subcollection tree. Shared
+// by the backup export and the one-time migration below.
+const LEGACY_COLLECTION_NAMES = [
+  "users",
+  "questions",
+  "memoryVerses",
+  "verseCategories",
+  "readingPlans",
+  "dailyReadingProgress",
+  "appState",
+];
+
 async function exportAllData() {
   const btn = refs.exportBtn;
   const originalText = btn.textContent;
@@ -1260,18 +1274,10 @@ async function exportAllData() {
   btn.disabled = true;
   try {
     const db = await ready;
-    const collectionNames = [
-      "users",
-      "questions",
-      "memoryVerses",
-      "verseCategories",
-      "readingPlans",
-      "dailyReadingProgress",
-      "appState",
-    ];
+    const collectionNames = LEGACY_COLLECTION_NAMES;
     const data = {};
     for (const name of collectionNames) {
-      const snapshot = await db.collection(name).get();
+      const snapshot = await scopedCollection(db, name).get();
       data[name] = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     }
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -1292,6 +1298,67 @@ async function exportAllData() {
   }
 }
 
+// ---------- One-time migration (old top-level collections -> this family) ----------
+// TEMPORARY: only relevant for a device that had data from before multi-family
+// support existed. Copies every doc from the old top-level collections into
+// this family's own subcollections, preserving doc ids. Doesn't touch or
+// delete the old collections — they become unreachable once the Firestore
+// rules are cut over to the family-scoped version (see README), which is a
+// separate, deliberate step in the Firebase console.
+const MIGRATION_DONE_KEY = "bible-questions-migrated-legacy-data";
+
+function legacyMigrationDone() {
+  try {
+    return localStorage.getItem(MIGRATION_DONE_KEY) === "true";
+  } catch (e) {
+    return false;
+  }
+}
+
+function setLegacyMigrationDone() {
+  try {
+    localStorage.setItem(MIGRATION_DONE_KEY, "true");
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+async function migrateLegacyData(container) {
+  const btn = refs.migrateBtn;
+  if (!confirm("Copy this device's old (pre-multi-family) data into this family? Only do this once, on the one device/family that had the original data.")) {
+    return;
+  }
+  const originalText = btn.textContent;
+  btn.textContent = "Migrating…";
+  btn.disabled = true;
+  try {
+    const db = await ready;
+    const counts = {};
+    for (const name of LEGACY_COLLECTION_NAMES) {
+      const snapshot = await db.collection(name).get();
+      const docs = snapshot.docs;
+      counts[name] = docs.length;
+      // Firestore batches cap at 500 writes; chunk generously under that.
+      for (let i = 0; i < docs.length; i += 400) {
+        const batch = db.batch();
+        docs.slice(i, i + 400).forEach((doc) => {
+          batch.set(scopedCollection(db, name).doc(doc.id), doc.data());
+        });
+        await batch.commit();
+      }
+    }
+    setLegacyMigrationDone();
+    const summary = LEGACY_COLLECTION_NAMES.map((name) => `${name}: ${counts[name]}`).join(", ");
+    alert(`Migrated: ${summary}. The old data is untouched — it'll stop being reachable once you update the Firestore rules (see README).`);
+    buildMainView(container);
+  } catch (err) {
+    console.error(err);
+    alert("Couldn't migrate — check your internet connection and try again.");
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
 // ---------- Main Setup view ----------
 
 function buildMainView(container) {
@@ -1301,6 +1368,7 @@ function buildMainView(container) {
       <h2>🔒 Setup</h2>
       <button id="settings-lock-btn" class="btn btn-small">Lock</button>
     </div>
+    <p id="settings-family-name" class="settings-fineprint"></p>
 
     <ul class="settings-nav-list">
       <li><button id="open-family-btn" class="settings-nav-link">
@@ -1332,11 +1400,32 @@ function buildMainView(container) {
       <p class="settings-fineprint">Download everything — family members, questions, memory verses, reading plans and progress — as one JSON file.</p>
       <button id="export-data-btn" class="btn">⬇️ Export All Data</button>
     </div>
+
+    ${
+      legacyMigrationDone()
+        ? ""
+        : `<div class="settings-panel">
+      <div class="list-toolbar">
+        <h2>⚠️ One-Time Migration</h2>
+      </div>
+      <p class="settings-fineprint">If this device has data from before family codes existed, copy it into this family. Only do this once, on the one device that had the original data.</p>
+      <button id="migrate-legacy-btn" class="btn">Migrate Old Data</button>
+    </div>`
+    }
+
+    <div class="settings-panel">
+      <div class="list-toolbar">
+        <h2>This Device</h2>
+      </div>
+      <p class="settings-fineprint">Switches this device to a different family's code. You'll need this family's code again to come back.</p>
+      <button id="switch-family-btn" class="btn btn-danger">Switch Family</button>
+    </div>
   `;
 
   refs.familyCount = container.querySelector("#family-count");
   refs.libraryCount = container.querySelector("#library-count");
   refs.memversesCount = container.querySelector("#memverses-count");
+  refs.familyNameEl = container.querySelector("#settings-family-name");
   refs.exportBtn = container.querySelector("#export-data-btn");
   refs.exportBtn.addEventListener("click", exportAllData);
 
@@ -1352,8 +1441,25 @@ function buildMainView(container) {
     aboutUnlocked = false; // always opens locked; tap through with the passcode to view
     buildAboutView(container);
   });
+  container.querySelector("#switch-family-btn").addEventListener("click", () => {
+    if (confirm("Switch to a different family? You'll need a family code to get back in — this one included.")) {
+      // Setup's unlocked state is a plain device-wide flag, not tied to a
+      // family — without clearing it here, the next family would find
+      // Setup already unlocked without ever entering its own passcode.
+      setUnlocked(false);
+      setFamilyId(null);
+      window.location.reload();
+    }
+  });
+
+  const migrateBtn = container.querySelector("#migrate-legacy-btn");
+  if (migrateBtn) {
+    refs.migrateBtn = migrateBtn;
+    migrateBtn.addEventListener("click", () => migrateLegacyData(container));
+  }
 
   renderNavCounts();
+  renderFamilyName();
 }
 
 function renderNavCounts() {
@@ -1362,6 +1468,10 @@ function renderNavCounts() {
   if (refs.memversesCount) {
     refs.memversesCount.textContent = `${memoryVerses.length} verse${memoryVerses.length === 1 ? "" : "s"} · ${verseCategories.length} categor${verseCategories.length === 1 ? "y" : "ies"}`;
   }
+}
+
+function renderFamilyName() {
+  if (refs.familyNameEl) refs.familyNameEl.textContent = familyName ? familyName : "";
 }
 
 export function mountSettings(container) {
@@ -1400,5 +1510,9 @@ export function mountSettings(container) {
     planStates = states;
     planStatsByUser = statsByUser;
     if (refs.userList) renderUsers();
+  });
+  subscribeFamilyInfo((info) => {
+    familyName = info ? info.name : null;
+    renderFamilyName();
   });
 }

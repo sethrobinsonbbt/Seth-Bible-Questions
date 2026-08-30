@@ -94,47 +94,54 @@ management. You only need to do the steps on this page once.
 
 ### 2. Lock down Firestore rules
 
-In the Firebase console, go to **Firestore Database → Rules** and paste:
+Every family's data lives under its own `families/{familyId}` document (see
+**Multi-family support** below) — a family's code *is* its familyId, so
+knowing the code is what grants access to that family's data, nothing more
+fine-grained than that. In the Firebase console, go to **Firestore Database
+→ Rules** and paste:
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{id}              { allow read, write: if request.auth != null; }
-    match /questions/{id}          { allow read, write: if request.auth != null; }
-    match /memoryVerses/{id}       { allow read, write: if request.auth != null; }
-    match /verseCategories/{id}    { allow read, write: if request.auth != null; }
-    match /readingPlans/{id}       { allow read, write: if request.auth != null; }
-    match /dailyReadingProgress/{id} { allow read, write: if request.auth != null; }
-    match /appState/{id}           { allow read, write: if request.auth != null; }
+    match /families/{familyId}/{document=**} {
+      allow read, write: if request.auth != null;
+    }
   }
 }
 ```
 
 Click **Publish**. This means only devices that have opened the app (and
-silently signed in anonymously) can read or write the app's data — and,
-compared to a blanket `match /{document=**}`, only within these seven
-known collections, so a stray script poking at your project can't spray
-junk data into some new collection name you never created. **If you set
-up Firestore rules before Memorize categories were added, re-paste this
-block** — the `verseCategories` line is new; without it, creating or
-renaming a category in Setup will silently fail with a permission-denied
-error. Add a line here any other time you add a new Firestore collection.
+silently signed in anonymously) can read or write data, and only within
+whichever family's subtree they're pointed at — a stray script poking at
+your project can't spray junk data into some collection name you never
+created, and one family's data isn't reachable at all without that
+family's code.
+
+**If you're upgrading a site that had data from before family codes
+existed:** keep the *old* rules in place (see git history, or ask) until
+you've run **Setup → ⚠️ One-Time Migration → Migrate Old Data** to copy
+that data into a family — only then paste the rules above and publish.
+Once published, the old top-level collections stop being reachable by the
+app (they're simply orphaned, not deleted — you can clean them up from the
+Firebase console whenever, or leave them).
 
 **How much protection is this really?** Anonymous auth means *anyone* who
-loads the page — not just your family — becomes an authorized reader/writer
-the moment the page runs. That's a real gap, not just theoretical, even
-though a stranger stumbling onto a family Bible-trivia URL is unlikely. It
-costs nothing (see "How much is this going to cost me?" below) but it's
-worth understanding what it does and doesn't protect against:
+has (or guesses) a family's code becomes an authorized reader/writer of
+that family's data the moment the page runs — same as a Google Doc's
+"anyone with the link" sharing, not a real per-person login. That's a real
+gap, not just theoretical, even though guessing an 8-character random code
+is astronomically unlikely. It costs nothing (see "How much is this going
+to cost me?" below) but it's worth understanding what it does and doesn't
+protect against:
 
 - **What it stops:** someone finding your `firebase-config.js` values and
-  hitting your Firestore directly from a *different* app or script without
-  ever loading your page (they can't skip auth, and now can't touch
-  collections outside the six above either).
-- **What it doesn't stop:** someone who actually opens your site's URL —
-  they get anonymous auth automatically, same as your family does, and can
-  read or write anything in those six collections.
+  hitting your Firestore directly from a *different* app or script (they
+  can't skip auth), and one family's code doesn't expose any other
+  family's data.
+- **What it doesn't stop:** someone who has a specific family's code —
+  they get the same access as that family's own devices. Don't share a
+  family's code outside that family.
 
 Two ways to raise the bar further, in rough order of effort:
 
@@ -147,25 +154,50 @@ Two ways to raise the bar further, in rough order of effort:
   Firestore API directly (bots hitting the API without ever loading your
   page), by requiring a token proving the request came from your actual
   registered site (via reCAPTCHA v3). It does *not* stop a human who
-  actually opens the real page, so it doesn't fully close the anonymous-auth
-  gap above — see [Firebase App Check docs](https://firebase.google.com/docs/app-check)
-  if you want to set it up.
+  actually opens the real page with a valid family code, so it doesn't
+  fully close the gap above — see
+  [Firebase App Check docs](https://firebase.google.com/docs/app-check) if
+  you want to set it up.
 
-Real per-family access control (a login instead of "anyone who opens the
-page is authorized") would mean adding a Cloud Function that checks a
-shared passcode server-side and issues a custom auth token — a bigger
-change (requires enabling the pay-as-you-go Blaze plan to deploy a
-function, though usage would still cost $0) that's out of scope unless you
-want to take this from "hobby family app" to "actually gated." Ask if
-you'd like to go that route.
+Real per-person access control (individual logins instead of "anyone with
+this family's code is authorized") would mean real Firebase Auth accounts
+per person plus rules that check `request.auth.uid` against a family
+membership lookup — a bigger change, but one that layers on top of this
+same data structure rather than requiring another rewrite. Ask if you'd
+like to go that route.
 
-Note the **Setup** section's "1967" passcode is a separate, much
-weaker layer on top of this — it's a plain string checked in the browser
-(`js/settings.js`), not real access control. Anyone who opens the
-browser's dev tools can read it straight out of the page. It's there to
-keep a curious kid from poking around, not to protect sensitive data —
-don't rely on it for anything you actually need to keep private. Change
-it by editing the `PASSWORD` constant near the top of `js/settings.js`.
+Note each family's own **Setup passcode** (chosen when the family is
+created — see below) is a separate, much weaker layer on top of this —
+it's a plain string stored on that family's own document and checked in
+the browser (`js/settings.js`), not real access control. Anyone with dev
+tools open and that family's code can read it straight out of Firestore.
+It's there to keep a curious kid from poking around Setup, not to protect
+anything you actually need to keep private.
+
+### Multi-family support
+
+This app supports more than one family sharing the same deployment and
+Firebase project, fully isolated from each other:
+
+- **First visit, any device:** a full-screen gate (`js/family-gate.js`)
+  asks to either **Create a Family** (pick a name and a Setup passcode —
+  this generates a random ~8-character family code) or **Join a Family**
+  (enter an existing code, or open a link like
+  `https://yourdomain.com/?family=AB3XQK9P` which fills the code in
+  automatically). The code is stored on that device (`localStorage`) so
+  this only happens once per device.
+- Every family's data — family members, questions, memory verses, reading
+  plans, everything — lives under `families/{familyId}/...` in the same
+  Firestore project (see `js/family.js`), completely separate from every
+  other family's.
+- The family's **name** shows (read-only) at the top of **Setup**; there's
+  a **Switch Family** button further down Setup for moving a device to a
+  different family's code (you'll need a code to get back in).
+- There's no cross-family anything — no shared question bank, no way to
+  see another family exists. The starter question banks
+  (`js/question-bank-data.js`, `js/family-question-bank.js`) are bundled
+  content every family can import from Setup, not Firestore data, so they
+  aren't affected by any of this.
 
 ### 3. Host the site
 
@@ -288,9 +320,10 @@ device, so it doesn't need to be reselected every visit.
 
 ### 🔒 Setup
 
-Enter the passcode (default `1967`, see the security note above) to
-unlock the landing page, which just links to four subpages, plus a
-Backup panel:
+Enter this family's Setup passcode (chosen when the family was created —
+see **Multi-family support** above) to unlock the landing page, which
+shows the family's name plus links to four subpages, a Backup panel, and
+a Switch Family action:
 
 - **👪 Family Members** — **+ Add Member** to name someone and check
   which age group(s) they belong to (a person can be in more than
@@ -645,8 +678,12 @@ matching anything.
   bundled question banks. Their one-time Setup import buttons have been
   removed now that both are imported; these files stay in the repo,
   unused, in case a bulk-import feature is wanted again later.
-- `js/setup-password.js` — the Setup passcode, shared by the Setup section
-  and any other passcode-gated spot (the Questions page's Edit button).
+- `js/family.js` — the multi-family data model: family id storage,
+  create/join, the per-family `scopedCollection()` helper every other
+  data module uses, and the family's name/passcode.
+- `js/family-gate.js` — the one-time "Create a Family" / "Join a Family"
+  screen shown before the app mounts on a device with no family picked
+  yet.
 - `js/settings.js` — the passcode-gated Setup landing page and its four
   subpages (Family Members + stats/reset, Question Library, Memory
   Verses categories, About), each with bulk CSV import/export (Excel/

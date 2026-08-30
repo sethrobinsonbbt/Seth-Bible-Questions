@@ -11,7 +11,7 @@ import { subscribeQuestions, recordAnswer, updateQuestion } from "./questions-da
 import { subscribeUsers } from "./users.js";
 import { subscribeActiveUser } from "./active-user.js";
 import { fetchVerseRange } from "./bible-api.js";
-import { SETUP_PASSWORD } from "./setup-password.js";
+import { getFamilyPasscode } from "./family.js";
 
 let users = [];
 let allQuestions = [];
@@ -330,7 +330,7 @@ function tryEditCurrentQuestion() {
   if (!pick) return;
   const entered = prompt("Enter the Setup passcode to edit this question:");
   if (entered === null) return;
-  if (entered !== SETUP_PASSWORD) {
+  if (entered !== getFamilyPasscode()) {
     alert("Incorrect passcode.");
     return;
   }
