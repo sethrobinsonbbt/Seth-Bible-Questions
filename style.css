@@ -582,6 +582,173 @@ body {
   }
 }
 
+/* ---------- Strong's number popup ---------- */
+
+.strongs-word {
+  cursor: pointer;
+  border-radius: 4px;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.strongs-word:active {
+  background: var(--btn-bg);
+}
+
+.strongs-popup-backdrop {
+  align-items: center;
+  z-index: 80;
+}
+
+.strongs-modal {
+  background: var(--card-bg);
+  width: 75vw;
+  height: 75vh;
+  max-width: 720px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  overflow: hidden;
+}
+
+.strongs-modal-topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.strongs-modal-back {
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  color: var(--indigo);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.2rem 0;
+}
+
+.strongs-modal-header {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.strongs-modal-number {
+  font-weight: 700;
+  color: var(--indigo);
+  white-space: nowrap;
+}
+
+.strongs-modal-lemma {
+  font-size: 1.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.strongs-modal-close {
+  flex: 0 0 auto;
+  border: none;
+  background: var(--btn-bg);
+  color: var(--text);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  font-size: 1rem;
+}
+
+.strongs-modal-multi {
+  margin-bottom: 0;
+}
+
+.strongs-modal-tabs {
+  display: flex;
+  gap: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.strongs-tab {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 0.5rem 0.8rem;
+  border-bottom: 2px solid transparent;
+}
+
+.strongs-tab.active {
+  color: var(--indigo);
+  border-bottom-color: var(--indigo);
+}
+
+.strongs-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.strongs-pron {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.strongs-kjv-def,
+.strongs-def,
+.strongs-derivation {
+  line-height: 1.5;
+}
+
+.strongs-inline-link {
+  border: none;
+  background: none;
+  color: var(--indigo);
+  font-weight: 600;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.strongs-occurrence-count {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 0;
+}
+
+.strongs-occurrence-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.strongs-occurrence-btn {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: var(--btn-bg);
+  color: var(--text);
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.strongs-occurrence-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  margin-top: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
 /* ---------- Bible reader ---------- */
 
 .bible-jump-row {

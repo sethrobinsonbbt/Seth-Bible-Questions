@@ -1,5 +1,7 @@
 import { BOOKS, BIBLE_VERSIONS, resolveBookName } from "./bible-data.js";
 import { fetchChapter } from "./bible-api.js";
+import { fetchStrongsChapter } from "./strongs-data.js";
+import { openStrongsPopup } from "./strongs-popup.js";
 import { addQuestion } from "./questions-data.js";
 import { buildAgeGroupSelect } from "./age-groups-data.js";
 import {
@@ -27,6 +29,7 @@ let rampInterval = null;
 let autoPlayNextChapter = false; // set when auto-advancing to the next daily reading mid-speech
 let longPressTimer = null;
 let longPressTriggered = false;
+let wordLongPressTimer = null;
 let wakeLockSentinel = null;
 let silentAudioEl = null;
 const NORMAL_RATE = 1;
@@ -235,6 +238,36 @@ function buildSkeleton(container) {
 
   refs.prevBtn.addEventListener("click", () => step(-1));
   refs.nextBtn.addEventListener("click", () => step(1));
+
+  setupWordLongPress();
+}
+
+// Long-press a word in the reading text to look up its Strong's number —
+// delegated on the whole content area (rather than per-word listeners)
+// since a long chapter can have thousands of word spans. Only pointerup /
+// pointercancel are needed to end a press; a finger drifting slightly off
+// the word mid-hold still counts, matching how the Listen button's
+// long-press already behaves.
+function setupWordLongPress() {
+  refs.content.addEventListener("pointerdown", (e) => {
+    const wordEl = e.target.closest(".strongs-word");
+    if (!wordEl) return;
+    wordLongPressTimer = setTimeout(() => {
+      wordLongPressTimer = null;
+      const numbers = wordEl.dataset.strongs.split(",");
+      openStrongsPopup(numbers);
+    }, LONG_PRESS_MS);
+  });
+
+  const endWordPress = () => {
+    clearTimeout(wordLongPressTimer);
+    wordLongPressTimer = null;
+  };
+  refs.content.addEventListener("pointerup", endWordPress);
+  refs.content.addEventListener("pointercancel", endWordPress);
+  refs.content.addEventListener("contextmenu", (e) => {
+    if (e.target.closest(".strongs-word")) e.preventDefault();
+  });
 }
 
 function populateChapterSelect() {
@@ -283,11 +316,16 @@ async function loadChapter() {
   refs.content.innerHTML = `<p class="bible-status">Loading ${state.book} ${state.chapter}…</p>`;
 
   try {
-    const data = await fetchChapter(state.book, state.chapter, state.version);
+    // The bundled Strong's-tagged KJV text (see strongs-data.js) is this
+    // app's only real Bible text source — bible-api.com's plain KJV is
+    // kept only as a fallback should that local data ever fail to load.
+    const data = await fetchStrongsChapter(state.book, state.chapter).catch(() =>
+      fetchChapter(state.book, state.chapter, state.version)
+    );
     if (myRequest !== requestId) return; // a newer request superseded this one
 
     const verseHtml = data.verses
-      .map((v) => `<p class="bible-verse"><sup>${v.verse}</sup> ${escapeHtml(v.text)}</p>`)
+      .map((v) => `<p class="bible-verse"><sup>${v.verse}</sup> ${v.segments ? renderVerseSegmentsHtml(v.segments) : escapeHtml(v.text)}</p>`)
       .join("");
 
     const voices = getEnglishVoices();
@@ -362,6 +400,23 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
+}
+
+// Renders a verse's Strong's-tagged segments (see strongs-data.js) as HTML,
+// splitting each tagged segment into individual word spans — even when one
+// Strong's number covers an English phrase (e.g. "In the beginning" is a
+// single Hebrew word) — so every visual word is its own long-press target.
+function renderVerseSegmentsHtml(segments) {
+  return segments
+    .map((seg) => {
+      if (!Array.isArray(seg)) return escapeHtml(seg);
+      const [text, numbers] = seg;
+      return text
+        .split(/(\s+)/)
+        .map((piece) => (piece.trim() === "" ? piece : `<span class="strongs-word" data-strongs="${numbers.join(",")}">${escapeHtml(piece)}</span>`))
+        .join("");
+    })
+    .join("");
 }
 
 // ---------- Read-aloud ----------

@@ -293,20 +293,56 @@ The **Q⁺** and **M⁺** badges (see below) float at the top-right of the
 chapter text and stay put as you scroll, so they're always reachable.
 
 Just one translation is offered: the **King James Version**, public
-domain, fetched for free with no API key from
-[bible-api.com](https://bible-api.com). A few others were tried and
-dropped: ASV is public domain too, but close enough to KJV (same
-textual family and register) that it didn't earn a second slot; YLT
-(aggressively word-for-word literal) wasn't different enough to be
-worth having alongside a devotional read either; WEB, BBE, and WEBBE
-were too modern/plain for this family's taste. ESV support exists in
-the code but isn't enabled — see "Add the ESV translation" above.
-Other modern translations (NIV, NLT, NKJV, RSV, etc.) are copyrighted
-with no free API we know of, so they aren't included — you're welcome
-to add one yourself in `js/bible-data.js` (`BIBLE_VERSIONS`) and
-`js/bible-api.js` if you get access to such an API. (With only one
-version, the version dropdown stays hidden — it reappears automatically
-if `BIBLE_VERSIONS` ever grows past one entry.)
+domain. Its text is bundled with the app itself (see **Strong's
+numbers** below) rather than fetched from an API, so chapters load
+instantly and work fully offline once you've opened them; a free,
+no-API-key fetch from [bible-api.com](https://bible-api.com) is kept
+only as a fallback should the bundled data ever fail to load. A few
+other translations were tried and dropped: ASV is public domain too,
+but close enough to KJV (same textual family and register) that it
+didn't earn a second slot; YLT (aggressively word-for-word literal)
+wasn't different enough to be worth having alongside a devotional read
+either; WEB, BBE, and WEBBE were too modern/plain for this family's
+taste. ESV support exists in the code but isn't enabled — see "Add the
+ESV translation" above. Other modern translations (NIV, NLT, NKJV, RSV,
+etc.) are copyrighted with no free API we know of, so they aren't
+included. (With only one version, the version dropdown stays hidden —
+it reappears automatically if `BIBLE_VERSIONS` ever grows past one
+entry. Note that a second translation could only ever be a fallback
+display option — the Strong's number feature below is tied to the KJV
+specifically, since that's the only translation this kind of
+word-by-word tagging exists for.)
+
+**Strong's numbers:** press and hold any word in the reading text to
+look up the original Hebrew or Greek word behind it. A window opens
+(tap the ✕, or tap outside it, to close) with two tabs:
+
+- **Meaning** — the original word, its transliteration/pronunciation,
+  how the KJV translators rendered it elsewhere, its full definition,
+  and a "Derivation" line explaining where the word comes from —
+  any other Strong's numbers mentioned there (e.g. "from H24") are
+  themselves tappable, so you can follow a word's roots a few links
+  deep; **‹ Back** returns to wherever you followed a link from. If
+  the word you pressed is a compound of more than one original-language
+  word (common in the Old Testament, where several English words often
+  render a single Hebrew word, or the reverse), a small row of chips
+  above the tabs lets you switch between them.
+- **Occurrences** — every other place that exact Hebrew/Greek word
+  appears in the KJV, 50 at a time with **‹ Prev** / **Next ›** paging.
+  Tapping any reference in the list closes the popup and jumps the
+  reader straight to that chapter.
+
+This data is bundled with the app rather than fetched live: the KJV
+text tagged word-by-word with Strong's numbers comes from
+[scrollmapper/bible_databases](https://github.com/scrollmapper/bible_databases)
+(MIT-licensed, derived from the public-domain 1769 KJV), and the
+Hebrew/Greek dictionary definitions come from
+[openscriptures/strongs](https://github.com/openscriptures/strongs)
+(CC BY-SA, itself derived from James Strong's public-domain 1890/1894
+concordance). The tagged text lives in `data/strongs/kjv-text/` (one
+file per book, fetched — and then cached — only for books you actually
+open), and the dictionary/occurrence-index files live directly in
+`data/strongs/`.
 
 The little **Q⁺** badge is a quick way to jot down a question inspired by
 whatever you're currently reading, without needing the Setup passcode.

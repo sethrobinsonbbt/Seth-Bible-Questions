@@ -108,6 +108,25 @@
 
 </main>
 
+<div id="strongs-popup-backdrop" class="modal-backdrop strongs-popup-backdrop" hidden>
+  <div class="strongs-modal">
+    <div class="strongs-modal-topbar">
+      <button id="strongs-popup-back-btn" class="strongs-modal-back" hidden>‹ Back</button>
+      <div class="strongs-modal-header">
+        <span id="strongs-popup-number" class="strongs-modal-number"></span>
+        <span id="strongs-popup-lemma" class="strongs-modal-lemma"></span>
+      </div>
+      <button id="strongs-popup-close-btn" class="strongs-modal-close" aria-label="Close">✕</button>
+    </div>
+    <div id="strongs-popup-multi" class="chip-row strongs-modal-multi" hidden></div>
+    <div class="strongs-modal-tabs">
+      <button type="button" class="strongs-tab active" data-tab="meaning">Meaning</button>
+      <button type="button" class="strongs-tab" data-tab="occurrences">Occurrences</button>
+    </div>
+    <div id="strongs-popup-body" class="strongs-modal-body"></div>
+  </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
