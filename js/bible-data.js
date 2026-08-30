@@ -74,18 +74,18 @@ export function bookIndex(name) {
 }
 
 // Public-domain translations, fetched with no API key via bible-api.com.
-// Other modern copyrighted translations (NIV, NLT, NKJV, RSV, etc.) require
-// a paid licensing/API agreement and aren't included for that reason.
+// Kept deliberately short and distinct: KJV as the primary/devotional read,
+// YLT as a genuinely different (aggressively word-for-word) cross-check.
+// ASV was tried but dropped as too similar to KJV to be worth a second
+// slot — it's the same textual family and register, just with occasional
+// different word choices. WEB/BBE/WEBBE were dropped as too modern/plain
+// for this family's taste. Other modern copyrighted translations (NIV,
+// NLT, NKJV, RSV, ESV, etc.) require either a paid licensing/API
+// agreement or a browser-exposed API key tradeoff (see esv-config.js for
+// that story) and aren't included for that reason.
 export const BIBLE_VERSIONS = [
   { id: "kjv", label: "King James Version (KJV)" },
-  { id: "asv", label: "American Standard Version (ASV)" },
-  { id: "web", label: "World English Bible (WEB)" },
-  { id: "bbe", label: "Bible in Basic English (BBE)" },
-  { id: "webbe", label: "World English Bible, British Edition (WEBBE)" },
-  // ESV support exists in js/bible-api.js (needs a free Crossway API key —
-  // see esv-config.js / README.md) but is left out of this list for now;
-  // add `{ id: "esv", label: "English Standard Version (ESV)" }` back in
-  // to re-enable it.
+  { id: "ylt", label: "Young's Literal Translation (YLT)" },
 ];
 
 // Walk forward through the canonical book order from (startBook, startChapter)

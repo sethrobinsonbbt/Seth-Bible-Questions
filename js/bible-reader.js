@@ -12,7 +12,12 @@ let requestId = 0;
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved && saved.book && saved.chapter && saved.version) return saved;
+    if (saved && saved.book && saved.chapter && saved.version) {
+      // Fall back to KJV if a previously-saved version (e.g. WEB/ASV/BBE)
+      // has since been removed from BIBLE_VERSIONS.
+      if (!BIBLE_VERSIONS.some((v) => v.id === saved.version)) saved.version = "kjv";
+      return saved;
+    }
   } catch (e) {
     /* ignore */
   }
