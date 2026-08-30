@@ -16,6 +16,14 @@
   --banner-bg: #fff8e6;
   --banner-border: #f0d989;
   --radius: 14px;
+  /* Fixed (never theme-swapped): for the handful of components that keep
+     an intentionally light card look in both themes — floating on a
+     colored gradient (daily reading, missed days) rather than the page
+     background — so their text stays readable instead of following
+     --text into "light-on-light" in dark mode. */
+  --fixed-light-bg: #ffffff;
+  --fixed-light-text: #1c1c22;
+  --fixed-light-text-muted: #6b6b76;
 }
 
 /* Dark palette: follows the OS setting by default, or the explicit
@@ -703,6 +711,15 @@ body {
 
 .daily-reading-card .plan-row {
   background: rgba(255,255,255,0.92);
+  color: var(--fixed-light-text);
+}
+
+.daily-reading-card .plan-row .check-toggle-mark {
+  background: var(--fixed-light-bg);
+}
+
+.daily-reading-card .plan-row-done .plan-row-label {
+  color: var(--fixed-light-text-muted);
 }
 
 .plan-tabs {
@@ -871,7 +888,7 @@ body {
   align-items: center;
   gap: 0.5rem;
   background: rgba(255,255,255,0.92);
-  color: var(--text);
+  color: var(--fixed-light-text);
   border-radius: 8px;
   padding: 0.4rem 0.6rem;
   font-size: 0.85rem;
