@@ -119,7 +119,12 @@ function starString(count) {
 // "John 3:16" -> "NT") — the built-in split offered in place of custom
 // categories when none have been set up yet (see renderCategoryRow).
 function testamentForVerse(v) {
-  const parsed = parseReadingLabel(v.reference || "")[0];
+  // parseReadingLabel's verse-range regex only tolerates a plain hyphen —
+  // imported references often use an en dash instead (e.g. "4:17–18"),
+  // which would otherwise fail to match at all and silently drop the verse
+  // out of both OT and NT.
+  const normalizedRef = (v.reference || "").replace(/[‒-―]/g, "-");
+  const parsed = parseReadingLabel(normalizedRef)[0];
   const bookName = parsed && resolveBookName(parsed.book);
   if (!bookName) return null;
   const idx = bookIndex(bookName);
@@ -219,6 +224,7 @@ function renderModeTabs() {
 
 function renderVerseList() {
   const list = filteredVerses();
+  refs.playBtn.hidden = list.length === 0;
   refs.listEl.innerHTML = "";
   refs.emptyEl.hidden = verses.length !== 0;
   refs.listEl.hidden = list.length === 0;
@@ -249,22 +255,21 @@ function renderVerseList() {
 
     li.appendChild(body);
 
-    const bucketRow = document.createElement("div");
-    bucketRow.className = "mem-bucket-toggle";
-    const currentBucket = bucketForVerse(v);
+    // A labeled dropdown rather than bare icon buttons — spells out what
+    // it does and what it's currently set to, instead of relying on
+    // guessing at unlabeled emoji.
+    const bucketSelect = document.createElement("select");
+    bucketSelect.className = "assign-select mem-bucket-select";
     BUCKETS.forEach((b) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "mem-bucket-btn" + (currentBucket === b.id ? " active" : "");
-      btn.title = b.label;
-      btn.textContent = b.icon;
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        setVerseBucket(v.id, activeUserId, b.id);
-      });
-      bucketRow.appendChild(btn);
+      const opt = document.createElement("option");
+      opt.value = b.id;
+      opt.textContent = `${b.icon} ${b.label}`;
+      bucketSelect.appendChild(opt);
     });
-    li.appendChild(bucketRow);
+    bucketSelect.value = bucketForVerse(v);
+    bucketSelect.addEventListener("click", (e) => e.stopPropagation());
+    bucketSelect.addEventListener("change", () => setVerseBucket(v.id, activeUserId, bucketSelect.value));
+    li.appendChild(bucketSelect);
 
     refs.listEl.appendChild(li);
   });
@@ -435,6 +440,18 @@ function goToNextVerse() {
   currentVerseId = next.id;
   if (practiceMode === "fitb") startFitbBlanks(next.id);
   else startFlashcard(next.id);
+}
+
+// "▶ Play" kicks off a practice session over just the verses in the
+// current bucket/category view — picks the first verse the same way
+// "Next Verse" would (new ones first, then weighted toward poor scores),
+// then that button chains through the rest.
+function startPlay() {
+  verseHistory = [];
+  const pool = filteredVerses();
+  const first = pickNextVerse(pool, activeUserId, verseHistory);
+  if (!first) return;
+  openPractice(first.id);
 }
 
 // ---------- Fill in the Blank ----------
@@ -811,6 +828,7 @@ function buildSkeleton(container) {
         <button class="mem-mode-tab" data-mode="fitb">✍️ Fill in the Blank</button>
         <button class="mem-mode-tab" data-mode="flashcard">🗂️ Flashcards</button>
       </div>
+      <button id="mem-play-btn" class="btn btn-primary btn-block" hidden>▶ Play</button>
       <ul id="verse-list" class="mem-verse-list"></ul>
       <p id="verse-empty" class="empty-state" hidden>No memory verses yet — tap "+ Add Verse" to pick a passage (King James Version).</p>
     </div>
@@ -850,6 +868,7 @@ function buildSkeleton(container) {
   refs.bucketTabs = container.querySelector("#mem-bucket-tabs");
   refs.categoryRow = container.querySelector("#mem-category-row");
   refs.modeTabs = container.querySelector("#mem-mode-tabs");
+  refs.playBtn = container.querySelector("#mem-play-btn");
   refs.listEl = container.querySelector("#verse-list");
   refs.emptyEl = container.querySelector("#verse-empty");
   refs.practiceArea = container.querySelector("#practice-area");
@@ -867,6 +886,7 @@ function buildSkeleton(container) {
   populateChapterSelect(refs.vpChapterSelect, refs.vpBookSelect.value);
 
   container.querySelector("#add-verse-btn").addEventListener("click", openAddVerseModal);
+  refs.playBtn.addEventListener("click", startPlay);
   container.querySelector("#vp-cancel-btn").addEventListener("click", closeAddVerseModal);
   refs.vpModalBackdrop.addEventListener("click", (e) => {
     if (e.target === refs.vpModalBackdrop) closeAddVerseModal();

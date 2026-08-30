@@ -509,19 +509,23 @@ won't record a score.
 
 The home view: a **🧠 Memorizing / ⏳ Future Memorization / ✅ Already
 Memorized** tab row along the top — three per-person buckets a verse can
-be filed under (see the toggle below), defaulting to Memorizing so
-verses added before buckets existed still show up in the main working
-set. Below that, category chips (**All**, an always-available **Old
-Testament / New Testament** split auto-detected from each verse's
-reference, plus any custom categories made in Setup), a **✍️ Fill in the
-Blank** / **🗂️ Flashcards** tab that picks which mode tapping a verse
-launches you into, and the verse list itself, each verse showing a 0–3 ★
-mastery rating built from that verse's past correct attempts and a
-row of three small bucket-toggle buttons (🧠/⏳/✅) in place of a delete
-button — verses move between buckets, they're never deleted from here.
-Tap a verse to start practicing it in whichever mode is selected; tap a
-bucket tab or category chip to filter the list down to it (both narrow
-the list together).
+be filed under (see the dropdown below), defaulting to Memorizing so
+every newly-added verse (and anything added before buckets existed)
+starts in the main working set. Below that, category chips (**All**, an
+always-available **Old Testament / New Testament** split auto-detected
+from each verse's reference, plus any custom categories made in Setup),
+a **✍️ Fill in the Blank** / **🗂️ Flashcards** tab that picks which mode
+a verse launches into, a **▶ Play** button, and the verse list itself,
+each verse showing a 0–3 ★ mastery rating built from that verse's past
+correct attempts and a labeled bucket dropdown (in place of a delete
+button — verses move between buckets, they're never deleted from here)
+to refile it. Tap a verse to practice just that one; tap **▶ Play**
+instead to start a session that runs through the current bucket/category
+view (new-first / weighted-toward-poor-scores — same picking logic as
+Questions and "Next Verse" below) without having to tap into each verse
+individually. Tap a bucket tab or category chip to filter the list down
+to it (both narrow the list together, and **▶ Play** respects whatever's
+currently selected).
 
 **+ Add Verse** opens a picker: choose a book and chapter (the King
 James text loads automatically), then narrow **From verse** / **To
