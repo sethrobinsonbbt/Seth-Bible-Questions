@@ -82,10 +82,10 @@ export const BIBLE_VERSIONS = [
   { id: "web", label: "World English Bible (WEB)" },
   { id: "bbe", label: "Bible in Basic English (BBE)" },
   { id: "webbe", label: "World English Bible, British Edition (WEBBE)" },
-  // ESV needs your own free Crossway API key — see esv-config.js / README.md.
-  // Harmless to leave enabled even without a key: selecting it just shows
-  // the usual friendly "couldn't load" error instead of text.
-  { id: "esv", label: "English Standard Version (ESV)" },
+  // ESV support exists in js/bible-api.js (needs a free Crossway API key —
+  // see esv-config.js / README.md) but is left out of this list for now;
+  // add `{ id: "esv", label: "English Standard Version (ESV)" }` back in
+  // to re-enable it.
 ];
 
 // Walk forward through the canonical book order from (startBook, startChapter)

@@ -102,10 +102,13 @@ repo:
 - **Chrome (desktop or Android):** open the site, click the install icon
   in the address bar (or Menu → "Install Bible Questions…").
 
-### 5. (Optional) Add the ESV translation
+### 5. (Optional, currently not enabled) Add the ESV translation
 
-Everything works without this — it just adds ESV as a version choice in
-the Bible reader, on top of the public-domain ones that need no setup.
+The code for this exists (`js/bible-api.js`) but ESV is left out of the
+version list in `js/bible-data.js` for now — the family decided the
+key-exposure tradeoff below wasn't worth it. To turn it back on, add
+`{ id: "esv", label: "English Standard Version (ESV)" }` back into
+`BIBLE_VERSIONS`, then:
 
 1. Go to https://api.esv.org and sign in / create a free account.
 2. Under your account's **API Applications**, create a new application
@@ -173,9 +176,8 @@ cached on your device, so they still load without a connection.
 
 KJV, ASV, WEB, BBE, and WEBBE are all public domain and fetched for
 free with no API key from [bible-api.com](https://bible-api.com). ESV
-is also available, but needs your own free API key — see "Add the ESV
-translation" above; without one it just shows a message saying so
-instead of text, everything else keeps working. Other modern
+support exists but isn't currently enabled — see "Add the ESV
+translation" above. Other modern
 translations (NIV, NLT, NKJV, RSV, etc.) are copyrighted with no free
 API we know of, so they aren't included — you're welcome to add one
 yourself in `js/bible-data.js` (`BIBLE_VERSIONS`) and `js/bible-api.js`
