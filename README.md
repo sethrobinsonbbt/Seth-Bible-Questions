@@ -23,14 +23,16 @@ device, driving whose score gets tracked wherever progress applies
   (never-asked) questions first, then weights toward ones this person
   gets wrong more often — without ever fully hiding the ones they know
   well, and never repeating anything from the last 10 questions shown. A
-  **👁️ Show Answer** button reveals the answer and swaps itself for
-  ✅ Correct / ❌ Wrong; each question shows its own right/asked tally
-  (e.g. `12/18`) once it's been asked at least once. An Adult can fold a
+  **Show Answer** button reveals the answer and swaps itself for
+  ✅ Correct / ❌ Wrong (only for a question at this person's own level —
+  see below); each question shows its own right/asked tally (e.g.
+  `12/18`) top-right of the card, next to a passcode-gated **✏️** button
+  for quick fixes, once it's been asked at least once. An Adult can fold a
   kid's age group into their own quiz via an **Include:** chip row — a
   question that's actually the kid's auto-shows its answer (and the
-  cited verse) instead of hiding it. A passcode-gated **✏️ Edit** button
-  handles quick fixes right from the card, but adding/deleting questions
-  still lives in Setup.
+  cited verse) and goes straight to ✅/❌ without the Show Answer step,
+  since there's nothing to hide from the adult reading it to them.
+  Adding/deleting questions still lives in Setup.
 - **Memorize** — a bank of King James verses, filed into three per-person
   buckets (**🧠 Memorizing** / **⏳ Future Memorization** / **✅ Already
   Memorized**, toggled per verse), and further filterable by category —
@@ -258,7 +260,7 @@ device, so it doesn't need to be reselected every visit.
   (never-asked) questions come up first; once everything's been tried at
   least once, questions this person tends to get wrong come up more
   often (never exclusively — everything stays in the pool), and nothing
-  repeats within the last 10 questions shown. Tap **👁️ Show Answer** to
+  repeats within the last 10 questions shown. Tap **Show Answer** to
   reveal the answer — it's replaced by **✅ Correct** / **❌ Wrong** to
   score it and move to the next one (**‹ Back** / **Next ›** browse
   without scoring). Once a question's been asked at least once, its
@@ -271,12 +273,15 @@ device, so it doesn't need to be reselected every visit.
   group's questions into the pool without switching the User dropdown
   away from yourself. Any question that's actually one of the *included
   kid's* (not your own) automatically shows the answer — and the cited
-  verse's text, if the question has a reference — instead of hiding it
-  behind Show Answer, so you can read it straight to them. Tapping
-  Correct/Wrong on one of those records progress against the included
-  kid(s) whose age group it matched, not against you.
-- **✏️ Edit** on the card lets you fix a question's text/answer/reference
-  right from here, gated behind the same Setup passcode as the Question
+  verse's text, if the question has a reference — and goes straight to
+  **✅ Correct** / **❌ Wrong** without the Show Answer step (there's
+  nothing to hide from the adult reading it to them), so you can read it
+  straight to them. Tapping Correct/Wrong on one of those records
+  progress against the included kid(s) whose age group it matched, not
+  against you.
+- **✏️** (top-right of the card, next to the right/asked tally) lets you
+  fix a question's text/answer/reference right from here, gated behind
+  the same Setup passcode as the Question
   Library (see **Setup**) — handy for a quick typo fix mid-quiz without
   leaving the page.
 
@@ -478,7 +483,12 @@ platform limitation, not something we can fully fix from a web app.
   three readings has its own rounded checkmark toggle (synced across
   devices) and a **Read** button that jumps straight to it in the
   **Bible** section. **✓ Mark All Complete** at the bottom checks off all
-  three readings for the date you're viewing in one tap.
+  three readings for the date you're viewing in one tap. Checking
+  anything off (here or in a custom plan below) requires someone picked
+  in the header's **User** dropdown first — reading progress is
+  family-wide, but a checkmark should still mean someone specific did
+  it; without a User picked, the checkbox just reverts and asks you to
+  pick who you are.
 - **▶ Start Plan** begins tracking your streak on the Daily Reading plan
   from today: once started, a small stats block shows your **Current
   Streak** (consecutive days completed, counting back from today — it
@@ -488,18 +498,24 @@ platform limitation, not something we can fully fix from a web app.
   into a **Catch up on N missed days** list — tap **Catch Up** next to
   any of them to jump straight to that date and check off what you
   finish, or check off several at once and tap **✓ Mark Selected Done**
-  to bulk-catch-up without visiting each day individually. **Reset
-  Streak** clears the start date (your daily checkmarks themselves are
-  never deleted).
-- **Custom Reading Plans** (below that): **+ New Plan** lets you name a
-  plan and pick a start book/chapter and an end book/chapter (inclusive).
-  The plan can span multiple books, in Bible order — e.g. start at
-  Judges 1, end at Judges 21 for the whole book; or start at 1 Samuel 1,
-  end at 2 Kings 25 to read through all the kings.
-- Tap a plan's tab to see its checklist. Check off chapters as you go —
-  progress syncs across devices. Tap **Read** on any chapter to jump
-  straight to it in the **Bible** section.
-- **Delete Plan** removes it for everyone.
+  to bulk-catch-up without visiting each day individually (also requires
+  a User picked). **Reset Streak** clears the start date (your daily
+  checkmarks themselves are never deleted).
+- **Custom reading plans** (below that): a subtle **Change Plan** link —
+  intentionally low-key, since most people set this up once and rarely
+  touch it again — opens a dedicated page listing every custom plan
+  you've made, each with **Use This Plan** (makes it the one shown on
+  the main Reading Plan page) and **Delete**, plus **+ New Plan** to
+  create another: name it and pick a start book/chapter and an end
+  book/chapter (inclusive). The plan can span multiple books, in Bible
+  order — e.g. start at Judges 1, end at Judges 21 for the whole book;
+  or start at 1 Samuel 1, end at 2 Kings 25 to read through all the
+  kings.
+- Whichever plan is active shows its checklist right on the main page,
+  below the **Change Plan** link. Check off chapters as you go (also
+  requires a User picked) — progress syncs across devices. Tap **Read**
+  on any chapter to jump straight to it in the **Bible** section.
+  **Delete Plan** removes it for everyone.
 
 ### Memorize
 

@@ -5,10 +5,15 @@ import { ready } from "./firebase.js";
 import { BOOKS, computeChapterSequence } from "./bible-data.js";
 import { readingsForDate, parseReadingLabel, dateKey } from "./default-reading-plan.js";
 import { subscribePlanState, startPlan, resetPlan, refreshPlanStats } from "./daily-plan-data.js";
+import { getActiveUser } from "./active-user.js";
 
 let db = null;
 let plans = []; // [{id, name, startBook, startChapter, endBook, endChapter, chapters, progress}]
 let activePlanId = null;
+// Custom plans are managed on their own page (reached via the subtle
+// "Change Plan" link) — the main Reading Plan page just shows whichever
+// one is currently active, if any, below the daily reading card.
+let managingPlans = false;
 let dailyDate = new Date();
 let dailyProgress = { read1: false, read2: false, read3: false };
 let dailyUnsub = null;
@@ -54,12 +59,7 @@ function buildSkeleton(container) {
       </div>
     </div>
 
-    <div class="list-toolbar">
-      <h2>Custom Reading Plans</h2>
-      <button id="new-plan-btn" class="btn btn-primary">+ New Plan</button>
-    </div>
-    <nav id="plan-tabs" class="tabs plan-tabs"></nav>
-    <div id="plan-detail"></div>
+    <div id="plan-area"></div>
 
     <div id="plan-modal-backdrop" class="modal-backdrop" hidden>
       <div class="modal">
@@ -120,8 +120,7 @@ function buildSkeleton(container) {
   });
   refs.dailyDaySelect.addEventListener("change", goToPickedDate);
 
-  refs.tabs = container.querySelector("#plan-tabs");
-  refs.detail = container.querySelector("#plan-detail");
+  refs.planArea = container.querySelector("#plan-area");
   refs.modalBackdrop = container.querySelector("#plan-modal-backdrop");
   refs.nameInput = container.querySelector("#plan-name-input");
   refs.startBook = container.querySelector("#plan-start-book");
@@ -146,7 +145,6 @@ function buildSkeleton(container) {
     populateChapterSelect(refs.endChapter, refs.endBook.value);
   });
 
-  container.querySelector("#new-plan-btn").addEventListener("click", openModal);
   container.querySelector("#plan-cancel-btn").addEventListener("click", closeModal);
   refs.modalBackdrop.addEventListener("click", (e) => {
     if (e.target === refs.modalBackdrop) closeModal();
@@ -236,18 +234,87 @@ function navigateToChapter(book, chapter, dailyCtx) {
   window.dispatchEvent(new CustomEvent("bible:navigate", { detail: { book, chapter, dailyContext: dailyCtx } }));
 }
 
-function renderTabs() {
-  refs.tabs.innerHTML = "";
-  plans.forEach((plan) => {
-    const btn = document.createElement("button");
-    btn.className = "tab-btn" + (plan.id === activePlanId ? " active" : "");
-    btn.textContent = plan.name;
-    btn.addEventListener("click", () => {
-      activePlanId = plan.id;
-      renderDetail();
-      renderTabs();
+// Dispatches between the two states of the plans area: the compact view
+// (a subtle "Change Plan" link plus whichever plan is currently active,
+// if any) and the full manage-plans page (pick or create one).
+function renderPlanArea() {
+  if (managingPlans) {
+    refs.planArea.innerHTML = `
+      <div class="settings-header">
+        <button id="plan-manage-back-btn" class="btn btn-small">← Back</button>
+        <h2>Reading Plans</h2>
+        <button id="new-plan-btn" class="btn btn-primary btn-small">+ New Plan</button>
+      </div>
+      <ul id="plan-select-list" class="question-list"></ul>
+      <p id="plan-select-empty" class="empty-state" hidden>No custom plans yet — tap "+ New Plan" to make one.</p>
+    `;
+    refs.planArea.querySelector("#plan-manage-back-btn").addEventListener("click", () => {
+      managingPlans = false;
+      renderPlanArea();
     });
-    refs.tabs.appendChild(btn);
+    refs.planArea.querySelector("#new-plan-btn").addEventListener("click", openModal);
+    renderPlanSelectList();
+  } else {
+    const plan = plans.find((p) => p.id === activePlanId);
+    refs.planArea.innerHTML = `
+      <button id="change-plan-btn" class="change-plan-link">${plan ? "Change Plan" : "+ Choose or Create a Reading Plan"}</button>
+      <div id="plan-detail"></div>
+    `;
+    refs.planArea.querySelector("#change-plan-btn").addEventListener("click", () => {
+      managingPlans = true;
+      renderPlanArea();
+    });
+    refs.detail = refs.planArea.querySelector("#plan-detail");
+    renderDetail();
+  }
+}
+
+// The manage-plans page's list: every custom plan, with a way to make it
+// the active one (shown on the main page) or delete it.
+function renderPlanSelectList() {
+  const listEl = refs.planArea.querySelector("#plan-select-list");
+  const emptyEl = refs.planArea.querySelector("#plan-select-empty");
+  listEl.innerHTML = "";
+  emptyEl.hidden = plans.length !== 0;
+
+  plans.forEach((plan) => {
+    const li = document.createElement("li");
+    li.className = "question-card";
+
+    const doneCount = plan.progress.filter(Boolean).length;
+    const nameEl = document.createElement("p");
+    nameEl.className = "question-text";
+    nameEl.innerHTML = `<strong>${escapeHtml(plan.name)}</strong>${plan.id === activePlanId ? " · <em>currently active</em>" : ""}`;
+    li.appendChild(nameEl);
+
+    const rangeEl = document.createElement("p");
+    rangeEl.className = "question-answer";
+    rangeEl.textContent = `${plan.startBook} ${plan.startChapter} — ${plan.endBook} ${plan.endChapter} · ${doneCount}/${plan.chapters.length} read`;
+    li.appendChild(rangeEl);
+
+    const actions = document.createElement("div");
+    actions.className = "question-row-actions";
+
+    if (plan.id !== activePlanId) {
+      const useBtn = document.createElement("button");
+      useBtn.className = "btn btn-primary btn-small";
+      useBtn.textContent = "Use This Plan";
+      useBtn.addEventListener("click", () => {
+        activePlanId = plan.id;
+        managingPlans = false;
+        renderPlanArea();
+      });
+      actions.appendChild(useBtn);
+    }
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "btn btn-danger btn-small";
+    deleteBtn.textContent = "Delete";
+    deleteBtn.addEventListener("click", () => deletePlan(plan.id));
+    actions.appendChild(deleteBtn);
+
+    li.appendChild(actions);
+    listEl.appendChild(li);
   });
 }
 
@@ -305,13 +372,28 @@ function escapeHtml(str) {
 
 // A checkbox styled as a rounded checkmark toggle, used for both the
 // custom-plan checklist and the daily reading list.
+// Reading progress is tracked family-wide, but checking something off
+// should still mean someone specific did it — block the action (and
+// revert the checkbox) if nobody's picked in the header's User dropdown.
+function requireSignedIn() {
+  if (getActiveUser()) return true;
+  alert("Pick who you are (in the User dropdown up top) before marking a reading done.");
+  return false;
+}
+
 function buildCheckToggle(checked, onChange) {
   const label = document.createElement("label");
   label.className = "check-toggle";
   const input = document.createElement("input");
   input.type = "checkbox";
   input.checked = checked;
-  input.addEventListener("change", onChange);
+  input.addEventListener("change", () => {
+    if (!requireSignedIn()) {
+      input.checked = checked;
+      return;
+    }
+    onChange();
+  });
   const mark = document.createElement("span");
   mark.className = "check-toggle-mark";
   label.appendChild(input);
@@ -349,6 +431,7 @@ function toggleDailyRead(index) {
 }
 
 function markAllDailyComplete() {
+  if (!requireSignedIn()) return;
   if (!db) return;
   db.collection("dailyReadingProgress")
     .doc(dateKey(dailyDate))
@@ -471,6 +554,7 @@ function renderPlanStatus() {
       listEl.querySelectorAll(".missed-day-checkbox").forEach((cb) => (cb.checked = true));
     });
     el.querySelector("#mark-selected-missed-btn").addEventListener("click", () => {
+      if (!requireSignedIn()) return;
       const keys = Array.from(listEl.querySelectorAll(".missed-day-checkbox:checked")).map((cb) => cb.value);
       if (keys.length === 0) return;
       markDaysComplete(keys);
@@ -554,8 +638,7 @@ function renderDaily() {
 
 export function mountPlanner(container) {
   buildSkeleton(container);
-  renderTabs();
-  renderDetail();
+  renderPlanArea();
   renderDaily();
 
   subscribePlanState(({ planState: state, planStats: stats }) => {
@@ -574,8 +657,7 @@ export function mountPlanner(container) {
         if (activePlanId && !plans.find((p) => p.id === activePlanId)) {
           activePlanId = plans.length > 0 ? plans[0].id : null;
         }
-        renderTabs();
-        renderDetail();
+        renderPlanArea();
       },
       (err) => console.error(err)
     );

@@ -60,7 +60,10 @@
     <section id="random-card" class="random-card" hidden>
       <div class="random-card-top">
         <div class="random-label" id="random-label">Question for <span id="random-person"></span></div>
-        <span class="random-question-stat" id="random-question-stat" hidden></span>
+        <div class="random-card-top-right">
+          <span class="random-question-stat" id="random-question-stat" hidden></span>
+          <button id="random-edit-btn" class="random-edit-btn" aria-label="Edit question">✏️</button>
+        </div>
       </div>
       <div class="random-score" id="random-score"></div>
       <p class="random-text" id="random-text"></p>
@@ -68,11 +71,10 @@
       <p class="random-verse-text" id="random-verse-text" hidden></p>
       <div class="random-nav-row">
         <button id="random-back-btn" class="nav-link-btn" disabled>‹ Back</button>
-        <button id="random-edit-btn" class="nav-link-btn">✏️ Edit</button>
         <button id="random-next-btn" class="nav-link-btn">Next ›</button>
       </div>
       <div class="random-actions" id="random-reveal-actions">
-        <button id="random-show-answer-btn" class="btn btn-primary btn-block">👁️ Show Answer</button>
+        <button id="random-show-answer-btn" class="btn btn-primary btn-block">Show Answer</button>
       </div>
       <div class="random-actions random-actions-score" id="random-grade-actions" hidden>
         <button id="random-wrong-btn" class="btn btn-danger">❌ Wrong</button>

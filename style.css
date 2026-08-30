@@ -304,6 +304,25 @@ body {
   gap: 0.6rem;
 }
 
+.random-card-top-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+}
+
+.random-edit-btn {
+  border: none;
+  background: rgba(255,255,255,0.18);
+  color: inherit;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
 .random-label {
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -1057,9 +1076,15 @@ body {
   color: var(--fixed-light-text-muted);
 }
 
-.plan-tabs {
-  padding-left: 0;
-  padding-right: 0;
+.change-plan-link {
+  display: block;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  padding: 0.4rem 0;
+  margin: 0.4rem 0 0.8rem;
 }
 
 .plan-header {
