@@ -1,10 +1,11 @@
 // Bump CACHE_NAME whenever app-shell files change so clients pick up the update.
-const CACHE_NAME = "bible-questions-v12";
+const CACHE_NAME = "bible-questions-v13";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./style.css",
   "./firebase-config.js",
+  "./esv-config.js",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

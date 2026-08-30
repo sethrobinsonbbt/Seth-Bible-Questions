@@ -73,15 +73,19 @@ export function bookIndex(name) {
   return BOOKS.findIndex((b) => b.name === name);
 }
 
-// Public-domain translations available with no API key via bible-api.com.
-// Modern copyrighted translations (NIV, ESV, NLT, etc.) require a paid
-// licensing/API agreement and aren't included for that reason.
+// Public-domain translations, fetched with no API key via bible-api.com.
+// Other modern copyrighted translations (NIV, NLT, NKJV, RSV, etc.) require
+// a paid licensing/API agreement and aren't included for that reason.
 export const BIBLE_VERSIONS = [
   { id: "kjv", label: "King James Version (KJV)" },
   { id: "asv", label: "American Standard Version (ASV)" },
   { id: "web", label: "World English Bible (WEB)" },
   { id: "bbe", label: "Bible in Basic English (BBE)" },
   { id: "webbe", label: "World English Bible, British Edition (WEBBE)" },
+  // ESV needs your own free Crossway API key — see esv-config.js / README.md.
+  // Harmless to leave enabled even without a key: selecting it just shows
+  // the usual friendly "couldn't load" error instead of text.
+  { id: "esv", label: "English Standard Version (ESV)" },
 ];
 
 // Walk forward through the canonical book order from (startBook, startChapter)

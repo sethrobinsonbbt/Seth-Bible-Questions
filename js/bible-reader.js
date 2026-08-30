@@ -184,8 +184,12 @@ async function loadChapter() {
   } catch (err) {
     if (myRequest !== requestId) return;
     console.error(err);
+    const message =
+      err && err.message && err.message.includes("ESV API key")
+        ? escapeHtml(err.message)
+        : "Couldn't load this chapter. Check your internet connection and try again.";
     refs.content.innerHTML = `
-      <p class="bible-status bible-error">Couldn't load this chapter. Check your internet connection and try again.</p>
+      <p class="bible-status bible-error">${message}</p>
       <button id="bible-retry-btn" class="btn btn-small">Retry</button>
     `;
     refs.content.querySelector("#bible-retry-btn").addEventListener("click", loadChapter);

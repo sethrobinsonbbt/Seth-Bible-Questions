@@ -102,6 +102,29 @@ repo:
 - **Chrome (desktop or Android):** open the site, click the install icon
   in the address bar (or Menu → "Install Bible Questions…").
 
+### 5. (Optional) Add the ESV translation
+
+Everything works without this — it just adds ESV as a version choice in
+the Bible reader, on top of the public-domain ones that need no setup.
+
+1. Go to https://api.esv.org and sign in / create a free account.
+2. Under your account's **API Applications**, create a new application
+   (any name) and copy the API key it gives you.
+3. Paste it into `esv-config.js` in this repo, replacing the
+   `YOUR_ESV_API_KEY` placeholder.
+
+**Read this before you do:** unlike the Firebase config, this key is not
+designed to be public — it's a plain bearer token, and since this is a
+static site with no server, it has to be sent straight from the
+browser, where anyone who opens dev tools (or looks at the file in this
+repo) can read and reuse it. For a free, non-commercial key with no
+payment method attached, the realistic worst case is someone else using
+up your daily request quota, not a bill — but it's a real tradeoff, not
+a secret the way Firebase's config is. If you'd rather keep the key off
+the browser entirely, that needs a small server-side proxy (e.g. a
+Firebase Cloud Function); ask Claude if you want to go that route
+instead.
+
 ## Using the app
 
 ### Questions
@@ -148,14 +171,15 @@ Pick a translation, book, and chapter from the dropdowns, or use ←
 Previous / Next → to move chapter by chapter. Chapters you've read are
 cached on your device, so they still load without a connection.
 
-Only public-domain translations are included (KJV, ASV, WEB, BBE,
-WEBBE), fetched for free with no API key from
-[bible-api.com](https://bible-api.com). Modern translations like NIV,
-ESV, or NLT are copyrighted and require a paid licensing/API agreement
-(Crossway's ESV API offers a free tier for small non-commercial use,
-but needs your own sign-up) — add one in `js/bible-data.js`
-(`BIBLE_VERSIONS`) and `js/bible-api.js` if you get access to such an
-API.
+KJV, ASV, WEB, BBE, and WEBBE are all public domain and fetched for
+free with no API key from [bible-api.com](https://bible-api.com). ESV
+is also available, but needs your own free API key — see "Add the ESV
+translation" above; without one it just shows a message saying so
+instead of text, everything else keeps working. Other modern
+translations (NIV, NLT, NKJV, RSV, etc.) are copyrighted with no free
+API we know of, so they aren't included — you're welcome to add one
+yourself in `js/bible-data.js` (`BIBLE_VERSIONS`) and `js/bible-api.js`
+if you get access to such an API.
 
 The little **Q⁺** badge between Previous and Next is a quick way to jot
 down a question inspired by whatever you're currently reading, without
@@ -252,6 +276,7 @@ matching anything.
   section).
 - `js/memorize.js` — the verse memorization section.
 - `firebase-config.js` — your project's Firebase config (fill this in).
+- `esv-config.js` — your (optional) free ESV API key (fill this in).
 - `manifest.json` / `service-worker.js` / `icons/` — makes it installable
   as a PWA and lets the app shell load instantly (and offline) after the
   first visit. Data itself (questions, Bible text, plans, verses) still
