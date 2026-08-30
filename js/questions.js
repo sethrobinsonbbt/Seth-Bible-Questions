@@ -1,10 +1,12 @@
-// "Questions" section: one tab per family member (managed in Settings),
-// each showing a random-question quiz card for every age group that member
-// belongs to. Adding/editing/assigning questions and managing family
-// members both live in the password-protected Settings section — this view
-// is quiz-only, safe for kids to use on their own.
+// "Questions" section: a random-question quiz card for whoever is picked in
+// the global "who's using this" selector at the top of the app (see
+// main.js / active-user.js), covering every age group that person belongs
+// to. Adding/editing/assigning questions and managing family members both
+// live in the password-protected Setup section — this view is quiz-only,
+// safe for kids to use on their own.
 import { subscribeQuestions, recordAnswer } from "./questions-data.js";
 import { subscribeUsers } from "./users.js";
+import { subscribeActiveUser } from "./active-user.js";
 
 let users = [];
 let allQuestions = [];
@@ -37,41 +39,9 @@ function pickRandomQuestion(list, userId, excludeId) {
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-function renderTabs() {
-  const tabsEl = el("tabs");
-  tabsEl.innerHTML = "";
-
-  if (users.length === 0) {
-    el("no-users-msg").hidden = false;
-    el("random-card").hidden = true;
-    el("question-list").innerHTML = "";
-    el("empty-state").hidden = true;
-    return;
-  }
-  el("no-users-msg").hidden = true;
-
-  if (!activeUserId || !users.find((u) => u.id === activeUserId)) {
-    activeUserId = users[0].id;
-  }
-
-  users.forEach((user) => {
-    const btn = document.createElement("button");
-    btn.className = "tab-btn" + (user.id === activeUserId ? " active" : "");
-    btn.textContent = user.name;
-    btn.addEventListener("click", () => {
-      activeUserId = user.id;
-      currentRandomId = null;
-      history = [];
-      historyIndex = -1;
-      render();
-    });
-    tabsEl.appendChild(btn);
-  });
-}
-
 // Renders whichever question `currentRandomId` points at, refreshing its
 // live score/review state. Falls back to picking a random one if that id
-// isn't in the current user's list (tab switch, or it was deleted/reassigned).
+// isn't in the current user's list (person switch, or it was deleted/reassigned).
 function renderRandomCard(list) {
   const card = el("random-card");
   const user = activeUser();
@@ -163,7 +133,7 @@ function renderList(list) {
 
   el("list-title").textContent = user ? `${user.name}'s Questions` : "Questions";
 
-  if (users.length === 0) {
+  if (!user) {
     emptyEl.hidden = true;
     return;
   }
@@ -197,8 +167,28 @@ function renderList(list) {
 }
 
 function render() {
-  renderTabs();
+  if (users.length === 0) {
+    el("no-users-msg").hidden = false;
+    el("no-active-user-msg").hidden = true;
+    el("random-card").hidden = true;
+    el("question-list").innerHTML = "";
+    el("empty-state").hidden = true;
+    el("list-title").textContent = "Questions";
+    return;
+  }
+  el("no-users-msg").hidden = true;
+
   const user = activeUser();
+  if (!user) {
+    el("no-active-user-msg").hidden = false;
+    el("random-card").hidden = true;
+    el("question-list").innerHTML = "";
+    el("empty-state").hidden = true;
+    el("list-title").textContent = "Questions";
+    return;
+  }
+  el("no-active-user-msg").hidden = true;
+
   const list = questionsForUser(user);
   renderRandomCard(list);
   renderList(list);
@@ -217,6 +207,13 @@ export function mountQuestions() {
   });
   subscribeQuestions((updated) => {
     allQuestions = updated;
+    render();
+  });
+  subscribeActiveUser((id) => {
+    activeUserId = id;
+    currentRandomId = null;
+    history = [];
+    historyIndex = -1;
     render();
   });
 }

@@ -20,10 +20,21 @@
 
 <header class="app-header">
   <button id="menu-toggle-btn" class="menu-toggle-btn" aria-label="Open menu">☰</button>
-  <h1>📖 Bible Questions</h1>
+  <h1>
+    <svg class="app-logo" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M11 4.435c-1.925-1.425-4.775-2.1-7.375-1.9-.5.05-.875.475-.875.975v13.5c0 .575.5 1 1.075.95 2.35-.2 4.925.425 6.675 1.775.15.1.325.15.5.15V4.435z"/>
+      <path d="M13 4.435c1.925-1.425 4.775-2.1 7.375-1.9.5.05.875.475.875.975v13.5c0 .575-.5 1-1.075.95-2.35-.2-4.925.425-6.675 1.775-.15.1-.325.15-.5.15V4.435z"/>
+    </svg>
+    Bible Questions
+  </h1>
   <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle color theme">🌓</button>
   <div id="connection-status" class="status-pill" hidden></div>
 </header>
+
+<div id="active-user-bar" class="active-user-bar">
+  <span class="active-user-icon" aria-hidden="true">👤</span>
+  <select id="active-user-select"></select>
+</div>
 
 <div id="side-menu-backdrop" class="side-menu-backdrop" hidden></div>
 <nav id="side-menu" class="side-menu">
@@ -43,8 +54,8 @@
 <main id="app">
 
   <div id="section-questions" class="section">
-    <nav class="tabs" id="tabs"></nav>
     <p id="no-users-msg" class="empty-state" hidden>No family members set up yet. Add them in 🔒 Setup (☰ menu).</p>
+    <p id="no-active-user-msg" class="empty-state" hidden>Pick who you are up top ☝️ to see your questions.</p>
 
     <section id="random-card" class="random-card" hidden>
       <div class="random-label" id="random-label">Question for <span id="random-person"></span></div>

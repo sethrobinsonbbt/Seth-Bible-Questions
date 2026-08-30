@@ -9,8 +9,6 @@
 // { [userId]: { correctCount, wrongCount, needsReview } } — tracked per
 // user so two kids sharing an age group don't share the same score.
 import { ready } from "./firebase.js";
-import { QUESTION_BANK } from "./question-bank-data.js";
-import { FAMILY_QUESTIONS } from "./family-question-bank.js";
 
 let db = null;
 let questions = [];
@@ -76,37 +74,6 @@ export function recordAnswer(id, userId, wasCorrect) {
 export function resetProgress(id) {
   if (!db) return;
   db.collection("questions").doc(id).update({ progress: {} });
-}
-
-// Adds every item whose text doesn't already match an existing question
-// (case-insensitive). Returns how many were added.
-export function bulkImport(items) {
-  if (!db) return 0;
-  const existingText = new Set(questions.map((q) => q.text.trim().toLowerCase()));
-  const toAdd = items.filter((item) => !existingText.has(item.text.trim().toLowerCase()));
-  if (toAdd.length === 0) return 0;
-  const batch = db.batch();
-  const col = db.collection("questions");
-  toAdd.forEach((item) => {
-    batch.set(col.doc(), {
-      text: item.text,
-      answer: item.answer || null,
-      reference: item.reference || null,
-      assignedTo: item.assignedTo || null,
-      progress: {},
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-  });
-  batch.commit();
-  return toAdd.length;
-}
-
-export function importQuestionBank() {
-  return bulkImport(QUESTION_BANK.map((text) => ({ text })));
-}
-
-export function importFamilyQuestions() {
-  return bulkImport(FAMILY_QUESTIONS);
 }
 
 ready.then((firestoreDb) => {

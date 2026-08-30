@@ -2,9 +2,14 @@ import { BOOKS, BIBLE_VERSIONS } from "./bible-data.js";
 import { fetchChapter } from "./bible-api.js";
 import { addQuestion } from "./questions-data.js";
 import { buildAgeGroupSelect } from "./age-groups-data.js";
-import { populateChapterSelect as populatePickerChapterSelect, loadChapterVerses, computeVerseSelection } from "./verse-picker.js";
-import { addMemoryVerse, getActiveMemorizeUser, setActiveMemorizeUser } from "./memorize-data.js";
-import { subscribeUsers } from "./users.js";
+import {
+  populateChapterSelect as populatePickerChapterSelect,
+  populateVerseRangeSelects,
+  loadChapterVerses,
+  computeVerseRangeSelection,
+} from "./verse-picker.js";
+import { addMemoryVerse } from "./memorize-data.js";
+import { getActiveUser } from "./active-user.js";
 import { parseReadingLabel } from "./default-reading-plan.js";
 
 const STORAGE_KEY = "bible-reader-state";
@@ -13,7 +18,6 @@ let state = loadState();
 let refs = {};
 let requestId = 0;
 let speaking = false;
-let users = [];
 let pickerVerses = []; // verses of the chapter currently loaded in the M+ modal
 
 function loadState() {
@@ -88,22 +92,25 @@ function buildSkeleton(container) {
     <div id="bible-addm-modal-backdrop" class="modal-backdrop" hidden>
       <div class="modal">
         <h3>Add a Memory Verse</h3>
-        <label for="bible-addm-user-select">Who's memorizing?</label>
-        <select id="bible-addm-user-select" class="assign-select"></select>
         <div class="verse-picker-controls">
           <select id="bible-addm-book-select" class="bible-select"></select>
           <select id="bible-addm-chapter-select" class="bible-select"></select>
         </div>
-        <p class="blank-help">Uncheck any verses you don't want to memorize.</p>
-        <div class="verse-picker-select-row" id="bible-addm-select-row" hidden>
-          <button id="bible-addm-select-all-btn" class="btn btn-small">Select All</button>
-          <button id="bible-addm-select-none-btn" class="btn btn-small">Select None</button>
+        <div class="verse-range-row">
+          <div>
+            <label for="bible-addm-from-verse-select">From verse</label>
+            <select id="bible-addm-from-verse-select" class="bible-select"></select>
+          </div>
+          <div>
+            <label for="bible-addm-to-verse-select">To verse</label>
+            <select id="bible-addm-to-verse-select" class="bible-select"></select>
+          </div>
         </div>
-        <div id="bible-addm-verse-list" class="verse-picker-list"></div>
+        <p id="bible-addm-preview" class="memorize-verse-text"></p>
         <p id="bible-addm-error" class="form-error" hidden></p>
         <div class="modal-actions">
           <button id="bible-addm-cancel-btn" class="btn">Cancel</button>
-          <button id="bible-addm-save-btn" class="btn btn-primary">Add Selected</button>
+          <button id="bible-addm-save-btn" class="btn btn-primary">Add Verse</button>
         </div>
       </div>
     </div>
@@ -140,11 +147,11 @@ function buildSkeleton(container) {
 
   refs.addmBtn = container.querySelector("#bible-addm-btn");
   refs.addmModalBackdrop = container.querySelector("#bible-addm-modal-backdrop");
-  refs.addmUserSelect = container.querySelector("#bible-addm-user-select");
   refs.addmBookSelect = container.querySelector("#bible-addm-book-select");
   refs.addmChapterSelect = container.querySelector("#bible-addm-chapter-select");
-  refs.addmSelectRow = container.querySelector("#bible-addm-select-row");
-  refs.addmVerseList = container.querySelector("#bible-addm-verse-list");
+  refs.addmFromSelect = container.querySelector("#bible-addm-from-verse-select");
+  refs.addmToSelect = container.querySelector("#bible-addm-to-verse-select");
+  refs.addmPreview = container.querySelector("#bible-addm-preview");
   refs.addmError = container.querySelector("#bible-addm-error");
 
   BOOKS.forEach((b) => {
@@ -160,13 +167,13 @@ function buildSkeleton(container) {
     if (e.target === refs.addmModalBackdrop) closeAddMModal();
   });
   container.querySelector("#bible-addm-save-btn").addEventListener("click", saveVerseFromPicker);
-  container.querySelector("#bible-addm-select-all-btn").addEventListener("click", () => setAllPickerChecked(true));
-  container.querySelector("#bible-addm-select-none-btn").addEventListener("click", () => setAllPickerChecked(false));
   refs.addmBookSelect.addEventListener("change", () => {
     populatePickerChapterSelect(refs.addmChapterSelect, refs.addmBookSelect.value);
     loadPickerChapter();
   });
   refs.addmChapterSelect.addEventListener("change", loadPickerChapter);
+  refs.addmFromSelect.addEventListener("change", onFromVerseChange);
+  refs.addmToSelect.addEventListener("change", onToVerseChange);
 
   BIBLE_VERSIONS.forEach((v) => {
     const opt = document.createElement("option");
@@ -372,27 +379,8 @@ function saveQuickQuestion() {
 
 // ---------- Quick "M+" add-memory-verse (mirrors Q+) ----------
 
-function renderAddmUserSelect() {
-  const select = refs.addmUserSelect;
-  select.innerHTML = "";
-  const noneOpt = document.createElement("option");
-  noneOpt.value = "";
-  noneOpt.textContent = users.length === 0 ? "No family members yet (add in Settings)" : "Select a person…";
-  select.appendChild(noneOpt);
-  users.forEach((u) => {
-    const opt = document.createElement("option");
-    opt.value = u.id;
-    opt.textContent = u.name;
-    select.appendChild(opt);
-  });
-  select.value = getActiveMemorizeUser() && users.some((u) => u.id === getActiveMemorizeUser()) ? getActiveMemorizeUser() : "";
-}
-
 function openAddMModal() {
   refs.addmError.hidden = true;
-  refs.addmVerseList.innerHTML = "";
-  refs.addmSelectRow.hidden = true;
-  renderAddmUserSelect();
   refs.addmBookSelect.value = state.book;
   populatePickerChapterSelect(refs.addmChapterSelect, refs.addmBookSelect.value);
   refs.addmChapterSelect.value = String(state.chapter);
@@ -408,60 +396,56 @@ async function loadPickerChapter() {
   const book = refs.addmBookSelect.value;
   const chapter = Number(refs.addmChapterSelect.value);
   refs.addmError.hidden = true;
-  refs.addmVerseList.innerHTML = `<p class="bible-status">Loading ${book} ${chapter}…</p>`;
-  refs.addmSelectRow.hidden = true;
+  refs.addmPreview.textContent = `Loading ${book} ${chapter}…`;
   try {
     pickerVerses = await loadChapterVerses(book, chapter);
-    renderPickerVerseList();
+    populateVerseRangeSelects(refs.addmFromSelect, refs.addmToSelect, pickerVerses.length);
+    updateAddmPreview();
   } catch (err) {
     console.error(err);
     pickerVerses = [];
-    refs.addmVerseList.innerHTML = "";
+    refs.addmPreview.textContent = "";
     refs.addmError.textContent = "Couldn't load that chapter. Check your internet connection and try again.";
     refs.addmError.hidden = false;
   }
 }
 
-function renderPickerVerseList() {
-  refs.addmVerseList.innerHTML = "";
-  refs.addmSelectRow.hidden = pickerVerses.length === 0;
-  pickerVerses.forEach((v) => {
-    const label = document.createElement("label");
-    label.className = "verse-picker-row";
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.checked = true;
-    cb.dataset.verse = String(v.verse);
-    const span = document.createElement("span");
-    span.innerHTML = `<sup>${v.verse}</sup> ${escapeHtml(v.text)}`;
-    label.appendChild(cb);
-    label.appendChild(span);
-    refs.addmVerseList.appendChild(label);
-  });
+function updateAddmPreview() {
+  const from = Number(refs.addmFromSelect.value);
+  const to = Number(refs.addmToSelect.value);
+  const selection = computeVerseRangeSelection(refs.addmBookSelect.value, Number(refs.addmChapterSelect.value), pickerVerses, from, to);
+  refs.addmPreview.textContent = selection ? selection.text : "";
 }
 
-function setAllPickerChecked(checked) {
-  refs.addmVerseList.querySelectorAll('input[type="checkbox"]').forEach((cb) => (cb.checked = checked));
+function onFromVerseChange() {
+  const from = Number(refs.addmFromSelect.value);
+  const to = Number(refs.addmToSelect.value);
+  if (from > to) refs.addmToSelect.value = String(from);
+  updateAddmPreview();
+}
+
+function onToVerseChange() {
+  const from = Number(refs.addmFromSelect.value);
+  const to = Number(refs.addmToSelect.value);
+  if (to < from) refs.addmFromSelect.value = String(to);
+  updateAddmPreview();
 }
 
 function saveVerseFromPicker() {
-  const userId = refs.addmUserSelect.value;
-  if (!userId) {
-    refs.addmError.textContent = "Pick who's memorizing this verse.";
+  if (!getActiveUser()) {
+    refs.addmError.textContent = "Pick who's memorizing this up top ☝️ before adding a verse.";
     refs.addmError.hidden = false;
     return;
   }
-  const checkedSet = new Set(
-    Array.from(refs.addmVerseList.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => Number(cb.dataset.verse))
-  );
-  const selection = computeVerseSelection(refs.addmBookSelect.value, Number(refs.addmChapterSelect.value), pickerVerses, checkedSet);
+  const from = Number(refs.addmFromSelect.value);
+  const to = Number(refs.addmToSelect.value);
+  const selection = computeVerseRangeSelection(refs.addmBookSelect.value, Number(refs.addmChapterSelect.value), pickerVerses, from, to);
   if (!selection) {
-    refs.addmError.textContent = "Check at least one verse to memorize.";
+    refs.addmError.textContent = "Couldn't load that chapter's verses — try again.";
     refs.addmError.hidden = false;
     return;
   }
   addMemoryVerse(selection.reference, selection.text);
-  setActiveMemorizeUser(userId);
   closeAddMModal();
 }
 
@@ -497,7 +481,4 @@ export function mountBibleReader(container) {
   buildSkeleton(container);
   syncControls();
   loadChapter();
-  subscribeUsers((updated) => {
-    users = updated;
-  });
 }

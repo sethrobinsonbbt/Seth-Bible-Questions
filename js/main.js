@@ -4,6 +4,8 @@ import { mountBibleReader, goTo as goToBibleChapter } from "./bible-reader.js";
 import { mountPlanner } from "./planner.js";
 import { mountMemorize } from "./memorize.js";
 import { mountSettings } from "./settings.js";
+import { subscribeUsers } from "./users.js";
+import { getActiveUser, setActiveUser } from "./active-user.js";
 
 // "planner" (Reading Plan) is listed first, so it's both the top menu item
 // and the default landing section. "settings" gets a visual divider in the
@@ -18,6 +20,31 @@ const SECTIONS = [
 ];
 
 let activeSection = SECTIONS[0].id;
+
+// ---------- Global "who's using this" selector (shown on every page) ----------
+
+function setupActiveUserBar() {
+  const select = document.getElementById("active-user-select");
+
+  subscribeUsers((users) => {
+    const current = getActiveUser();
+    select.innerHTML = "";
+    const noneOpt = document.createElement("option");
+    noneOpt.value = "";
+    noneOpt.textContent = users.length === 0 ? "No family members yet (add in Setup)" : "Who's this?";
+    select.appendChild(noneOpt);
+    users.forEach((u) => {
+      const opt = document.createElement("option");
+      opt.value = u.id;
+      opt.textContent = u.name;
+      select.appendChild(opt);
+    });
+    select.value = current && users.some((u) => u.id === current) ? current : "";
+    if (!current || !users.some((u) => u.id === current)) setActiveUser(null);
+  });
+
+  select.addEventListener("change", () => setActiveUser(select.value || null));
+}
 
 // ---------- Theme (light / dark / auto) ----------
 
@@ -148,6 +175,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initSections();
   setupMenu();
   setupStatusBanner();
+  setupActiveUserBar();
   applyTheme();
   document.getElementById("theme-toggle-btn").addEventListener("click", cycleTheme);
 

@@ -105,6 +105,39 @@ body {
   font-size: 1.25rem;
   margin: 0;
   flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.app-logo {
+  flex: 0 0 auto;
+  color: var(--indigo);
+}
+
+.active-user-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1.1rem 0.7rem;
+  max-width: 720px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.active-user-icon {
+  flex: 0 0 auto;
+  font-size: 1.1rem;
+}
+
+.active-user-bar select {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
 .menu-toggle-btn {
@@ -972,43 +1005,25 @@ body {
   min-width: 0;
 }
 
-.verse-picker-select-row {
+.verse-range-row {
   display: flex;
   gap: 0.5rem;
-  margin: 0.3rem 0;
 }
 
-.verse-picker-list {
-  max-height: 260px;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.4rem 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+.verse-range-row > div {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
-.verse-picker-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  line-height: 1.4;
-  padding: 0.2rem 0;
-}
-
-.verse-picker-row input[type="checkbox"] {
-  margin-top: 0.25rem;
-  flex: 0 0 auto;
-  width: 1.1rem;
-  height: 1.1rem;
-}
-
-.verse-picker-row sup {
+.verse-range-row label {
+  display: block;
+  font-size: 0.8rem;
   color: var(--text-muted);
-  font-weight: 700;
-  margin-right: 0.15rem;
+  margin: 0.4rem 0 0.2rem;
+}
+
+.verse-range-row select {
+  width: 100%;
 }
 
 .memorize-verse-text {

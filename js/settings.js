@@ -1,8 +1,7 @@
-// Settings section: a simple passcode gate, then family member management
-// and full question administration (add/edit/delete/assign to age group,
-// plus the bulk-import buttons). This is the only place questions and
-// family members are created or edited — the Questions tab itself is a
-// read-only quiz view, safe for kids to use unsupervised.
+// Settings section: a simple passcode gate, then family member management,
+// a Question Library subpage, family stats, and backup. This is the only
+// place questions and family members are created or edited — the Questions
+// tab itself is a read-only quiz view, safe for kids to use unsupervised.
 //
 // IMPORTANT: the passcode is a soft deterrent only, not real security. This
 // is a static site with no server — anyone who opens the browser's dev
@@ -17,11 +16,7 @@ import {
   updateQuestionAssignment,
   deleteQuestion,
   resetProgress,
-  importQuestionBank,
-  importFamilyQuestions,
 } from "./questions-data.js";
-import { QUESTION_BANK } from "./question-bank-data.js";
-import { FAMILY_QUESTIONS } from "./family-question-bank.js";
 import { subscribeMemoryVerses } from "./memorize-data.js";
 import { subscribePlanState } from "./daily-plan-data.js";
 import { ready } from "./firebase.js";
@@ -39,6 +34,11 @@ let addingUser = false;
 let editingQuestionId = null;
 let questionFilter = "all"; // "all" | "unassigned" | an age-group id
 let questionSearch = "";
+// The Question Library subpage has its own edit lock, separate from (and
+// on top of) the outer Setup passcode — it defaults locked every time you
+// open the subpage, so browsing questions never accidentally exposes
+// edit/delete controls until you deliberately tap to unlock them.
+let libraryUnlocked = false;
 let refs = {};
 
 function isUnlocked() {
@@ -67,6 +67,7 @@ function escapeHtml(str) {
 // ---------- Lock screen ----------
 
 function buildLockScreen(container) {
+  refs = {};
   container.innerHTML = `
     <div class="settings-lock">
       <h2>🔒 Setup</h2>
@@ -82,7 +83,7 @@ function buildLockScreen(container) {
   const submit = () => {
     if (input.value === PASSWORD) {
       setUnlocked(true);
-      buildUnlockedView(container);
+      buildMainView(container);
     } else {
       container.querySelector("#settings-password-error").hidden = false;
       input.value = "";
@@ -218,7 +219,7 @@ function renderUsers() {
   });
 }
 
-// ---------- Question admin ----------
+// ---------- Question Library ----------
 
 function filteredQuestions() {
   let list = questions;
@@ -254,7 +255,7 @@ function renderQuestionFilterSelect() {
   select.appendChild(allOpt);
   const unassignedOpt = document.createElement("option");
   unassignedOpt.value = "unassigned";
-  unassignedOpt.textContent = "Library (unassigned)";
+  unassignedOpt.textContent = "Unassigned";
   select.appendChild(unassignedOpt);
   AGE_GROUPS.forEach((g) => {
     const opt = document.createElement("option");
@@ -275,7 +276,7 @@ function renderQuestionsAdmin() {
     const li = document.createElement("li");
     li.className = "question-card";
 
-    if (editingQuestionId === q.id) {
+    if (libraryUnlocked && editingQuestionId === q.id) {
       const textarea = document.createElement("textarea");
       textarea.className = "edit-textarea";
       textarea.value = q.text;
@@ -342,43 +343,45 @@ function renderQuestionsAdmin() {
         li.appendChild(scoreLine);
       }
 
-      const actions = document.createElement("div");
-      actions.className = "question-row-actions";
+      if (libraryUnlocked) {
+        const actions = document.createElement("div");
+        actions.className = "question-row-actions";
 
-      const assignSelect = buildAgeGroupSelect(q.assignedTo);
-      assignSelect.addEventListener("change", () => {
-        updateQuestionAssignment(q.id, assignSelect.value);
-      });
-      actions.appendChild(assignSelect);
-
-      const editBtn = document.createElement("button");
-      editBtn.className = "btn btn-small";
-      editBtn.textContent = "Edit";
-      editBtn.addEventListener("click", () => {
-        editingQuestionId = q.id;
-        renderQuestionsAdmin();
-      });
-      actions.appendChild(editBtn);
-
-      if (correct > 0 || wrong > 0) {
-        const resetBtn = document.createElement("button");
-        resetBtn.className = "btn btn-small";
-        resetBtn.textContent = "Reset Score";
-        resetBtn.addEventListener("click", () => {
-          if (confirm("Reset everyone's score on this question? This can't be undone.")) resetProgress(q.id);
+        const assignSelect = buildAgeGroupSelect(q.assignedTo);
+        assignSelect.addEventListener("change", () => {
+          updateQuestionAssignment(q.id, assignSelect.value);
         });
-        actions.appendChild(resetBtn);
+        actions.appendChild(assignSelect);
+
+        const editBtn = document.createElement("button");
+        editBtn.className = "btn btn-small";
+        editBtn.textContent = "Edit";
+        editBtn.addEventListener("click", () => {
+          editingQuestionId = q.id;
+          renderQuestionsAdmin();
+        });
+        actions.appendChild(editBtn);
+
+        if (correct > 0 || wrong > 0) {
+          const resetBtn = document.createElement("button");
+          resetBtn.className = "btn btn-small";
+          resetBtn.textContent = "Reset Score";
+          resetBtn.addEventListener("click", () => {
+            if (confirm("Reset everyone's score on this question? This can't be undone.")) resetProgress(q.id);
+          });
+          actions.appendChild(resetBtn);
+        }
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "btn btn-danger btn-small";
+        deleteBtn.textContent = "Delete";
+        deleteBtn.addEventListener("click", () => {
+          if (confirm("Delete this question?")) deleteQuestion(q.id);
+        });
+        actions.appendChild(deleteBtn);
+
+        li.appendChild(actions);
       }
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "btn btn-danger btn-small";
-      deleteBtn.textContent = "Delete";
-      deleteBtn.addEventListener("click", () => {
-        if (confirm("Delete this question?")) deleteQuestion(q.id);
-      });
-      actions.appendChild(deleteBtn);
-
-      li.appendChild(actions);
     }
 
     listEl.appendChild(li);
@@ -492,84 +495,28 @@ function closeAddQuestionModal() {
   refs.qModalBackdrop.hidden = true;
 }
 
-// ---------- Import actions ----------
+// ---------- Question Library subpage ----------
 
-function countNew(items) {
-  const existingText = new Set(questions.map((q) => q.text.trim().toLowerCase()));
-  return items.filter((i) => !existingText.has(i.text.trim().toLowerCase())).length;
-}
-
-function runImportFamilyQuestions() {
-  const count = countNew(FAMILY_QUESTIONS);
-  if (count === 0) {
-    alert("Every one of your family's questions is already in your list.");
-    return;
-  }
-  if (!confirm(`Add ${count} question(s) from your family's list (with answers) into the Library?`)) return;
-  importFamilyQuestions();
-}
-
-function runImportQuestionBank() {
-  const count = countNew(QUESTION_BANK.map((text) => ({ text })));
-  if (count === 0) {
-    alert("Every question from the built-in bank is already in your list.");
-    return;
-  }
-  if (!confirm(`Add ${count} question(s) from the built-in Bible trivia bank into the Library?`)) return;
-  importQuestionBank();
-}
-
-// ---------- Shell ----------
-
-function buildUnlockedView(container) {
+function buildLibraryView(container) {
+  refs = {};
   container.innerHTML = `
     <div class="settings-header">
-      <h2>🔒 Setup</h2>
-      <button id="settings-lock-btn" class="btn btn-small">Lock</button>
+      <button id="library-back-btn" class="btn btn-small">← Setup</button>
+      <h2>📚 Question Library</h2>
+      <button id="library-lock-btn" class="btn btn-small">${libraryUnlocked ? "🔓 Editing" : "🔒 Locked"}</button>
     </div>
 
-    <div class="settings-panel">
-      <div class="list-toolbar">
-        <h2>Family Members</h2>
-        <button id="add-user-btn" class="btn btn-primary">+ Add Member</button>
-      </div>
-      <ul id="user-list" class="question-list"></ul>
-      <p id="user-empty" class="empty-state" hidden>No family members yet.</p>
+    <div class="question-filter-row">
+      <select id="question-filter-select" class="assign-select"></select>
+      <input id="question-search-input" type="text" placeholder="🔍 Search questions…" />
     </div>
-
-    <div class="settings-panel">
-      <div class="list-toolbar">
-        <h2>All Questions</h2>
-        <div class="list-toolbar-actions">
-          <button id="import-family-btn" class="btn">📥 Import Our Family's Questions</button>
-          <button id="import-bank-btn" class="btn">📥 Import Question Bank</button>
-          <button id="add-question-btn" class="btn btn-primary">+ Add Question</button>
-        </div>
-      </div>
-      <div class="question-filter-row">
-        <select id="question-filter-select" class="assign-select"></select>
-        <input id="question-search-input" type="text" placeholder="🔍 Search questions…" />
-      </div>
-      <ul id="admin-question-list" class="question-list"></ul>
-      <p id="admin-question-empty" class="empty-state" hidden>No questions match this filter.</p>
-    </div>
-
-    <div class="settings-panel">
-      <div class="list-toolbar">
-        <h2>Family Stats</h2>
-      </div>
-      <p id="reading-plan-stat" class="question-score"></p>
-      <ul id="family-stats-list" class="question-list"></ul>
-      <p id="family-stats-empty" class="empty-state" hidden>Add family members to see stats.</p>
-    </div>
-
-    <div class="settings-panel">
-      <div class="list-toolbar">
-        <h2>Backup</h2>
-      </div>
-      <p class="settings-fineprint">Download everything — family members, questions, memory verses, reading plans and progress — as one JSON file.</p>
-      <button id="export-data-btn" class="btn">⬇️ Export All Data</button>
-    </div>
+    ${
+      libraryUnlocked
+        ? `<div class="list-toolbar-actions"><button id="add-question-btn" class="btn btn-primary">+ Add Question</button></div>`
+        : `<p class="settings-fineprint">🔒 Locked — tap the lock above to reassign, edit, or delete questions.</p>`
+    }
+    <ul id="admin-question-list" class="question-list"></ul>
+    <p id="admin-question-empty" class="empty-state" hidden>No questions match this filter.</p>
 
     <div id="settings-question-modal-backdrop" class="modal-backdrop" hidden>
       <div class="modal">
@@ -591,17 +538,113 @@ function buildUnlockedView(container) {
     </div>
   `;
 
-  refs.userList = container.querySelector("#user-list");
-  refs.userEmpty = container.querySelector("#user-empty");
   refs.adminQuestionList = container.querySelector("#admin-question-list");
   refs.adminQuestionEmpty = container.querySelector("#admin-question-empty");
   refs.filterSelect = container.querySelector("#question-filter-select");
-  refs.qModalBackdrop = container.querySelector("#settings-question-modal-backdrop");
-  refs.qModalText = container.querySelector("#settings-question-text");
-  refs.qModalAnswer = container.querySelector("#settings-question-answer");
-  refs.qModalReference = container.querySelector("#settings-question-reference");
-  refs.qModalAssignWrap = container.querySelector("#settings-question-assign-wrap");
-  refs.qModalError = container.querySelector("#settings-question-error");
+
+  container.querySelector("#library-back-btn").addEventListener("click", () => buildMainView(container));
+  container.querySelector("#library-lock-btn").addEventListener("click", () => {
+    libraryUnlocked = !libraryUnlocked;
+    buildLibraryView(container);
+  });
+
+  renderQuestionFilterSelect();
+  refs.filterSelect.addEventListener("change", () => {
+    questionFilter = refs.filterSelect.value;
+    renderQuestionsAdmin();
+  });
+
+  refs.searchInput = container.querySelector("#question-search-input");
+  refs.searchInput.value = questionSearch;
+  refs.searchInput.addEventListener("input", () => {
+    questionSearch = refs.searchInput.value;
+    renderQuestionsAdmin();
+  });
+
+  if (libraryUnlocked) {
+    refs.qModalBackdrop = container.querySelector("#settings-question-modal-backdrop");
+    refs.qModalText = container.querySelector("#settings-question-text");
+    refs.qModalAnswer = container.querySelector("#settings-question-answer");
+    refs.qModalReference = container.querySelector("#settings-question-reference");
+    refs.qModalAssignWrap = container.querySelector("#settings-question-assign-wrap");
+    refs.qModalError = container.querySelector("#settings-question-error");
+
+    container.querySelector("#add-question-btn").addEventListener("click", openAddQuestionModal);
+    container.querySelector("#settings-question-cancel-btn").addEventListener("click", closeAddQuestionModal);
+    refs.qModalBackdrop.addEventListener("click", (e) => {
+      if (e.target === refs.qModalBackdrop) closeAddQuestionModal();
+    });
+    container.querySelector("#settings-question-save-btn").addEventListener("click", () => {
+      const text = refs.qModalText.value.trim();
+      const answer = refs.qModalAnswer.value.trim();
+      if (!text) {
+        refs.qModalError.textContent = "Give the question some text.";
+        refs.qModalError.hidden = false;
+        return;
+      }
+      if (!answer) {
+        refs.qModalError.textContent = "An answer is required (reference is optional).";
+        refs.qModalError.hidden = false;
+        return;
+      }
+      const reference = refs.qModalReference.value.trim();
+      const assignedTo = refs.qModalAssign.value || null;
+      addQuestion(text, answer, reference, assignedTo);
+      closeAddQuestionModal();
+    });
+  }
+
+  renderQuestionsAdmin();
+}
+
+// ---------- Main Setup view ----------
+
+function buildMainView(container) {
+  refs = {};
+  container.innerHTML = `
+    <div class="settings-header">
+      <h2>🔒 Setup</h2>
+      <button id="settings-lock-btn" class="btn btn-small">Lock</button>
+    </div>
+
+    <div class="settings-panel">
+      <div class="list-toolbar">
+        <h2>Family Members</h2>
+        <button id="add-user-btn" class="btn btn-primary">+ Add Member</button>
+      </div>
+      <ul id="user-list" class="question-list"></ul>
+      <p id="user-empty" class="empty-state" hidden>No family members yet.</p>
+    </div>
+
+    <div class="settings-panel">
+      <div class="list-toolbar">
+        <h2>Questions</h2>
+        <button id="open-library-btn" class="btn btn-primary">📚 Question Library</button>
+      </div>
+      <p id="library-count" class="settings-fineprint"></p>
+    </div>
+
+    <div class="settings-panel">
+      <div class="list-toolbar">
+        <h2>Family Stats</h2>
+      </div>
+      <p id="reading-plan-stat" class="question-score"></p>
+      <ul id="family-stats-list" class="question-list"></ul>
+      <p id="family-stats-empty" class="empty-state" hidden>Add family members to see stats.</p>
+    </div>
+
+    <div class="settings-panel">
+      <div class="list-toolbar">
+        <h2>Backup</h2>
+      </div>
+      <p class="settings-fineprint">Download everything — family members, questions, memory verses, reading plans and progress — as one JSON file.</p>
+      <button id="export-data-btn" class="btn">⬇️ Export All Data</button>
+    </div>
+  `;
+
+  refs.userList = container.querySelector("#user-list");
+  refs.userEmpty = container.querySelector("#user-empty");
+  refs.libraryCount = container.querySelector("#library-count");
   refs.statsList = container.querySelector("#family-stats-list");
   refs.statsEmpty = container.querySelector("#family-stats-empty");
   refs.readingPlanStat = container.querySelector("#reading-plan-stat");
@@ -618,55 +661,25 @@ function buildUnlockedView(container) {
     renderUsers();
   });
 
-  renderQuestionFilterSelect();
-  refs.filterSelect.addEventListener("change", () => {
-    questionFilter = refs.filterSelect.value;
-    renderQuestionsAdmin();
+  container.querySelector("#open-library-btn").addEventListener("click", () => {
+    libraryUnlocked = false; // always opens locked/read-only; tap the lock to edit
+    buildLibraryView(container);
   });
-
-  refs.searchInput = container.querySelector("#question-search-input");
-  refs.searchInput.value = questionSearch;
-  refs.searchInput.addEventListener("input", () => {
-    questionSearch = refs.searchInput.value;
-    renderQuestionsAdmin();
-  });
-
-  container.querySelector("#add-question-btn").addEventListener("click", openAddQuestionModal);
-  container.querySelector("#settings-question-cancel-btn").addEventListener("click", closeAddQuestionModal);
-  refs.qModalBackdrop.addEventListener("click", (e) => {
-    if (e.target === refs.qModalBackdrop) closeAddQuestionModal();
-  });
-  container.querySelector("#settings-question-save-btn").addEventListener("click", () => {
-    const text = refs.qModalText.value.trim();
-    const answer = refs.qModalAnswer.value.trim();
-    if (!text) {
-      refs.qModalError.textContent = "Give the question some text.";
-      refs.qModalError.hidden = false;
-      return;
-    }
-    if (!answer) {
-      refs.qModalError.textContent = "An answer is required (reference is optional).";
-      refs.qModalError.hidden = false;
-      return;
-    }
-    const reference = refs.qModalReference.value.trim();
-    const assignedTo = refs.qModalAssign.value || null;
-    addQuestion(text, answer, reference, assignedTo);
-    closeAddQuestionModal();
-  });
-
-  container.querySelector("#import-family-btn").addEventListener("click", runImportFamilyQuestions);
-  container.querySelector("#import-bank-btn").addEventListener("click", runImportQuestionBank);
 
   renderUsers();
-  renderQuestionsAdmin();
+  renderLibraryCount();
   renderFamilyStats();
   renderReadingPlanStat();
 }
 
+function renderLibraryCount() {
+  if (!refs.libraryCount) return;
+  refs.libraryCount.textContent = `${questions.length} question${questions.length === 1 ? "" : "s"} in the library.`;
+}
+
 export function mountSettings(container) {
   if (isUnlocked()) {
-    buildUnlockedView(container);
+    buildMainView(container);
   } else {
     buildLockScreen(container);
   }
@@ -680,6 +693,7 @@ export function mountSettings(container) {
     questions = updated;
     if (refs.adminQuestionList) renderQuestionsAdmin();
     if (refs.statsList) renderFamilyStats();
+    if (refs.libraryCount) renderLibraryCount();
   });
   subscribeMemoryVerses((updated) => {
     memoryVerses = updated;

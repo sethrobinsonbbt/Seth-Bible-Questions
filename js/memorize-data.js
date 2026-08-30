@@ -1,13 +1,10 @@
-// Shared "memoryVerses" Firestore collection: state + CRUD, plus the
-// "who's memorizing" active-user preference (shared between the Memorize
-// page and the Bible page's M+ quick-add so picking a user in one place
-// carries over to the other).
+// Shared "memoryVerses" Firestore collection: state + CRUD. The
+// "who's memorizing" selection itself lives in active-user.js, shared
+// across the whole app, not just Memorize.
 //
 // Doc shape: { reference, text, progress, createdAt }. `progress` is a map
 // keyed by user id: { [userId]: { correctCount, attempts, needsReview } }.
 import { ready } from "./firebase.js";
-
-const ACTIVE_USER_KEY = "bible-questions-memorize-active-user";
 
 let db = null;
 let verses = [];
@@ -25,23 +22,6 @@ export function subscribeMemoryVerses(callback) {
 
 export function getMemoryVerses() {
   return verses;
-}
-
-export function getActiveMemorizeUser() {
-  try {
-    return localStorage.getItem(ACTIVE_USER_KEY) || null;
-  } catch (e) {
-    return null;
-  }
-}
-
-export function setActiveMemorizeUser(id) {
-  try {
-    if (id) localStorage.setItem(ACTIVE_USER_KEY, id);
-    else localStorage.removeItem(ACTIVE_USER_KEY);
-  } catch (e) {
-    /* ignore */
-  }
 }
 
 export function addMemoryVerse(reference, text) {

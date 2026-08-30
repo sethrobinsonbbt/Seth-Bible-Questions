@@ -7,16 +7,15 @@
 // Verses are added via a book/chapter picker that lets individual verses be
 // unchecked, so only part of a passage gets memorized if that's all that's
 // wanted (see verse-picker.js).
-import { subscribeUsers } from "./users.js";
+import { subscribeActiveUser } from "./active-user.js";
+import { subscribeMemoryVerses, addMemoryVerse, deleteMemoryVerse, recordVerseProgress } from "./memorize-data.js";
 import {
-  subscribeMemoryVerses,
-  getActiveMemorizeUser,
-  setActiveMemorizeUser,
-  addMemoryVerse,
-  deleteMemoryVerse,
-  recordVerseProgress,
-} from "./memorize-data.js";
-import { populateBookSelect, populateChapterSelect, loadChapterVerses, computeVerseSelection } from "./verse-picker.js";
+  populateBookSelect,
+  populateChapterSelect,
+  populateVerseRangeSelects,
+  loadChapterVerses,
+  computeVerseRangeSelection,
+} from "./verse-picker.js";
 
 // Common short/function words revealed first at easier levels, so the words
 // left to recall are the more distinctive ones. Includes KJV-specific terms.
@@ -30,8 +29,7 @@ const STOPWORDS = new Set([
 ]);
 
 let verses = []; // [{id, reference, text, progress}]
-let users = [];
-let activeUserId = getActiveMemorizeUser();
+let activeUserId = null;
 let refs = {};
 let view = "list"; // "list" | "guess" | "blanks"
 let guessDifficulty = "easy"; // "easy" | "hard"
@@ -60,27 +58,6 @@ function normalizeRef(str) {
 }
 
 // ---------- List view ----------
-
-function renderUserSelect() {
-  const select = refs.userSelect;
-  select.innerHTML = "";
-  const noneOpt = document.createElement("option");
-  noneOpt.value = "";
-  noneOpt.textContent = users.length === 0 ? "No family members yet (add in Settings)" : "Select a person…";
-  select.appendChild(noneOpt);
-  users.forEach((u) => {
-    const opt = document.createElement("option");
-    opt.value = u.id;
-    opt.textContent = u.name;
-    select.appendChild(opt);
-  });
-  if (activeUserId && users.some((u) => u.id === activeUserId)) {
-    select.value = activeUserId;
-  } else {
-    activeUserId = null;
-    select.value = "";
-  }
-}
 
 function renderList() {
   refs.listEl.innerHTML = "";
@@ -125,9 +102,6 @@ function renderList() {
 
 function openAddVerseModal() {
   refs.vpError.hidden = true;
-  refs.vpVerseList.innerHTML = "";
-  refs.vpVerseList.hidden = true;
-  refs.vpSelectRow.hidden = true;
   populateChapterSelect(refs.vpChapterSelect, refs.vpBookSelect.value);
   refs.vpModalBackdrop.hidden = false;
   loadPickerChapter();
@@ -141,53 +115,47 @@ async function loadPickerChapter() {
   const book = refs.vpBookSelect.value;
   const chapter = Number(refs.vpChapterSelect.value);
   refs.vpError.hidden = true;
-  refs.vpVerseList.innerHTML = `<p class="bible-status">Loading ${book} ${chapter}…</p>`;
-  refs.vpVerseList.hidden = false;
-  refs.vpSelectRow.hidden = true;
+  refs.vpPreview.textContent = `Loading ${book} ${chapter}…`;
   try {
     pickerVerses = await loadChapterVerses(book, chapter);
-    renderPickerVerseList();
+    populateVerseRangeSelects(refs.vpFromSelect, refs.vpToSelect, pickerVerses.length);
+    updateVersePreview();
   } catch (err) {
     console.error(err);
     pickerVerses = [];
-    refs.vpVerseList.innerHTML = "";
-    refs.vpVerseList.hidden = true;
+    refs.vpPreview.textContent = "";
     refs.vpError.textContent = "Couldn't load that chapter. Check your internet connection and try again.";
     refs.vpError.hidden = false;
   }
 }
 
-function renderPickerVerseList() {
-  refs.vpVerseList.innerHTML = "";
-  refs.vpSelectRow.hidden = pickerVerses.length === 0;
-  pickerVerses.forEach((v) => {
-    const label = document.createElement("label");
-    label.className = "verse-picker-row";
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.checked = true;
-    cb.dataset.verse = String(v.verse);
-    const span = document.createElement("span");
-    span.innerHTML = `<sup>${v.verse}</sup> ${escapeHtml(v.text)}`;
-    label.appendChild(cb);
-    label.appendChild(span);
-    refs.vpVerseList.appendChild(label);
-  });
+function updateVersePreview() {
+  const from = Number(refs.vpFromSelect.value);
+  const to = Number(refs.vpToSelect.value);
+  const selection = computeVerseRangeSelection(refs.vpBookSelect.value, Number(refs.vpChapterSelect.value), pickerVerses, from, to);
+  refs.vpPreview.textContent = selection ? selection.text : "";
 }
 
-function setAllPickerChecked(checked) {
-  refs.vpVerseList.querySelectorAll('input[type="checkbox"]').forEach((cb) => (cb.checked = checked));
+function onFromVerseChange() {
+  const from = Number(refs.vpFromSelect.value);
+  const to = Number(refs.vpToSelect.value);
+  if (from > to) refs.vpToSelect.value = String(from);
+  updateVersePreview();
+}
+
+function onToVerseChange() {
+  const from = Number(refs.vpFromSelect.value);
+  const to = Number(refs.vpToSelect.value);
+  if (to < from) refs.vpFromSelect.value = String(to);
+  updateVersePreview();
 }
 
 function saveVerseFromPicker() {
-  const checkedSet = new Set(
-    Array.from(refs.vpVerseList.querySelectorAll('input[type="checkbox"]:checked')).map((cb) =>
-      Number(cb.dataset.verse)
-    )
-  );
-  const selection = computeVerseSelection(refs.vpBookSelect.value, Number(refs.vpChapterSelect.value), pickerVerses, checkedSet);
+  const from = Number(refs.vpFromSelect.value);
+  const to = Number(refs.vpToSelect.value);
+  const selection = computeVerseRangeSelection(refs.vpBookSelect.value, Number(refs.vpChapterSelect.value), pickerVerses, from, to);
   if (!selection) {
-    refs.vpError.textContent = "Check at least one verse to memorize.";
+    refs.vpError.textContent = "Couldn't load that chapter's verses — try again.";
     refs.vpError.hidden = false;
     return;
   }
@@ -473,8 +441,6 @@ function buildSkeleton(container) {
       <h2>Memory Verses</h2>
       <button id="add-verse-btn" class="btn btn-primary">+ Add Verse</button>
     </div>
-    <label for="memorize-user-select">Who's memorizing?</label>
-    <select id="memorize-user-select" class="assign-select"></select>
     <ul id="verse-list" class="question-list"></ul>
     <p id="verse-empty" class="empty-state" hidden>No memory verses yet — tap "+ Add Verse" to pick a passage (King James Version).</p>
 
@@ -492,12 +458,17 @@ function buildSkeleton(container) {
           <select id="vp-book-select" class="bible-select"></select>
           <select id="vp-chapter-select" class="bible-select"></select>
         </div>
-        <p class="blank-help">Uncheck any verses you don't want to memorize.</p>
-        <div class="verse-picker-select-row" id="vp-select-row" hidden>
-          <button id="vp-select-all-btn" class="btn btn-small">Select All</button>
-          <button id="vp-select-none-btn" class="btn btn-small">Select None</button>
+        <div class="verse-range-row">
+          <div>
+            <label for="vp-from-verse-select">From verse</label>
+            <select id="vp-from-verse-select" class="bible-select"></select>
+          </div>
+          <div>
+            <label for="vp-to-verse-select">To verse</label>
+            <select id="vp-to-verse-select" class="bible-select"></select>
+          </div>
         </div>
-        <div id="vp-verse-list" class="verse-picker-list"></div>
+        <p id="vp-preview" class="memorize-verse-text"></p>
         <p id="vp-error" class="form-error" hidden></p>
         <div class="modal-actions">
           <button id="vp-cancel-btn" class="btn">Cancel</button>
@@ -511,23 +482,17 @@ function buildSkeleton(container) {
   refs.emptyEl = container.querySelector("#verse-empty");
   refs.practiceRow = container.querySelector("#practice-launch-row");
   refs.practiceArea = container.querySelector("#practice-area");
-  refs.userSelect = container.querySelector("#memorize-user-select");
 
   refs.vpModalBackdrop = container.querySelector("#verse-picker-modal-backdrop");
   refs.vpBookSelect = container.querySelector("#vp-book-select");
   refs.vpChapterSelect = container.querySelector("#vp-chapter-select");
-  refs.vpSelectRow = container.querySelector("#vp-select-row");
-  refs.vpVerseList = container.querySelector("#vp-verse-list");
+  refs.vpFromSelect = container.querySelector("#vp-from-verse-select");
+  refs.vpToSelect = container.querySelector("#vp-to-verse-select");
+  refs.vpPreview = container.querySelector("#vp-preview");
   refs.vpError = container.querySelector("#vp-error");
 
   populateBookSelect(refs.vpBookSelect);
   populateChapterSelect(refs.vpChapterSelect, refs.vpBookSelect.value);
-
-  refs.userSelect.addEventListener("change", () => {
-    activeUserId = refs.userSelect.value || null;
-    setActiveMemorizeUser(activeUserId);
-    renderList();
-  });
 
   container.querySelector("#add-verse-btn").addEventListener("click", openAddVerseModal);
   container.querySelector("#vp-cancel-btn").addEventListener("click", closeAddVerseModal);
@@ -535,14 +500,14 @@ function buildSkeleton(container) {
     if (e.target === refs.vpModalBackdrop) closeAddVerseModal();
   });
   container.querySelector("#vp-save-btn").addEventListener("click", saveVerseFromPicker);
-  container.querySelector("#vp-select-all-btn").addEventListener("click", () => setAllPickerChecked(true));
-  container.querySelector("#vp-select-none-btn").addEventListener("click", () => setAllPickerChecked(false));
 
   refs.vpBookSelect.addEventListener("change", () => {
     populateChapterSelect(refs.vpChapterSelect, refs.vpBookSelect.value);
     loadPickerChapter();
   });
   refs.vpChapterSelect.addEventListener("change", loadPickerChapter);
+  refs.vpFromSelect.addEventListener("change", onFromVerseChange);
+  refs.vpToSelect.addEventListener("change", onToVerseChange);
 
   container.querySelector("#practice-guess-btn").addEventListener("click", startGuess);
   container.querySelector("#practice-blanks-btn").addEventListener("click", startBlanks);
@@ -552,9 +517,8 @@ export function mountMemorize(container) {
   buildSkeleton(container);
   renderList();
 
-  subscribeUsers((updated) => {
-    users = updated;
-    renderUserSelect();
+  subscribeActiveUser((id) => {
+    activeUserId = id;
     renderList();
   });
 

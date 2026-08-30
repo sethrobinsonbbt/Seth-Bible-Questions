@@ -38,6 +38,26 @@ export async function loadChapterVerses(book, chapter) {
   return data.verses; // [{verse, text}]
 }
 
+// Populates a "From verse" / "To verse" dropdown pair for a chapter with
+// `verseCount` verses, defaulting to the full chapter (from=1, to=last).
+export function populateVerseRangeSelects(fromSelect, toSelect, verseCount) {
+  fromSelect.innerHTML = "";
+  toSelect.innerHTML = "";
+  for (let i = 1; i <= verseCount; i++) {
+    const fromOpt = document.createElement("option");
+    fromOpt.value = String(i);
+    fromOpt.textContent = `Verse ${i}`;
+    fromSelect.appendChild(fromOpt);
+
+    const toOpt = document.createElement("option");
+    toOpt.value = String(i);
+    toOpt.textContent = `Verse ${i}`;
+    toSelect.appendChild(toOpt);
+  }
+  fromSelect.value = "1";
+  toSelect.value = String(verseCount || 1);
+}
+
 // Collapses a set of checked verse numbers into a compact reference
 // suffix, e.g. {1,2,3,5,7,8,9} -> "1-3,5,7-9". Assumes `checkedNums` is
 // non-empty and sorted ascending.
@@ -70,4 +90,12 @@ export function computeVerseSelection(book, chapter, allVerses, checkedSet) {
   const wholeChapter = selected.length === allVerses.length;
   const suffix = wholeChapter ? "" : `:${collapseRanges(selected.map((v) => v.verse))}`;
   return { reference: `${book} ${chapter}${suffix}`, text };
+}
+
+// Same as computeVerseSelection, but for a contiguous "from verse" to
+// "to verse" range picked via two dropdowns rather than a checkbox set.
+export function computeVerseRangeSelection(book, chapter, allVerses, fromVerse, toVerse) {
+  const checkedSet = new Set();
+  for (let v = fromVerse; v <= toVerse; v++) checkedSet.add(v);
+  return computeVerseSelection(book, chapter, allVerses, checkedSet);
 }

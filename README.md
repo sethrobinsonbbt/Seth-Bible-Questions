@@ -1,31 +1,35 @@
 # Bible Questions
 
 A tiny family Bible app with five sections, reached from the ☰ menu (tap
-the icon at the top-left):
+the icon at the top-left). A **👤 Who's this?** selector sits right below
+the header on every page — pick a family member there once and it's
+remembered on that device, driving whose score gets tracked wherever
+progress applies (Questions, Memorize).
 
 - **Reading Plan** — the default landing page. The daily plan (see
   below) plus custom reading plans between any two chapters (e.g. all
   of Judges, or 1 Samuel through 2 Kings for "the kings of Israel"),
-  with a checklist to track progress.
-- **Questions** — one tab per family member, each showing a random-question
-  quiz card (with answer reveal, and ✅ Correct / ❌ Wrong buttons that track
-  a score and automatically resurface missed questions). Read-only and
+  with a checklist to track progress, plus a start/streak/missed-days
+  system for the daily plan.
+- **Questions** — a random-question quiz card for whoever's picked up top
+  (with answer reveal, and ✅ Correct / ❌ Wrong buttons that track a
+  score and automatically resurface missed questions). Read-only and
   kid-safe — no editing controls live here.
-- **Bible** — read the KJV, WEB, BBE, or WEBBE translation, any book and
-  chapter, with Previous/Next chapter navigation.
+- **Bible** — read the King James Version, any book and chapter, with
+  Previous/Next navigation, a "Jump to…" reference box, and a
+  text-to-speech "Listen" button.
 - **Memorize** — a bank of King James verses with two practice modes:
   guess the reference from the verse (multiple choice or type-in), and
   fill in the first letter of each word given the reference, with 5
-  difficulty levels from mostly-filled-in to completely blank. A "Who's
-  memorizing?" picker tracks each person's own attempts/correct count.
+  difficulty levels from mostly-filled-in to completely blank. Tracks
+  whoever's picked in the **👤 Who's this?** selector.
 - **🔒 Setup** — set off by a divider at the bottom of the ☰ menu, since
   it's an admin area rather than something a family member needs
-  day-to-day. Passcode-gated (see below). This is where you add
-  family members (each assigned to one or more age groups), and where all
-  question authoring lives: add/edit/delete questions, assign them to an
-  age group (2–3, 4–6, 7–10, 11–15, Adult), and the two bulk-import
-  buttons. A family member's Questions tab shows the union of every age
-  group they belong to.
+  day-to-day. Passcode-gated (see below). This is where you add family
+  members (each assigned to one or more age groups) and, via the
+  **📚 Question Library** subpage (its own separate lock, defaulting to
+  read-only), author questions: add/edit/delete/reassign them to an age
+  group (2–3, 4–6, 7–10, 11–15, Adult, or leave Unassigned).
 
 Everything syncs live across every phone and computer that has the site
 open, using a free Firebase project. It's a static site — installable on
@@ -178,12 +182,18 @@ Tap 🌓 in the header to cycle the color theme: **Auto** (follows your
 device's system setting), **Dark**, then **Light**. Your choice is
 remembered on that device.
 
+Right below the header, **👤 Who's this?** picks the active family member
+for the whole app — it drives whose score gets tracked on Questions and
+Memorize alike, replacing separate per-page pickers. It's remembered on
+that device, so it doesn't need to be reselected every visit.
+
 ### Questions
 
-- Tap a family member's tab. The big card at the top shows a random
-  question from any age group they belong to — tap **👁️ Show Answer** to
-  reveal the answer, then **✅ Correct** or **❌ Wrong** to score it and
-  move to the next one (or **🎲 Skip** to move on without scoring).
+- Once someone's picked in the **👤 Who's this?** selector, the big card
+  at the top shows a random question from any age group they belong to —
+  tap **👁️ Show Answer** to reveal the answer, then **✅ Correct** or
+  **❌ Wrong** to score it and move to the next one (or **🎲 Skip** to
+  move on without scoring).
 - Missed questions (❌) are marked **🔁 needs review** and get
   preferentially resurfaced until answered correctly — scores are tracked
   per person, so two kids sharing an age group don't share a score.
@@ -193,29 +203,25 @@ remembered on that device.
 ### 🔒 Setup
 
 - Enter the passcode (default `1967`, see the security note above) to
-  unlock **Family Members** and **All Questions** management.
+  unlock **Family Members**, the **Question Library**, **Family Stats**,
+  and **Backup**.
 - **Family Members**: **+ Add Member** to name someone and check which
   age group(s) they belong to (a person can be in more than one — e.g. a
   10-year-old could also be checked into 11–15 if they're ready for
   harder questions). Edit or delete anyone here.
-- **All Questions**: filter by age group (or **Library (unassigned)** /
-  **All questions**) and/or type into **🔍 Search questions…** to filter
-  by question text or answer — the two combine. Each row has an
-  age-group dropdown to (re)assign it, **Edit**, **Delete**, and (once
-  it has a score) **Reset Score** (clears everyone's progress on that
-  question).
-- **+ Add Question** opens a form for the question text, a required
-  answer, an optional reference (e.g. "Genesis 1:3"), and which age
-  group to assign it to (or leave it in the **Library** if undecided).
-  Editing an existing question still allows a blank answer, since some
-  imported questions (e.g. "Name some of the Ten Commandments") are
-  intentionally open-ended.
-- **📥 Import Our Family's Questions** adds the fact-checked family list
-  (see `js/family-question-bank.js`) into the Library, with answers.
-  **📥 Import Question Bank** adds a starter set of ~100 general Bible
-  trivia questions (see `js/question-bank-data.js`). Both skip anything
-  whose text already matches a question you have, so they're safe to
-  click more than once.
+- **📚 Question Library** opens a dedicated subpage, filterable by age
+  group (or **Unassigned** / **All questions**) and/or **🔍 Search
+  questions…** by text or answer — the two combine. It opens **🔒
+  Locked** (read-only, safe to browse) every time; tap the lock to
+  switch to **🔓 Editing**, which reveals **+ Add Question** and, per
+  row, an age-group dropdown to reassign it, **Edit**, **Delete**, and
+  (once it has a score) **Reset Score** (clears everyone's progress on
+  that question). **+ Add Question** needs the question text and a
+  required answer (an optional reference, e.g. "Genesis 1:3", and an
+  age-group assignment or leave it **Unassigned**). Editing an existing
+  question still allows a blank answer, since some imported questions
+  (e.g. "Name some of the Ten Commandments") are intentionally
+  open-ended.
 - Changes sync instantly to everyone else with the app open.
 - **Family Stats**: a per-person rollup of Questions (✅/❌) and Memorize
   (✅ correct / attempts) scores, plus one family-wide line for the
@@ -259,9 +265,11 @@ the current book/chapter — and age-group assignment); it adds straight
 into the shared question pool.
 
 Next to it, the amber **M⁺** badge quick-adds a memory verse straight
-from whatever chapter you have open — pick who's memorizing it, uncheck
-any verses you don't want (so you can memorize just part of a passage),
-and **Add Selected**. It shares the exact same verse-picker as Memorize's
+from whatever chapter you have open — pick a **From verse** / **To
+verse** range (so you can memorize just part of a passage) and **Add
+Verse**. It tracks progress under whoever's picked in the **👤 Who's
+this?** selector up top (it'll ask you to pick someone there first if no
+one's selected yet). It shares the exact same verse-picker as Memorize's
 own **+ Add Verse** (see below).
 
 Tap **🔊 Listen** above the chapter text to have the device read the
@@ -305,18 +313,17 @@ automatically stops when you navigate to another chapter.
 
 ### Memorize
 
-- Pick **Who's memorizing?** at the top (family members are managed in
-  Setup) so attempts get tracked under the right person — this is
-  optional; practicing without picking anyone just won't record a score.
+- Attempts get tracked under whoever's picked in the **👤 Who's this?**
+  selector at the top of the app — this is optional; practicing without
+  picking anyone just won't record a score.
 - **+ Add Verse** opens a picker: choose a book and chapter (the King
-  James text loads automatically), then uncheck any verses you don't
-  want — handy for memorizing just part of a passage (e.g. only verses
-  16–17 of a chapter). **Select All / Select None** speed up picking.
-  The saved reference is computed from whatever's still checked (e.g.
-  `John 3:16-18,20` for a non-contiguous pick, or just `John 3` if the
-  whole chapter stays checked). The Bible page's **M⁺** badge (see
-  above) opens the same picker pre-filled to whatever chapter you're
-  reading.
+  James text loads automatically), then narrow **From verse** / **To
+  verse** down from the whole chapter if you only want part of a passage
+  memorized (e.g. just verses 16–17) — a live preview shows the exact
+  text that range covers before you save. The saved reference reflects
+  the range (e.g. `John 3:16-17`, or just `John 3` if the whole chapter
+  stays selected). The Bible page's **M⁺** badge (see above) opens the
+  same picker pre-filled to whatever chapter you're reading.
 - **🔤 Guess the Reference**: shown the verse text, pick the right
   reference. Toggle **Multiple Choice** (easier) or **Type the
   Reference** (harder — must match the reference format, e.g. "John
@@ -362,14 +369,19 @@ matching anything.
 - `js/firebase.js` — shared Firebase init (anonymous auth + Firestore).
 - `js/users.js` — shared "family members" Firestore collection (state +
   CRUD), used by Questions, Memorize, and Setup.
+- `js/active-user.js` — the single "who's using this" selection shown at
+  the top of every page (see main.js), shared by Questions, Memorize, and
+  the Bible page's M⁺ button.
 - `js/age-groups-data.js` — the fixed list of age groups.
 - `js/questions-data.js` — shared "questions" Firestore collection (state
-  + CRUD + bulk import), used by both the quiz view and Setup.
+  + CRUD), used by both the quiz view and Setup.
 - `js/questions.js` — the kid-facing Questions quiz view (read-only).
 - `js/question-bank-data.js` / `js/family-question-bank.js` — the two
-  bundled question banks importable from Setup.
-- `js/settings.js` — the passcode-gated Setup section (member +
-  question administration).
+  bundled question banks. Their one-time Setup import buttons have been
+  removed now that both are imported; these files stay in the repo,
+  unused, in case a bulk-import feature is wanted again later.
+- `js/settings.js` — the passcode-gated Setup section (member
+  management, the Question Library subpage, family stats, and backup).
 - `js/bible-data.js` — the 66-book/chapter-count table and the list of
   available translations.
 - `js/bible-api.js` — fetches chapter/verse text from bible-api.com, with
@@ -383,11 +395,10 @@ matching anything.
   been "started" and computes completed/missed-day stats since then.
 - `js/memorize.js` — the verse memorization section.
 - `js/memorize-data.js` — shared "memoryVerses" Firestore collection
-  (state + CRUD) and the "who's memorizing" active-user preference,
-  used by both Memorize and the Bible page's M⁺ button.
-- `js/verse-picker.js` — the shared book/chapter/verse-checkbox picker
-  logic (fetch a chapter, collapse checked verses into a reference like
-  "John 3:16-18,20") used by both Memorize's + Add Verse and the Bible
+  (state + CRUD), used by both Memorize and the Bible page's M⁺ button.
+- `js/verse-picker.js` — the shared book/chapter/From-verse/To-verse
+  picker logic (fetch a chapter, collapse a verse range into a reference
+  like "John 3:16-18") used by both Memorize's + Add Verse and the Bible
   page's M⁺ button.
 - `firebase-config.js` — your project's Firebase config (fill this in).
 - `esv-config.js` — your (optional) free ESV API key (fill this in).
