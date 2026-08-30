@@ -7,10 +7,10 @@
 // security rules you set up in the Firebase console (see README.md).
 
 window.FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyBMBFcE9iZZmoZFWBYXttkr0gsc1osIk30",
+  authDomain: "bible-questions-app.firebaseapp.com",
+  projectId: "bible-questions-app",
+  storageBucket: "bible-questions-app.firebasestorage.app",
+  messagingSenderId: "314603759589",
+  appId: "1:314603759589:web:95b5d864e00a2f5008b10c",
 };
