@@ -5,6 +5,7 @@ import { buildAgeGroupSelect } from "./age-groups-data.js";
 import { populateChapterSelect as populatePickerChapterSelect, loadChapterVerses, computeVerseSelection } from "./verse-picker.js";
 import { addMemoryVerse, getActiveMemorizeUser, setActiveMemorizeUser } from "./memorize-data.js";
 import { subscribeUsers } from "./users.js";
+import { parseReadingLabel } from "./default-reading-plan.js";
 
 const STORAGE_KEY = "bible-reader-state";
 
@@ -45,6 +46,11 @@ function bookChapterCount(bookName) {
 
 function buildSkeleton(container) {
   container.innerHTML = `
+    <div class="bible-jump-row">
+      <input id="bible-jump-input" type="text" placeholder="Jump to… e.g. John 3:16" />
+      <button id="bible-jump-btn" class="btn btn-small">Go</button>
+    </div>
+    <p id="bible-jump-error" class="form-error" hidden>Couldn't find that — try "Book Chapter", e.g. "John 3".</p>
     <div class="bible-controls">
       <select id="bible-version-select" class="bible-select"></select>
       <select id="bible-book-select" class="bible-select"></select>
@@ -102,6 +108,14 @@ function buildSkeleton(container) {
       </div>
     </div>
   `;
+
+  refs.jumpInput = container.querySelector("#bible-jump-input");
+  refs.jumpError = container.querySelector("#bible-jump-error");
+  const jump = () => jumpToReference();
+  container.querySelector("#bible-jump-btn").addEventListener("click", jump);
+  refs.jumpInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") jump();
+  });
 
   refs.versionSelect = container.querySelector("#bible-version-select");
   refs.bookSelect = container.querySelector("#bible-book-select");
@@ -449,6 +463,25 @@ function saveVerseFromPicker() {
   addMemoryVerse(selection.reference, selection.text);
   setActiveMemorizeUser(userId);
   closeAddMModal();
+}
+
+// ---------- Quick "jump to reference" search ----------
+
+function jumpToReference() {
+  const raw = refs.jumpInput.value.trim();
+  if (!raw) return;
+  const parsed = parseReadingLabel(raw);
+  const first = parsed[0];
+  const match = first && BOOKS.find((b) => b.name.toLowerCase() === first.book.toLowerCase());
+
+  if (!match || first.chapter < 1 || first.chapter > match.chapters) {
+    refs.jumpError.hidden = false;
+    return;
+  }
+
+  refs.jumpError.hidden = true;
+  refs.jumpInput.value = "";
+  goTo(match.name, first.chapter, state.version);
 }
 
 export function goTo(book, chapter, version) {

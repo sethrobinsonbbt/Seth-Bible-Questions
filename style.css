@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --indigo: #4f46e5;
   --indigo-dark: #3730a3;
   --bg: #f5f5f7;
@@ -7,10 +8,75 @@
   --text: #1c1c22;
   --text-muted: #6b6b76;
   --danger: #d64545;
+  --danger-bg: #fde8e8;
+  --success-text: #1a7a41;
+  --success-bg: #e6f6ec;
+  --btn-bg: #e9e9f0;
+  --input-bg: #ffffff;
+  --banner-bg: #fff8e6;
+  --banner-border: #f0d989;
   --radius: 14px;
 }
 
+/* Dark palette: follows the OS setting by default, or the explicit
+   data-theme override set by the header's theme toggle (see js/main.js). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #131318;
+    --card-bg: #1c1c24;
+    --border: #34343e;
+    --text: #ececef;
+    --text-muted: #9d9da8;
+    --danger: #ff6b6b;
+    --danger-bg: #3a1f22;
+    --success-text: #4ade80;
+    --success-bg: #16311f;
+    --btn-bg: #2a2a34;
+    --input-bg: #212129;
+    --banner-bg: #35290f;
+    --banner-border: #6b551f;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #131318;
+  --card-bg: #1c1c24;
+  --border: #34343e;
+  --text: #ececef;
+  --text-muted: #9d9da8;
+  --danger: #ff6b6b;
+  --danger-bg: #3a1f22;
+  --success-text: #4ade80;
+  --success-bg: #16311f;
+  --btn-bg: #2a2a34;
+  --input-bg: #212129;
+  --banner-bg: #35290f;
+  --banner-border: #6b551f;
+}
+
 * { box-sizing: border-box; }
+
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+.theme-toggle-btn {
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 0.6rem;
+  margin: -0.6rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  flex: 0 0 auto;
+}
 
 body {
   margin: 0;
@@ -126,12 +192,12 @@ body {
   font-size: 0.75rem;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
-  background: #fde8e8;
+  background: var(--danger-bg);
   color: var(--danger);
 }
 .status-pill.ok {
-  background: #e6f6ec;
-  color: #1a7a41;
+  background: var(--success-bg);
+  color: var(--success-text);
 }
 
 .tabs {
@@ -145,7 +211,7 @@ body {
 .tab-btn {
   flex: 0 0 auto;
   border: none;
-  background: #e9e9f0;
+  background: var(--btn-bg);
   color: var(--text);
   padding: 0.5rem 1rem;
   border-radius: 999px;
@@ -166,8 +232,8 @@ body {
 }
 
 .banner {
-  background: #fff8e6;
-  border: 1px solid #f0d989;
+  background: var(--banner-bg);
+  border: 1px solid var(--banner-border);
   border-radius: var(--radius);
   padding: 0.9rem 1rem;
   margin-bottom: 1rem;
@@ -303,7 +369,7 @@ body {
   padding: 0.55rem 0.9rem;
   font-size: 0.9rem;
   font-weight: 600;
-  background: #e9e9f0;
+  background: var(--btn-bg);
   color: var(--text);
 }
 
@@ -313,13 +379,13 @@ body {
 }
 
 .btn-danger {
-  background: #fde8e8;
+  background: var(--danger-bg);
   color: var(--danger);
 }
 
 .btn-success {
-  background: #e6f6ec;
-  color: #1a7a41;
+  background: var(--success-bg);
+  color: var(--success-text);
 }
 
 .btn-small {
@@ -372,7 +438,7 @@ body {
   border-radius: 8px;
   padding: 0.35rem 0.5rem;
   font-size: 1rem;
-  background: white;
+  background: var(--input-bg);
 }
 
 .edit-textarea {
@@ -417,7 +483,7 @@ body {
 }
 
 .modal {
-  background: white;
+  background: var(--card-bg);
   width: 100%;
   max-width: 480px;
   border-radius: 18px 18px 0 0;
@@ -475,6 +541,21 @@ body {
 
 /* ---------- Bible reader ---------- */
 
+.bible-jump-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.bible-jump-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem 0.7rem;
+  font-size: 1rem;
+}
+
 .bible-controls {
   display: flex;
   gap: 0.5rem;
@@ -489,7 +570,7 @@ body {
   border-radius: 10px;
   padding: 0.5rem;
   font-size: 1rem;
-  background: white;
+  background: var(--input-bg);
 }
 
 .bible-nav-row {
@@ -685,7 +766,7 @@ body {
   inset: 0;
   border: 2px solid var(--border);
   border-radius: 8px;
-  background: white;
+  background: var(--input-bg);
   transition: background 0.15s, border-color 0.15s;
 }
 
@@ -788,12 +869,28 @@ body {
 .missed-days-list li {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.5rem;
   background: rgba(255,255,255,0.92);
   color: var(--text);
   border-radius: 8px;
   padding: 0.4rem 0.6rem;
   font-size: 0.85rem;
+}
+
+.missed-day-checkbox {
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.missed-day-label {
+  flex: 1 1 auto;
+}
+
+.missed-days-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
 }
 
 .plan-row-label {
@@ -949,13 +1046,13 @@ body {
 }
 
 .letter-input.letter-correct {
-  border-color: #1a7a41;
-  background: #e6f6ec;
+  border-color: var(--success-text);
+  background: var(--success-bg);
 }
 
 .letter-input.letter-wrong {
   border-color: var(--danger);
-  background: #fde8e8;
+  background: var(--danger-bg);
 }
 
 .guess-options {
@@ -975,7 +1072,7 @@ body {
 }
 
 .feedback-correct {
-  color: #1a7a41;
+  color: var(--success-text);
 }
 
 .feedback-wrong {
@@ -1017,6 +1114,25 @@ body {
 
 .settings-panel {
   margin-bottom: 2rem;
+}
+
+.question-filter-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.question-filter-row select {
+  flex: 0 0 auto;
+}
+
+.question-filter-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem 0.5rem;
+  font-size: 1rem;
 }
 
 .age-group-checkboxes {

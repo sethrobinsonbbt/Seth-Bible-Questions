@@ -38,6 +38,7 @@ let editingUserId = null;
 let addingUser = false;
 let editingQuestionId = null;
 let questionFilter = "all"; // "all" | "unassigned" | an age-group id
+let questionSearch = "";
 let refs = {};
 
 function isUnlocked() {
@@ -220,9 +221,17 @@ function renderUsers() {
 // ---------- Question admin ----------
 
 function filteredQuestions() {
-  if (questionFilter === "all") return questions;
-  if (questionFilter === "unassigned") return questions.filter((q) => !q.assignedTo);
-  return questions.filter((q) => q.assignedTo === questionFilter);
+  let list = questions;
+  if (questionFilter === "unassigned") list = list.filter((q) => !q.assignedTo);
+  else if (questionFilter !== "all") list = list.filter((q) => q.assignedTo === questionFilter);
+
+  const term = questionSearch.trim().toLowerCase();
+  if (term) {
+    list = list.filter(
+      (q) => q.text.toLowerCase().includes(term) || (q.answer && q.answer.toLowerCase().includes(term))
+    );
+  }
+  return list;
 }
 
 function aggregateScore(q) {
@@ -425,8 +434,8 @@ function renderReadingPlanStat() {
     el.textContent = "📅 Daily Reading Plan: not started yet (see the Reading Plan page).";
     return;
   }
-  const stats = planStats || { completed: 0, missed: 0 };
-  el.textContent = `📅 Daily Reading Plan (family-wide): ✅ ${stats.completed} completed · ❌ ${stats.missed} missed`;
+  const stats = planStats || { completed: 0, missed: 0, currentStreak: 0 };
+  el.textContent = `📅 Daily Reading Plan (family-wide): 🔥 ${stats.currentStreak || 0} day streak · ✅ ${stats.completed} completed · ❌ ${stats.missed} missed`;
 }
 
 // ---------- Data export ----------
@@ -535,7 +544,10 @@ function buildUnlockedView(container) {
           <button id="add-question-btn" class="btn btn-primary">+ Add Question</button>
         </div>
       </div>
-      <select id="question-filter-select" class="assign-select"></select>
+      <div class="question-filter-row">
+        <select id="question-filter-select" class="assign-select"></select>
+        <input id="question-search-input" type="text" placeholder="🔍 Search questions…" />
+      </div>
       <ul id="admin-question-list" class="question-list"></ul>
       <p id="admin-question-empty" class="empty-state" hidden>No questions match this filter.</p>
     </div>
@@ -607,6 +619,13 @@ function buildUnlockedView(container) {
   renderQuestionFilterSelect();
   refs.filterSelect.addEventListener("change", () => {
     questionFilter = refs.filterSelect.value;
+    renderQuestionsAdmin();
+  });
+
+  refs.searchInput = container.querySelector("#question-search-input");
+  refs.searchInput.value = questionSearch;
+  refs.searchInput.addEventListener("input", () => {
+    questionSearch = refs.searchInput.value;
     renderQuestionsAdmin();
   });
 

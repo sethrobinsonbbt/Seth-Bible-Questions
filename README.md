@@ -130,6 +130,10 @@ instead.
 
 ## Using the app
 
+Tap 🌓 in the header to cycle the color theme: **Auto** (follows your
+device's system setting), **Dark**, then **Light**. Your choice is
+remembered on that device.
+
 ### Questions
 
 - Tap a family member's tab. The big card at the top shows a random
@@ -151,9 +155,11 @@ instead.
   10-year-old could also be checked into 11–15 if they're ready for
   harder questions). Edit or delete anyone here.
 - **All Questions**: filter by age group (or **Library (unassigned)** /
-  **All questions**). Each row has an age-group dropdown to (re)assign
-  it, **Edit**, **Delete**, and (once it has a score) **Reset Score**
-  (clears everyone's progress on that question).
+  **All questions**) and/or type into **🔍 Search questions…** to filter
+  by question text or answer — the two combine. Each row has an
+  age-group dropdown to (re)assign it, **Edit**, **Delete**, and (once
+  it has a score) **Reset Score** (clears everyone's progress on that
+  question).
 - **+ Add Question** opens a form for the question text, a required
   answer, an optional reference (e.g. "Genesis 1:3"), and which age
   group to assign it to (or leave it in the **Library** if undecided).
@@ -169,8 +175,9 @@ instead.
 - Changes sync instantly to everyone else with the app open.
 - **Family Stats**: a per-person rollup of Questions (✅/❌) and Memorize
   (✅ correct / attempts) scores, plus one family-wide line for the
-  Daily Reading Plan's completed/missed count (reading progress isn't
-  tracked per person — it's one shared family log).
+  Daily Reading Plan's current streak and completed/missed count
+  (reading progress isn't tracked per person — it's one shared family
+  log).
 - **Backup**: **⬇️ Export All Data** downloads every collection (family
   members, questions, memory verses, reading plans, and all reading
   progress) as one JSON file — a manual safety net alongside Firebase's
@@ -178,9 +185,11 @@ instead.
 
 ### Bible
 
-Pick a book and chapter from the dropdowns, or use ← Previous / Next →
-to move chapter by chapter. Chapters you've read are cached on your
-device, so they still load without a connection.
+Type a reference into the **Jump to…** box (e.g. "John 3:16" or
+"Genesis 5") and tap **Go** to jump straight there, or pick a book and
+chapter from the dropdowns, or use ← Previous / Next → to move chapter
+by chapter. Chapters you've read are cached on your device, so they
+still load without a connection.
 
 Just one translation is offered: the **King James Version**, public
 domain, fetched for free with no API key from
@@ -229,13 +238,17 @@ automatically stops when you navigate to another chapter.
   **Bible** section. **✓ Mark All Complete** at the bottom checks off all
   three readings for the date you're viewing in one tap.
 - **▶ Start Plan** begins tracking your streak on the Daily Reading plan
-  from today: once started, a small stats block shows how many days
-  you've **Completed** vs. **Missed** (a day counts as missed once it's
+  from today: once started, a small stats block shows your **Current
+  Streak** (consecutive days completed, counting back from today — it
+  doesn't reset just because today isn't finished yet) plus running
+  **Completed** vs. **Missed** totals (a day counts as missed once it's
   passed without all three readings checked off). Missed days collapse
   into a **Catch up on N missed days** list — tap **Catch Up** next to
   any of them to jump straight to that date and check off what you
-  finish. **Reset Streak** clears the start date (your daily checkmarks
-  themselves are never deleted).
+  finish, or check off several at once and tap **✓ Mark Selected Done**
+  to bulk-catch-up without visiting each day individually. **Reset
+  Streak** clears the start date (your daily checkmarks themselves are
+  never deleted).
 - **Custom Reading Plans** (below that): **+ New Plan** lets you name a
   plan and pick a start book/chapter and an end book/chapter (inclusive).
   The plan can span multiple books, in Bible order — e.g. start at

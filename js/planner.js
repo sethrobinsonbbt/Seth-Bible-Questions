@@ -420,12 +420,17 @@ function renderPlanStatus() {
   el.innerHTML = `
     <p class="plan-status-hint">Started ${startLabel}</p>
     <div class="plan-stats-row">
+      <div class="plan-stat"><strong>🔥 ${stats.currentStreak || 0}</strong><span>Current Streak</span></div>
       <div class="plan-stat"><strong>${stats.completed}</strong><span>Completed</span></div>
       <div class="plan-stat"><strong>${stats.missed}</strong><span>Missed</span></div>
     </div>
     ${
       stats.missedDates.length > 0
         ? `<details class="missed-days"><summary>Catch up on ${stats.missedDates.length} missed day${stats.missedDates.length === 1 ? "" : "s"}</summary>
+            <div class="missed-days-actions">
+              <button id="missed-days-select-all-btn" class="btn btn-small">Select All</button>
+              <button id="mark-selected-missed-btn" class="btn btn-primary btn-small">✓ Mark Selected Done</button>
+            </div>
             <ul class="missed-days-list" id="missed-days-list"></ul>
           </details>`
         : ""
@@ -437,19 +442,38 @@ function renderPlanStatus() {
     const listEl = el.querySelector("#missed-days-list");
     stats.missedDates.forEach((key) => {
       const li = document.createElement("li");
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "missed-day-checkbox";
+      checkbox.value = key;
+
       const label = document.createElement("span");
+      label.className = "missed-day-label";
       label.textContent = new Date(`${key}T00:00:00`).toLocaleDateString(undefined, {
         weekday: "short",
         month: "short",
         day: "numeric",
       });
+
       const btn = document.createElement("button");
       btn.className = "btn btn-small";
       btn.textContent = "Catch Up";
       btn.addEventListener("click", () => goToMissedDate(key));
+
+      li.appendChild(checkbox);
       li.appendChild(label);
       li.appendChild(btn);
       listEl.appendChild(li);
+    });
+
+    el.querySelector("#missed-days-select-all-btn").addEventListener("click", () => {
+      listEl.querySelectorAll(".missed-day-checkbox").forEach((cb) => (cb.checked = true));
+    });
+    el.querySelector("#mark-selected-missed-btn").addEventListener("click", () => {
+      const keys = Array.from(listEl.querySelectorAll(".missed-day-checkbox:checked")).map((cb) => cb.value);
+      if (keys.length === 0) return;
+      markDaysComplete(keys);
     });
   }
 
@@ -458,6 +482,18 @@ function renderPlanStatus() {
       resetPlan();
     }
   });
+}
+
+// Marks every reading done for a batch of missed dates at once (e.g. "I
+// know I did these, I just forgot to check them off") without needing to
+// open each day individually.
+function markDaysComplete(dateKeys) {
+  if (!db) return;
+  const batch = db.batch();
+  dateKeys.forEach((key) => {
+    batch.set(db.collection("dailyReadingProgress").doc(key), { read1: true, read2: true, read3: true }, { merge: true });
+  });
+  batch.commit().then(refreshPlanStats);
 }
 
 function openDateModal() {

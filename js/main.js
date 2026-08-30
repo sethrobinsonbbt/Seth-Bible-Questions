@@ -19,6 +19,52 @@ const SECTIONS = [
 
 let activeSection = SECTIONS[0].id;
 
+// ---------- Theme (light / dark / auto) ----------
+
+const THEME_KEY = "bible-questions-theme"; // "light" | "dark" | absent = follow system
+
+function getThemePref() {
+  try {
+    return localStorage.getItem(THEME_KEY);
+  } catch (e) {
+    return null;
+  }
+}
+
+function setThemePref(value) {
+  try {
+    if (value) localStorage.setItem(THEME_KEY, value);
+    else localStorage.removeItem(THEME_KEY);
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+function applyTheme() {
+  const pref = getThemePref();
+  if (pref === "light" || pref === "dark") {
+    document.documentElement.dataset.theme = pref;
+  } else {
+    delete document.documentElement.dataset.theme;
+  }
+  const btn = document.getElementById("theme-toggle-btn");
+  if (!btn) return;
+  btn.textContent = pref === "dark" ? "🌙" : pref === "light" ? "☀️" : "🌓";
+  btn.setAttribute("aria-label", `Theme: ${pref || "auto"} — tap to change`);
+}
+
+// Cycles Auto → Dark → Light → Auto, so it's always possible to go back to
+// following the device's system setting.
+function cycleTheme() {
+  const pref = getThemePref();
+  setThemePref(pref === null ? "dark" : pref === "dark" ? "light" : null);
+  applyTheme();
+}
+
+// Applied immediately (not just on DOMContentLoaded) so a saved preference
+// takes effect before first paint instead of flashing the wrong theme.
+applyTheme();
+
 function renderSideMenu() {
   const linksEl = document.getElementById("side-menu-links");
   linksEl.innerHTML = "";
@@ -102,6 +148,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initSections();
   setupMenu();
   setupStatusBanner();
+  applyTheme();
+  document.getElementById("theme-toggle-btn").addEventListener("click", cycleTheme);
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch(() => {});

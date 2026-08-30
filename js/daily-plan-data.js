@@ -37,6 +37,16 @@ export function resetPlan() {
   db.collection("appState").doc("dailyPlan").delete();
 }
 
+// Reads today's own progress doc directly (it's outside the start..yesterday
+// range everything else scans, since "today" isn't finalized as missed or
+// completed until the day is over).
+async function isTodayDone() {
+  const todayKey = dateKey(new Date());
+  const doc = await db.collection("dailyReadingProgress").doc(todayKey).get();
+  const d = doc.exists ? doc.data() : {};
+  return !!(d.read1 && d.read2 && d.read3);
+}
+
 async function computeStats() {
   if (!db || !planState) {
     planStats = null;
@@ -49,14 +59,16 @@ async function computeStats() {
   yesterday.setDate(yesterday.getDate() - 1);
   const endKey = dateKey(yesterday);
 
-  if (endKey < start) {
-    // Plan started today (or in the future) — no elapsed days to judge yet.
-    planStats = { completed: 0, missed: 0, missedDates: [], totalDays: 0 };
-    notify();
-    return;
-  }
-
   try {
+    const todayDone = await isTodayDone();
+
+    if (endKey < start) {
+      // Plan started today (or in the future) — no elapsed days to judge yet.
+      planStats = { completed: 0, missed: 0, missedDates: [], totalDays: 0, currentStreak: todayDone ? 1 : 0 };
+      notify();
+      return;
+    }
+
     const snapshot = await db
       .collection("dailyReadingProgress")
       .where(firebase.firestore.FieldPath.documentId(), ">=", start)
@@ -70,9 +82,10 @@ async function computeStats() {
     });
 
     const missedDates = [];
-    const cursor = new Date(`${start}T00:00:00`);
+    const startDate = new Date(`${start}T00:00:00`);
     const endDate = new Date(`${endKey}T00:00:00`);
     let totalDays = 0;
+    const cursor = new Date(startDate);
     while (cursor <= endDate) {
       totalDays++;
       const key = dateKey(cursor);
@@ -81,7 +94,20 @@ async function computeStats() {
     }
     missedDates.reverse(); // most recent first — that's the useful catch-up order
 
-    planStats = { completed: doneDates.size, missed: missedDates.length, missedDates, totalDays };
+    // Current streak: consecutive completed days walking back from
+    // yesterday (today doesn't break a streak just by not being finished
+    // yet), plus one more if today is *also* already done.
+    let currentStreak = 0;
+    const streakCursor = new Date(endDate);
+    while (streakCursor >= startDate) {
+      const key = dateKey(streakCursor);
+      if (!doneDates.has(key)) break;
+      currentStreak++;
+      streakCursor.setDate(streakCursor.getDate() - 1);
+    }
+    if (todayDone) currentStreak++;
+
+    planStats = { completed: doneDates.size, missed: missedDates.length, missedDates, totalDays, currentStreak };
   } catch (err) {
     console.error(err);
   }
