@@ -1380,14 +1380,13 @@ body {
   padding: 0.85rem 1rem;
 }
 
-.mem-verse-card-body {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  padding: 0;
-  color: inherit;
+.mem-verse-card {
+  cursor: pointer;
+}
+
+.mem-verse-card:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
 }
 
 .mem-verse-card-top {
@@ -1398,9 +1397,18 @@ body {
   margin-bottom: 0.3rem;
 }
 
-.mem-verse-stars {
-  color: #f0b429;
-  letter-spacing: 0.1em;
+.mem-verse-card-top-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.mem-mastery-dot {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
   flex: 0 0 auto;
 }
 
@@ -1411,10 +1419,73 @@ body {
   line-height: 1.4;
 }
 
-.mem-bucket-select {
-  display: block;
-  width: 100%;
-  margin-top: 0.6rem;
+.mem-bucket-icon {
+  width: 1.15em;
+  height: 1.15em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: middle;
+  flex: 0 0 auto;
+}
+
+.mem-bucket-pick {
+  position: relative;
+}
+
+.mem-bucket-pick > summary {
+  display: flex;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-muted);
+  padding: 0.15rem;
+  border-radius: 6px;
+}
+
+.mem-bucket-pick > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mem-bucket-pick[open] > summary {
+  background: var(--btn-bg);
+  color: var(--indigo);
+}
+
+.mem-bucket-pick-panel {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 20;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 190px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+}
+
+.mem-bucket-pick-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.mem-bucket-pick-option.active {
+  background: var(--btn-bg);
+  color: var(--indigo);
+  font-weight: 600;
 }
 
 .mem-blanks-toolbar {

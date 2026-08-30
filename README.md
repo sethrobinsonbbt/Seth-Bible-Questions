@@ -34,13 +34,16 @@ device, driving whose score gets tracked wherever progress applies
   since there's nothing to hide from the adult reading it to them.
   Adding/deleting questions still lives in Setup.
 - **Memorize** — a bank of King James verses, filed into three per-person
-  buckets (**🧠 Memorizing** / **⏳ Future Memorization** / **✅ Already
-  Memorized**, toggled per verse), and further filterable by category —
-  a built-in **Old/New Testament** split (auto-detected from each verse's
-  reference) is always available alongside any custom categories you
-  make. A 0–3 ★ mastery rating per verse and two practice modes chosen
-  via a tab: **Fill in the Blank** (choose a difficulty — Easy/Medium/
-  Hard/Blanks Only blank out roughly 25/50/75/100% of the verse's words;
+  buckets (Memorizing / Future Memorization / Already Memorized — same
+  head icon for all three, distinguished by a small gear/clock/check
+  badge; pick one per verse from a compact icon-only dropdown), and
+  further filterable by category — a built-in **Old/New Testament**
+  split (auto-detected from each verse's reference) is always available
+  alongside any custom categories you make. A small mastery dot per verse
+  (gray until practiced, then green-to-red by how well recent attempts
+  went) and two practice modes chosen via a tab: **Fill in the Blank**
+  (choose a difficulty — Easy/Medium/Hard/Blanks Only blank out roughly
+  25/50/75/100% of the verse's words;
   type the first letter of each blanked word, peek at the full verse any
   time via a toggle, and an **IDK** button or 3 wrong attempts auto-fills
   the current word and moves on) and **Flashcards** (verse-or-reference,
@@ -523,25 +526,30 @@ Attempts get tracked under whoever's picked in the **User** dropdown in
 the header — this is optional; practicing without picking anyone just
 won't record a score.
 
-The home view: a **🧠 Memorizing / ⏳ Future Memorization / ✅ Already
-Memorized** tab row along the top — three per-person buckets a verse can
-be filed under (see the dropdown below), defaulting to Memorizing so
+The home view: a **Memorizing / Future Memorization / Already Memorized**
+tab row along the top — three per-person buckets a verse can be filed
+under (see the per-verse picker below), defaulting to Memorizing so
 every newly-added verse (and anything added before buckets existed)
-starts in the main working set. Below that, category chips (**All**, an
+starts in the main working set. All three share the same head-in-profile
+icon; only the small badge on the forehead differs — a gear for
+Memorizing (in progress), a clock for Future Memorization, a check for
+Already Memorized. Below that, category chips (**All**, an
 always-available **Old Testament / New Testament** split auto-detected
 from each verse's reference, plus any custom categories made in Setup),
 a **✍️ Fill in the Blank** / **🗂️ Flashcards** tab that picks which mode
-a verse launches into, a **▶ Play** button, and the verse list itself,
-each verse showing a 0–3 ★ mastery rating built from that verse's past
-correct attempts and a labeled bucket dropdown (in place of a delete
-button — verses move between buckets, they're never deleted from here)
-to refile it. Tap a verse to practice just that one; tap **▶ Play**
-instead to start a session that runs through the current bucket/category
-view (new-first / weighted-toward-poor-scores — same picking logic as
-Questions and "Next Verse" below) without having to tap into each verse
-individually. Tap a bucket tab or category chip to filter the list down
-to it (both narrow the list together, and **▶ Play** respects whatever's
-currently selected).
+a verse launches into, a **▶ Play** button, and the verse list itself.
+Each verse's row shows a small mastery dot (top-right — gray until
+you've practiced it at all, then colored green-to-red by how well recent
+attempts have gone) and, just to its left, an icon-only dropdown showing
+that verse's current bucket — tap it to refile the verse into a
+different one (there's no delete from here; verses only move between
+buckets). Tap anywhere else on a verse's card to practice just that one;
+tap **▶ Play** instead to start a session that runs through the current
+bucket/category view (new-first / weighted-toward-poor-scores — same
+picking logic as Questions and "Next Verse" below) without having to tap
+into each verse individually. Tap a bucket tab or category chip to
+filter the list down to it (both narrow the list together, and
+**▶ Play** respects whatever's currently selected).
 
 **+ Add Verse** opens a picker: choose a book and chapter (the King
 James text loads automatically), then narrow **From verse** / **To

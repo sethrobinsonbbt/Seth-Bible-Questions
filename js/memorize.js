@@ -52,11 +52,36 @@ const MAX_WRONG_ATTEMPTS = 3;
 
 // The three per-user buckets a verse can be filed under, replacing the
 // old "Delete" action — verses aren't removed, just moved between piles.
+// Same head silhouette for all three, distinguished only by the small
+// badge on the forehead (gear/clock/check) — see bucketIconSvg below.
 const BUCKETS = [
-  { id: "memorizing", icon: "🧠", label: "Memorizing" },
-  { id: "future", icon: "⏳", label: "Future Memorization" },
-  { id: "memorized", icon: "✅", label: "Already Memorized" },
+  { id: "memorizing", label: "Memorizing" },
+  { id: "future", label: "Future Memorization" },
+  { id: "memorized", label: "Already Memorized" },
 ];
+
+// One shared head-in-profile outline, with a small circular badge over
+// the forehead whose contents mark which bucket this is — a gear
+// (in-progress/Memorizing), a clock (Future Memorization), or a check
+// (Already Memorized). Pure line art via currentColor, so it's
+// automatically monochrome and adapts to the light/dark theme.
+const BUCKET_HEAD_PATH =
+  "M14 3.2c-4.4 0-8 3.5-8 7.9 0 1.6.5 3.1 1.3 4.4-.6.2-1.1.7-1.1 1.4 0 .8.6 1.4 1.4 1.4h.3c.5 1.6 1.6 2.9 3.1 3.7v2h6.4v-2.6c2.3-1.5 3.6-4.1 3.6-6.9v-1.4C21 6.9 17.9 3.2 14 3.2z";
+const BUCKET_EAR_PATH = "M6 11.6c-.7-.1-1.5.2-1.9.9-.5.9-.1 2 .8 2.4";
+const BUCKET_BADGE_INSETS = {
+  memorizing: '<circle r="1.15"/><path d="M0,-2.3 L0,-1.5 M0,2.3 L0,1.5 M-2.3,0 L-1.5,0 M2.3,0 L1.5,0"/>',
+  future: '<path d="M0,-1.7 L0,0 L1.3,0.9"/>',
+  memorized: '<path d="M-1.7,0.1 L-0.6,1.3 L1.8,-1.4"/>',
+};
+
+function bucketIconSvg(bucketId) {
+  return `<svg class="mem-bucket-icon" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="${BUCKET_HEAD_PATH}"/>
+    <path d="${BUCKET_EAR_PATH}"/>
+    <circle cx="13.3" cy="9.6" r="3.4"/>
+    <g transform="translate(13.3,9.6)">${BUCKET_BADGE_INSETS[bucketId] || ""}</g>
+  </svg>`;
+}
 
 // How many recently-practiced verses to avoid immediately repeating via
 // "Next Verse" — mirrors the same recency window used by the Questions quiz.
@@ -98,19 +123,15 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// ---------- Stars / mastery ----------
+// ---------- Mastery dot ----------
 
-function starsForVerse(verse) {
-  const p = activeUserId && verse.progress && verse.progress[activeUserId];
-  const correct = (p && p.correctCount) || 0;
-  if (correct >= 6) return 3;
-  if (correct >= 3) return 2;
-  if (correct >= 1) return 1;
-  return 0;
-}
-
-function starString(count) {
-  return "★★★".slice(0, count) + "☆☆☆".slice(0, 3 - count);
+// A small gray-to-red-to-green dot summarizing how this verse is going —
+// gray until it's been practiced at all, then a traffic-light color from
+// the same recency-weighted average used to prioritize "Next Verse".
+function masteryColor(verse) {
+  const { avg } = verseStatsFor(verse, activeUserId);
+  if (avg === null) return "#9ca3af";
+  return `hsl(${Math.round(avg * 120)}, 70%, 45%)`;
 }
 
 // ---------- Home view: categories, mode tabs, verse list ----------
@@ -157,7 +178,7 @@ function renderBucketTabs() {
   const row = refs.bucketTabs;
   row.innerHTML = BUCKETS.map((b) => {
     const count = verses.filter((v) => bucketForVerse(v) === b.id).length;
-    return `<button class="mem-mode-tab ${selectedBucket === b.id ? "active" : ""}" data-bucket="${b.id}">${b.icon} ${b.label} (${count})</button>`;
+    return `<button class="mem-mode-tab ${selectedBucket === b.id ? "active" : ""}" data-bucket="${b.id}">${bucketIconSvg(b.id)} ${b.label} (${count})</button>`;
   }).join("");
   row.querySelectorAll(".mem-mode-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -232,44 +253,65 @@ function renderVerseList() {
   list.forEach((v) => {
     const li = document.createElement("li");
     li.className = "mem-verse-card";
-
-    const body = document.createElement("button");
-    body.className = "mem-verse-card-body";
-    body.addEventListener("click", () => openPractice(v.id));
+    // The whole card opens practice — it's a plain li (not a <button>)
+    // specifically so the bucket-picker <details> below can nest inside
+    // it validly; its own click listener stops this one from firing.
+    li.tabIndex = 0;
+    li.setAttribute("role", "button");
+    li.addEventListener("click", () => openPractice(v.id));
+    li.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openPractice(v.id);
+      }
+    });
 
     const refLine = document.createElement("div");
     refLine.className = "mem-verse-card-top";
     const refEl = document.createElement("strong");
     refEl.textContent = v.reference;
     refLine.appendChild(refEl);
-    const starsEl = document.createElement("span");
-    starsEl.className = "mem-verse-stars";
-    starsEl.textContent = starString(starsForVerse(v));
-    refLine.appendChild(starsEl);
-    body.appendChild(refLine);
+
+    const topRight = document.createElement("div");
+    topRight.className = "mem-verse-card-top-right";
+    topRight.addEventListener("click", (e) => e.stopPropagation());
+
+    const currentBucket = bucketForVerse(v);
+    const picker = document.createElement("details");
+    picker.className = "mem-bucket-pick";
+    const summary = document.createElement("summary");
+    summary.innerHTML = bucketIconSvg(currentBucket);
+    summary.title = (BUCKETS.find((b) => b.id === currentBucket) || {}).label || "";
+    picker.appendChild(summary);
+
+    const panel = document.createElement("div");
+    panel.className = "mem-bucket-pick-panel";
+    BUCKETS.forEach((b) => {
+      const optBtn = document.createElement("button");
+      optBtn.type = "button";
+      optBtn.className = "mem-bucket-pick-option" + (b.id === currentBucket ? " active" : "");
+      optBtn.innerHTML = `${bucketIconSvg(b.id)}<span>${b.label}</span>`;
+      optBtn.addEventListener("click", () => {
+        setVerseBucket(v.id, activeUserId, b.id);
+        picker.open = false;
+      });
+      panel.appendChild(optBtn);
+    });
+    picker.appendChild(panel);
+    topRight.appendChild(picker);
+
+    const dot = document.createElement("span");
+    dot.className = "mem-mastery-dot";
+    dot.style.backgroundColor = masteryColor(v);
+    topRight.appendChild(dot);
+
+    refLine.appendChild(topRight);
+    li.appendChild(refLine);
 
     const snippet = document.createElement("p");
     snippet.className = "mem-verse-snippet";
     snippet.textContent = v.text.length > 90 ? v.text.slice(0, 90) + "…" : v.text;
-    body.appendChild(snippet);
-
-    li.appendChild(body);
-
-    // A labeled dropdown rather than bare icon buttons — spells out what
-    // it does and what it's currently set to, instead of relying on
-    // guessing at unlabeled emoji.
-    const bucketSelect = document.createElement("select");
-    bucketSelect.className = "assign-select mem-bucket-select";
-    BUCKETS.forEach((b) => {
-      const opt = document.createElement("option");
-      opt.value = b.id;
-      opt.textContent = `${b.icon} ${b.label}`;
-      bucketSelect.appendChild(opt);
-    });
-    bucketSelect.value = bucketForVerse(v);
-    bucketSelect.addEventListener("click", (e) => e.stopPropagation());
-    bucketSelect.addEventListener("change", () => setVerseBucket(v.id, activeUserId, bucketSelect.value));
-    li.appendChild(bucketSelect);
+    li.appendChild(snippet);
 
     refs.listEl.appendChild(li);
   });
