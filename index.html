@@ -53,15 +53,21 @@
     <p id="no-users-msg" class="empty-state" hidden>No family members set up yet. Add them in 🔒 Setup (☰ menu).</p>
     <p id="no-active-user-msg" class="empty-state" hidden>Pick who you are up top ☝️ to see your questions.</p>
 
+    <div id="include-kids-row" class="chip-row" hidden>
+      <span class="chip-row-label">Include:</span>
+    </div>
+
     <section id="random-card" class="random-card" hidden>
       <div class="random-label" id="random-label">Question for <span id="random-person"></span></div>
       <div class="random-score" id="random-score"></div>
       <p class="random-text" id="random-text"></p>
       <p class="random-review-tag" id="random-review-tag" hidden>🔁 Needs review — got this one wrong before</p>
       <p class="random-answer" id="random-answer" hidden></p>
+      <p class="random-verse-text" id="random-verse-text" hidden></p>
       <div class="random-nav-row">
         <button id="random-back-btn" class="nav-link-btn" disabled>‹ Back</button>
         <button id="random-show-answer-btn" class="nav-link-btn" hidden>👁️ Show Answer</button>
+        <button id="random-edit-btn" class="nav-link-btn">✏️ Edit</button>
         <button id="random-next-btn" class="nav-link-btn">Next ›</button>
       </div>
       <div class="random-actions random-actions-score">
@@ -76,6 +82,23 @@
 
     <ul id="question-list" class="question-list"></ul>
     <p id="empty-state" class="empty-state" hidden>No questions assigned to this person's age group(s) yet.</p>
+
+    <div id="q-edit-modal-backdrop" class="modal-backdrop" hidden>
+      <div class="modal">
+        <h3>Edit Question</h3>
+        <label for="q-edit-text">Question</label>
+        <textarea id="q-edit-text" rows="3"></textarea>
+        <label for="q-edit-answer">Answer</label>
+        <input id="q-edit-answer" type="text" placeholder="e.g. Noah" />
+        <label for="q-edit-reference">Reference (optional)</label>
+        <input id="q-edit-reference" type="text" placeholder="e.g. Genesis 6:14" />
+        <p id="q-edit-error" class="form-error" hidden></p>
+        <div class="modal-actions">
+          <button id="q-edit-cancel-btn" class="btn">Cancel</button>
+          <button id="q-edit-save-btn" class="btn btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="section-bible" class="section" hidden></div>

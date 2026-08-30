@@ -31,8 +31,8 @@ import {
 } from "./memorize-data.js";
 import { subscribePlanState } from "./daily-plan-data.js";
 import { ready } from "./firebase.js";
+import { SETUP_PASSWORD } from "./setup-password.js";
 
-const PASSWORD = "1967";
 const UNLOCK_KEY = "bible-questions-settings-unlocked";
 
 let users = [];
@@ -95,7 +95,7 @@ function buildLockScreen(container) {
   `;
   const input = container.querySelector("#settings-password-input");
   const submit = () => {
-    if (input.value === PASSWORD) {
+    if (input.value === SETUP_PASSWORD) {
       setUnlocked(true);
       buildMainView(container);
     } else {

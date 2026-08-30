@@ -106,7 +106,7 @@ function renderCategoryRow() {
   row.innerHTML = "";
 
   const allChip = document.createElement("button");
-  allChip.className = "mem-category-chip" + (selectedCategoryId === "" ? " active" : "");
+  allChip.className = "chip" + (selectedCategoryId === "" ? " active" : "");
   allChip.textContent = `All (${verses.length})`;
   allChip.addEventListener("click", () => {
     selectedCategoryId = "";
@@ -118,7 +118,7 @@ function renderCategoryRow() {
   categories.forEach((cat) => {
     const count = verses.filter((v) => v.categoryId === cat.id).length;
     const chip = document.createElement("button");
-    chip.className = "mem-category-chip" + (selectedCategoryId === cat.id ? " active" : "");
+    chip.className = "chip" + (selectedCategoryId === cat.id ? " active" : "");
     chip.textContent = `${cat.name} (${count})`;
     chip.addEventListener("click", () => {
       selectedCategoryId = cat.id;
@@ -550,7 +550,7 @@ function buildSkeleton(container) {
         <h2>Memory Verses</h2>
         <button id="add-verse-btn" class="btn btn-primary">+ Add Verse</button>
       </div>
-      <div class="mem-category-row" id="mem-category-row"></div>
+      <div class="chip-row" id="mem-category-row"></div>
       <div class="mem-mode-tabs" id="mem-mode-tabs">
         <button class="mem-mode-tab" data-mode="fitb">✍️ Fill in the Blank</button>
         <button class="mem-mode-tab" data-mode="flashcard">🗂️ Flashcards</button>

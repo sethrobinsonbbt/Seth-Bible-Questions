@@ -336,6 +336,16 @@ body {
   margin: 0 0 0.8rem;
 }
 
+.random-verse-text {
+  font-size: 0.95rem;
+  font-style: italic;
+  background: rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  margin: -0.4rem 0 0.8rem;
+  line-height: 1.4;
+}
+
 .random-nav-row {
   display: flex;
   align-items: center;
@@ -1032,7 +1042,7 @@ body {
   text-align: center;
 }
 
-.mem-category-row {
+.chip-row {
   display: flex;
   gap: 0.5rem;
   overflow-x: auto;
@@ -1041,11 +1051,11 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-.mem-category-row[hidden] {
+.chip-row[hidden] {
   display: none;
 }
 
-.mem-category-chip {
+.chip {
   flex: 0 0 auto;
   border: none;
   background: var(--btn-bg);
@@ -1057,7 +1067,15 @@ body {
   white-space: nowrap;
 }
 
-.mem-category-chip.active {
+.chip-row-label {
+  flex: 0 0 auto;
+  align-self: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.chip.active {
   background: var(--indigo);
   color: white;
 }

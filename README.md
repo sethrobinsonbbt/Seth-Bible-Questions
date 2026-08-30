@@ -200,13 +200,27 @@ device, so it doesn't need to be reselected every visit.
 - Once someone's picked in the header's **User** dropdown, the big card
   at the top shows a random question from any age group they belong to —
   tap **👁️ Show Answer** to reveal the answer, then **✅ Correct** or
-  **❌ Wrong** to score it and move to the next one (or **🎲 Skip** to
-  move on without scoring).
+  **❌ Wrong** to score it and move to the next one (**‹ Back** / **Next ›**
+  browse without scoring).
 - Missed questions (❌) are marked **🔁 needs review** and get
   preferentially resurfaced until answered correctly — scores are tracked
   per person, so two kids sharing an age group don't share a score.
 - Below the card is a plain list of that person's questions with their
-  running score. There's no editing here by design — see **Setup**.
+  running score.
+- **Quizzing a kid from your own login:** if the active user is an Adult
+  and there are other family members, an **Include: [name] [name]...**
+  chip row appears above the card — toggle on a kid to fold their age
+  group's questions into the pool without switching the User dropdown
+  away from yourself. Any question that's actually one of the *included
+  kid's* (not your own) automatically shows the answer — and the cited
+  verse's text, if the question has a reference — instead of hiding it
+  behind Show Answer, so you can read it straight to them. Tapping
+  Correct/Wrong on one of those records progress against the included
+  kid(s) whose age group it matched, not against you.
+- **✏️ Edit** on the card lets you fix a question's text/answer/reference
+  right from here, gated behind the same Setup passcode as the Question
+  Library (see **Setup**) — handy for a quick typo fix mid-quiz without
+  leaving the page.
 
 ### 🔒 Setup
 
