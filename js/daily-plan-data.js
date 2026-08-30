@@ -1,82 +1,92 @@
-// Tracks whether the family has "started" the default Daily Reading plan,
-// and computes completed/missed-day stats since that start date.
+// Tracks, per family member, whether they've "started" the default Daily
+// Reading plan, and computes their own completed/missed-day stats since
+// their own start date — reading progress is per-person, same as
+// Questions and Memorize, not one shared family log.
 //
-// Doc shape: appState/dailyPlan = { startDate: "YYYY-MM-DD" } — its mere
-// existence means the plan is "started". Stats are computed on demand
-// (not stored) by scanning dailyReadingProgress docs from startDate through
-// yesterday (today doesn't count as missed until the day is over).
+// Doc shapes:
+//   appState/dailyPlan = { [userId]: { startDate: "YYYY-MM-DD" } } — a
+//     user having a key here means they've started the plan.
+//   dailyReadingProgress/{dateKey} = { [userId]: { read1, read2, read3 } }
+// Stats are computed on demand (not stored) by scanning
+// dailyReadingProgress docs from a user's own startDate through yesterday.
 import { ready } from "./firebase.js";
 import { dateKey } from "./default-reading-plan.js";
 
 let db = null;
-let planState = null; // { startDate } | null
-let planStats = null; // { completed, missed, missedDates, totalDays } | null
+let planStates = {}; // { [userId]: {startDate} }
+let planStatsByUser = {}; // { [userId]: {completed, missed, missedDates, totalDays, currentStreak} }
+const knownUserIds = new Set(); // users we've been asked to compute/keep stats for
 const listeners = new Set();
 
 function notify() {
-  listeners.forEach((cb) => cb({ planState, planStats }));
+  listeners.forEach((cb) => cb({ planStates, planStatsByUser }));
 }
 
 // Registers a callback for live updates, immediately invoked with the
-// current state. Returns an unsubscribe function.
+// current state. Both maps are keyed by user id — pick out whichever
+// user's slice you need (planStates[userId], planStatsByUser[userId]).
+// Returns an unsubscribe function.
 export function subscribePlanState(callback) {
   listeners.add(callback);
-  callback({ planState, planStats });
+  callback({ planStates, planStatsByUser });
   return () => listeners.delete(callback);
 }
 
-export function startPlan() {
-  if (!db) return;
+export function startPlan(userId) {
+  if (!db || !userId) return;
   db.collection("appState")
     .doc("dailyPlan")
-    .set({ startDate: dateKey(new Date()) });
+    .set({ [userId]: { startDate: dateKey(new Date()) } }, { merge: true });
 }
 
-export function resetPlan() {
-  if (!db) return;
-  db.collection("appState").doc("dailyPlan").delete();
+export function resetPlan(userId) {
+  if (!db || !userId) return;
+  db.collection("appState")
+    .doc("dailyPlan")
+    .update({ [userId]: firebase.firestore.FieldValue.delete() });
 }
 
-// Marks one of a day's three readings done — used by the Bible page's
-// "Mark as Read" button (see bible-reader.js) as well as the Reading
-// Plan page's own per-reading toggle.
-export function markDailyReadingDone(dateKeyStr, index) {
-  if (!db) return;
+// Marks one of a day's three readings done for one user — used by the
+// Bible page's "Mark as Read" button (see bible-reader.js) as well as
+// the Reading Plan page's own per-reading toggle.
+export function markDailyReadingDone(dateKeyStr, index, userId) {
+  if (!db || !userId) return;
   const field = `read${index + 1}`;
   db.collection("dailyReadingProgress")
     .doc(dateKeyStr)
-    .set({ [field]: true }, { merge: true })
-    .then(refreshPlanStats);
+    .set({ [userId]: { [field]: true } }, { merge: true })
+    .then(() => refreshPlanStats(userId));
 }
 
 // Reads today's own progress doc directly (it's outside the start..yesterday
 // range everything else scans, since "today" isn't finalized as missed or
 // completed until the day is over).
-async function isTodayDone() {
+async function isTodayDone(userId) {
   const todayKey = dateKey(new Date());
   const doc = await db.collection("dailyReadingProgress").doc(todayKey).get();
-  const d = doc.exists ? doc.data() : {};
+  const d = (doc.exists && doc.data()[userId]) || {};
   return !!(d.read1 && d.read2 && d.read3);
 }
 
-async function computeStats() {
-  if (!db || !planState) {
-    planStats = null;
+async function computeStatsFor(userId) {
+  const state = planStates[userId];
+  if (!db || !state) {
+    delete planStatsByUser[userId];
     notify();
     return;
   }
 
-  const start = planState.startDate;
+  const start = state.startDate;
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const endKey = dateKey(yesterday);
 
   try {
-    const todayDone = await isTodayDone();
+    const todayDone = await isTodayDone(userId);
 
     if (endKey < start) {
       // Plan started today (or in the future) — no elapsed days to judge yet.
-      planStats = { completed: 0, missed: 0, missedDates: [], totalDays: 0, currentStreak: todayDone ? 1 : 0 };
+      planStatsByUser[userId] = { completed: 0, missed: 0, missedDates: [], totalDays: 0, currentStreak: todayDone ? 1 : 0 };
       notify();
       return;
     }
@@ -89,8 +99,8 @@ async function computeStats() {
 
     const doneDates = new Set();
     snapshot.forEach((doc) => {
-      const d = doc.data();
-      if (d.read1 && d.read2 && d.read3) doneDates.add(doc.id);
+      const d = (doc.data() || {})[userId];
+      if (d && d.read1 && d.read2 && d.read3) doneDates.add(doc.id);
     });
 
     const missedDates = [];
@@ -119,18 +129,22 @@ async function computeStats() {
     }
     if (todayDone) currentStreak++;
 
-    planStats = { completed: doneDates.size, missed: missedDates.length, missedDates, totalDays, currentStreak };
+    planStatsByUser[userId] = { completed: doneDates.size, missed: missedDates.length, missedDates, totalDays, currentStreak };
   } catch (err) {
     console.error(err);
   }
   notify();
 }
 
-// Call after any write to dailyReadingProgress that could change the stats
-// (a toggle, Mark All Complete) so the numbers stay live without a
-// dedicated Firestore listener on the whole collection.
-export function refreshPlanStats() {
-  computeStats();
+// Call after any write for this user that could change their stats (a
+// toggle, Mark All Complete) — also doubles as "warm up this user's
+// stats" for anywhere that needs them but hasn't asked before (Setup's
+// Family Members list, or switching the active user on the Reading Plan
+// page), since it's cheap to just recompute on request.
+export function refreshPlanStats(userId) {
+  if (!userId) return;
+  knownUserIds.add(userId);
+  computeStatsFor(userId);
 }
 
 ready
@@ -140,8 +154,9 @@ ready
       .doc("dailyPlan")
       .onSnapshot(
         (doc) => {
-          planState = doc.exists ? doc.data() : null;
-          computeStats();
+          planStates = doc.exists ? doc.data() || {} : {};
+          notify();
+          knownUserIds.forEach((userId) => computeStatsFor(userId));
         },
         (err) => console.error(err)
       );

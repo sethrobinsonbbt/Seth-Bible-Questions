@@ -296,11 +296,10 @@ Backup panel:
   which age group(s) they belong to (a person can be in more than
   one — e.g. a 10-year-old could also be checked into 11–15 if they're
   ready for harder questions). Each member's row also shows their stats
-  (📖 Questions ✅/❌, ✍️ Memorize ✅/attempts) with **Edit**, **Reset
-  Stats** (clears that one person's Questions *and* Memorize progress —
-  everyone else's stays put), and **Delete**. A family-wide line at the
-  top shows the Daily Reading Plan's current streak and completed/missed
-  count (that one isn't per-person — it's one shared family log).
+  (📖 Questions ✅/❌, ✍️ Memorize ✅/attempts, 📅 Reading Plan streak and
+  completed/missed count — all per-person) with **Edit**, **Reset
+  Stats** (clears that one person's Questions, Memorize, *and* Reading
+  Plan progress — everyone else's stays put), and **Delete**.
 - **📚 Question Library** — no separate lock (getting this far already
   means the Setup passcode was entered): **🔎 Filter** is a multi-select
   dropdown next to the import/export buttons — check any combination of
@@ -369,7 +368,8 @@ because you just landed here, or you tapped **Read** on one from the
 Reading Plan page), a footer appears below the text:
 
 - **✓ Mark as Read** checks off that reading in the Reading Plan's
-  streak tracking, without leaving the page.
+  streak tracking, without leaving the page (requires a User picked up
+  top, same as checking it off from the Reading Plan page itself).
 - **Next Chapter →** moves forward one chapter (same as the ← Previous /
   Next → row above, just handy without scrolling back up).
 - **Next Reading →** jumps straight to the day's next passage (hidden
@@ -486,9 +486,9 @@ platform limitation, not something we can fully fix from a web app.
   **Bible** section. **✓ Mark All Complete** at the bottom checks off all
   three readings for the date you're viewing in one tap. Checking
   anything off (here or in a custom plan below) requires someone picked
-  in the header's **User** dropdown first — reading progress is
-  family-wide, but a checkmark should still mean someone specific did
-  it; without a User picked, the checkbox just reverts and asks you to
+  in the header's **User** dropdown first — reading progress, streaks,
+  and stats are all tracked per-person (same as Questions and Memorize),
+  so without a User picked the checkbox just reverts and asks you to
   pick who you are.
 - **▶ Start Plan** begins tracking your streak on the Daily Reading plan
   from today: once started, a small stats block shows your **Current

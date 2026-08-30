@@ -30,7 +30,7 @@ import {
   assignVerseCategory,
   resetUserProgress as resetUserVerseProgress,
 } from "./memorize-data.js";
-import { subscribePlanState } from "./daily-plan-data.js";
+import { subscribePlanState, refreshPlanStats, resetPlan } from "./daily-plan-data.js";
 import { ready } from "./firebase.js";
 import { SETUP_PASSWORD } from "./setup-password.js";
 
@@ -40,8 +40,8 @@ let users = [];
 let questions = [];
 let memoryVerses = [];
 let verseCategories = [];
-let planState = null;
-let planStats = null;
+let planStates = {}; // {[userId]: {startDate}} — from daily-plan-data.js
+let planStatsByUser = {}; // {[userId]: stats} — from daily-plan-data.js
 let editingUserId = null;
 let addingUser = false;
 let editingQuestionId = null;
@@ -261,15 +261,19 @@ function userStatsLine(user) {
     }
   });
 
-  return { qCorrect, qWrong, vCorrect, vAttempts };
+  const planState = planStates[user.id];
+  const planStat = planStatsByUser[user.id];
+
+  return { qCorrect, qWrong, vCorrect, vAttempts, planState, planStat };
 }
 
 function resetUserStats(user) {
-  if (!confirm(`Reset ${user.name}'s stats? This clears their Questions and Memorize progress — it can't be undone.`)) {
+  if (!confirm(`Reset ${user.name}'s stats? This clears their Questions, Memorize, and Reading Plan progress — it can't be undone.`)) {
     return;
   }
   resetUserQuestionProgress(user.id);
   resetUserVerseProgress(user.id);
+  resetPlan(user.id);
 }
 
 // ---------- Family Members subpage ----------
@@ -366,11 +370,18 @@ function renderUsers() {
           : "No age groups yet — this member won't see any questions.";
       li.appendChild(groupsEl);
 
-      const { qCorrect, qWrong, vCorrect, vAttempts } = userStatsLine(user);
+      const { qCorrect, qWrong, vCorrect, vAttempts, planState, planStat } = userStatsLine(user);
       const statsEl = document.createElement("p");
       statsEl.className = "question-score";
       statsEl.textContent = `📖 Questions: ✅ ${qCorrect} · ❌ ${qWrong}   ✍️ Memorize: ✅ ${vCorrect} / ${vAttempts} attempts`;
       li.appendChild(statsEl);
+
+      const planEl = document.createElement("p");
+      planEl.className = "question-score";
+      planEl.textContent = planState
+        ? `📅 Reading Plan: 🔥 ${(planStat && planStat.currentStreak) || 0} day streak · ✅ ${(planStat && planStat.completed) || 0} completed · ❌ ${(planStat && planStat.missed) || 0} missed`
+        : "📅 Reading Plan: not started yet";
+      li.appendChild(planEl);
 
       const actions = document.createElement("div");
       actions.className = "question-row-actions";
@@ -384,7 +395,7 @@ function renderUsers() {
       });
       actions.appendChild(editBtn);
 
-      if (qCorrect > 0 || qWrong > 0 || vAttempts > 0) {
+      if (qCorrect > 0 || qWrong > 0 || vAttempts > 0 || planState) {
         const resetStatsBtn = document.createElement("button");
         resetStatsBtn.className = "btn btn-small";
         resetStatsBtn.textContent = "Reset Stats";
@@ -409,17 +420,6 @@ function renderUsers() {
   });
 }
 
-function renderReadingPlanStat() {
-  const el = refs.readingPlanStat;
-  if (!el) return;
-  if (!planState) {
-    el.textContent = "📅 Daily Reading Plan: not started yet (see the Reading Plan page).";
-    return;
-  }
-  const stats = planStats || { completed: 0, missed: 0, currentStreak: 0 };
-  el.textContent = `📅 Daily Reading Plan (family-wide): 🔥 ${stats.currentStreak || 0} day streak · ✅ ${stats.completed} completed · ❌ ${stats.missed} missed`;
-}
-
 function buildFamilyView(container) {
   refs = {};
   container.innerHTML = `
@@ -428,7 +428,6 @@ function buildFamilyView(container) {
       <h2>👪 Family Members</h2>
       <span></span>
     </div>
-    <p id="reading-plan-stat" class="question-score"></p>
     <div class="list-toolbar">
       <h2>Members</h2>
       <button id="add-user-btn" class="btn btn-primary">+ Add Member</button>
@@ -439,7 +438,6 @@ function buildFamilyView(container) {
 
   refs.userList = container.querySelector("#user-list");
   refs.userEmpty = container.querySelector("#user-empty");
-  refs.readingPlanStat = container.querySelector("#reading-plan-stat");
 
   container.querySelector("#family-back-btn").addEventListener("click", () => buildMainView(container));
   container.querySelector("#add-user-btn").addEventListener("click", () => {
@@ -448,7 +446,6 @@ function buildFamilyView(container) {
   });
 
   renderUsers();
-  renderReadingPlanStat();
 }
 
 // ---------- Bulk import/export (shared by Question Library & Memory Verses) ----------
@@ -1376,6 +1373,7 @@ export function mountSettings(container) {
 
   subscribeUsers((updated) => {
     users = updated;
+    users.forEach((u) => refreshPlanStats(u.id));
     if (refs.userList) renderUsers();
     renderNavCounts();
   });
@@ -1398,9 +1396,9 @@ export function mountSettings(container) {
     if (refs.verseAdminList) renderVersesAdmin();
     renderNavCounts();
   });
-  subscribePlanState(({ planState: state, planStats: stats }) => {
-    planState = state;
-    planStats = stats;
-    renderReadingPlanStat();
+  subscribePlanState(({ planStates: states, planStatsByUser: statsByUser }) => {
+    planStates = states;
+    planStatsByUser = statsByUser;
+    if (refs.userList) renderUsers();
   });
 }

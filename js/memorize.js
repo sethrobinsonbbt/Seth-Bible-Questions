@@ -268,8 +268,12 @@ function renderVerseList() {
       optBtn.className = "mem-bucket-pick-option" + (b.id === currentBucket ? " active" : "");
       optBtn.innerHTML = `${bucketIconSvg(b.id)}<span>${b.label}</span>`;
       optBtn.addEventListener("click", () => {
-        setVerseBucket(v.id, activeUserId, b.id);
         picker.open = false;
+        if (!activeUserId) {
+          alert("Pick who you are (in the User dropdown up top) before changing a verse's status.");
+          return;
+        }
+        setVerseBucket(v.id, activeUserId, b.id);
       });
       panel.appendChild(optBtn);
     });

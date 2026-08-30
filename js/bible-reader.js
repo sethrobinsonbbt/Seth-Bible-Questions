@@ -659,7 +659,7 @@ function restartCurrentVerseAtRate() {
 // hands-free into the next reading, or stop once the day's last one ends.
 function onChapterFinishedSpeaking() {
   if (!dailyContext) return;
-  markDailyReadingDone(dailyContext.dateKey, dailyContext.index);
+  markDailyReadingDone(dailyContext.dateKey, dailyContext.index, getActiveUser());
   if (dailyContext.index >= 2) return;
 
   const readings = readingsForDate(new Date(`${dailyContext.dateKey}T00:00:00`));
@@ -838,7 +838,12 @@ function saveVerseFromPicker() {
 
 function markCurrentReadingRead() {
   if (!dailyContext) return;
-  markDailyReadingDone(dailyContext.dateKey, dailyContext.index);
+  const userId = getActiveUser();
+  if (!userId) {
+    alert("Pick who you are (in the User dropdown up top) before marking a reading done.");
+    return;
+  }
+  markDailyReadingDone(dailyContext.dateKey, dailyContext.index, userId);
   const statusEl = refs.content.querySelector("#bible-mark-read-status");
   if (statusEl) {
     statusEl.hidden = false;

@@ -5,20 +5,21 @@ import { ready } from "./firebase.js";
 import { BOOKS, computeChapterSequence } from "./bible-data.js";
 import { readingsForDate, parseReadingLabel, dateKey } from "./default-reading-plan.js";
 import { subscribePlanState, startPlan, resetPlan, refreshPlanStats } from "./daily-plan-data.js";
-import { getActiveUser } from "./active-user.js";
+import { getActiveUser, subscribeActiveUser } from "./active-user.js";
 
 let db = null;
-let plans = []; // [{id, name, startBook, startChapter, endBook, endChapter, chapters, progress}]
+let plans = []; // [{id, name, startBook, startChapter, endBook, endChapter, chapters, progress: {[userId]: [bool,...]}}]
 let activePlanId = null;
 // Custom plans are managed on their own page (reached via the subtle
 // "Change Plan" link) — the main Reading Plan page just shows whichever
 // one is currently active, if any, below the daily reading card.
 let managingPlans = false;
 let dailyDate = new Date();
-let dailyProgress = { read1: false, read2: false, read3: false };
+let dailyDocData = {}; // the raw dailyReadingProgress doc for `dailyDate`: {[userId]: {read1,read2,read3}}
 let dailyUnsub = null;
-let planState = null;
-let planStats = null;
+let activeUserId = null;
+let planStates = {}; // {[userId]: {startDate}} — from daily-plan-data.js
+let planStatsByUser = {}; // {[userId]: stats} — from daily-plan-data.js
 let refs = {};
 
 const MONTH_NAMES = [
@@ -212,7 +213,7 @@ function savePlan() {
     endBook,
     endChapter,
     chapters,
-    progress: chapters.map(() => false),
+    progress: {}, // per-user; each user's array is created lazily on first toggle
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
 }
@@ -223,11 +224,21 @@ function deletePlan(id) {
   db.collection("readingPlans").doc(id).delete();
 }
 
+function progressForUser(plan, userId) {
+  return (plan.progress && plan.progress[userId]) || plan.chapters.map(() => false);
+}
+
+// No sign-in check here — this is only ever reached via buildCheckToggle,
+// which already gates (and reverts the checkbox) before calling onChange.
 function toggleChapter(plan, index) {
   if (!db) return;
-  const progress = plan.progress.slice();
+  const userId = getActiveUser();
+  if (!userId) return;
+  const progress = progressForUser(plan, userId).slice();
   progress[index] = !progress[index];
-  db.collection("readingPlans").doc(plan.id).update({ progress });
+  db.collection("readingPlans")
+    .doc(plan.id)
+    .set({ progress: { [userId]: progress } }, { merge: true });
 }
 
 function navigateToChapter(book, chapter, dailyCtx) {
@@ -281,7 +292,7 @@ function renderPlanSelectList() {
     const li = document.createElement("li");
     li.className = "question-card";
 
-    const doneCount = plan.progress.filter(Boolean).length;
+    const doneCount = progressForUser(plan, activeUserId).filter(Boolean).length;
     const nameEl = document.createElement("p");
     nameEl.className = "question-text";
     nameEl.innerHTML = `<strong>${escapeHtml(plan.name)}</strong>${plan.id === activePlanId ? " · <em>currently active</em>" : ""}`;
@@ -325,7 +336,8 @@ function renderDetail() {
     return;
   }
 
-  const doneCount = plan.progress.filter(Boolean).length;
+  const userProgress = progressForUser(plan, activeUserId);
+  const doneCount = userProgress.filter(Boolean).length;
   const total = plan.chapters.length;
 
   refs.detail.innerHTML = `
@@ -344,9 +356,9 @@ function renderDetail() {
   const listEl = refs.detail.querySelector("#plan-checklist");
   plan.chapters.forEach((ch, i) => {
     const li = document.createElement("li");
-    li.className = "plan-row" + (plan.progress[i] ? " plan-row-done" : "");
+    li.className = "plan-row" + (userProgress[i] ? " plan-row-done" : "");
 
-    const toggle = buildCheckToggle(!!plan.progress[i], () => toggleChapter(plan, i));
+    const toggle = buildCheckToggle(!!userProgress[i], () => toggleChapter(plan, i));
 
     const label = document.createElement("span");
     label.className = "plan-row-label";
@@ -372,9 +384,9 @@ function escapeHtml(str) {
 
 // A checkbox styled as a rounded checkmark toggle, used for both the
 // custom-plan checklist and the daily reading list.
-// Reading progress is tracked family-wide, but checking something off
-// should still mean someone specific did it — block the action (and
-// revert the checkbox) if nobody's picked in the header's User dropdown.
+// Reading progress is tracked per-person, same as Questions and
+// Memorize — block the action (and revert the checkbox) if nobody's
+// picked in the header's User dropdown.
 function requireSignedIn() {
   if (getActiveUser()) return true;
   alert("Pick who you are (in the User dropdown up top) before marking a reading done.");
@@ -414,7 +426,7 @@ function subscribeDaily(date) {
     .doc(dateKey(date))
     .onSnapshot(
       (doc) => {
-        dailyProgress = doc.exists ? doc.data() : { read1: false, read2: false, read3: false };
+        dailyDocData = doc.exists ? doc.data() || {} : {};
         renderDaily();
       },
       (err) => console.error(err)
@@ -423,20 +435,24 @@ function subscribeDaily(date) {
 
 function toggleDailyRead(index) {
   if (!db) return;
+  const userId = getActiveUser();
+  if (!userId) return;
   const field = `read${index + 1}`;
+  const current = (dailyDocData[userId] || {})[field];
   db.collection("dailyReadingProgress")
     .doc(dateKey(dailyDate))
-    .set({ [field]: !dailyProgress[field] }, { merge: true })
-    .then(refreshPlanStats);
+    .set({ [userId]: { [field]: !current } }, { merge: true })
+    .then(() => refreshPlanStats(userId));
 }
 
 function markAllDailyComplete() {
   if (!requireSignedIn()) return;
   if (!db) return;
+  const userId = getActiveUser();
   db.collection("dailyReadingProgress")
     .doc(dateKey(dailyDate))
-    .set({ read1: true, read2: true, read3: true }, { merge: true })
-    .then(refreshPlanStats);
+    .set({ [userId]: { read1: true, read2: true, read3: true } }, { merge: true })
+    .then(() => refreshPlanStats(userId));
 }
 
 function populateDaySelect(month) {
@@ -484,16 +500,20 @@ function goToMissedDate(key) {
 
 function renderPlanStatus() {
   const el = refs.planStatus;
+  const planState = planStates[activeUserId];
   if (!planState) {
     el.innerHTML = `
       <p class="plan-status-hint">Track how many days you complete (and miss) by starting the plan.</p>
       <button id="start-plan-btn" class="btn btn-primary btn-small">▶ Start Plan</button>
     `;
-    el.querySelector("#start-plan-btn").addEventListener("click", startPlan);
+    el.querySelector("#start-plan-btn").addEventListener("click", () => {
+      if (!requireSignedIn()) return;
+      startPlan(getActiveUser());
+    });
     return;
   }
 
-  const stats = planStats || { completed: 0, missed: 0, missedDates: [] };
+  const stats = planStatsByUser[activeUserId] || { completed: 0, missed: 0, missedDates: [] };
   const startLabel = new Date(`${planState.startDate}T00:00:00`).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -557,13 +577,14 @@ function renderPlanStatus() {
       if (!requireSignedIn()) return;
       const keys = Array.from(listEl.querySelectorAll(".missed-day-checkbox:checked")).map((cb) => cb.value);
       if (keys.length === 0) return;
-      markDaysComplete(keys);
+      markDaysComplete(keys, getActiveUser());
     });
   }
 
   el.querySelector("#reset-plan-btn").addEventListener("click", () => {
+    if (!requireSignedIn()) return;
     if (confirm("Reset your reading streak? This clears your start date — your daily checkmarks stay recorded.")) {
-      resetPlan();
+      resetPlan(getActiveUser());
     }
   });
 }
@@ -571,13 +592,17 @@ function renderPlanStatus() {
 // Marks every reading done for a batch of missed dates at once (e.g. "I
 // know I did these, I just forgot to check them off") without needing to
 // open each day individually.
-function markDaysComplete(dateKeys) {
-  if (!db) return;
+function markDaysComplete(dateKeys, userId) {
+  if (!db || !userId) return;
   const batch = db.batch();
   dateKeys.forEach((key) => {
-    batch.set(db.collection("dailyReadingProgress").doc(key), { read1: true, read2: true, read3: true }, { merge: true });
+    batch.set(
+      db.collection("dailyReadingProgress").doc(key),
+      { [userId]: { read1: true, read2: true, read3: true } },
+      { merge: true }
+    );
   });
-  batch.commit().then(refreshPlanStats);
+  batch.commit().then(() => refreshPlanStats(userId));
 }
 
 function openDateModal() {
@@ -608,7 +633,7 @@ function renderDaily() {
   readings.forEach((label, i) => {
     const li = document.createElement("li");
     const field = `read${i + 1}`;
-    const done = !!dailyProgress[field];
+    const done = !!(dailyDocData[activeUserId] || {})[field];
     li.className = "plan-row" + (done ? " plan-row-done" : "");
 
     const toggle = buildCheckToggle(done, () => toggleDailyRead(i));
@@ -633,7 +658,8 @@ function renderDaily() {
     refs.dailyList.appendChild(li);
   });
 
-  refs.dailyMarkAllBtn.hidden = readings.every((_, i) => dailyProgress[`read${i + 1}`]);
+  const userDaily = dailyDocData[activeUserId] || {};
+  refs.dailyMarkAllBtn.hidden = readings.every((_, i) => userDaily[`read${i + 1}`]);
 }
 
 export function mountPlanner(container) {
@@ -641,9 +667,17 @@ export function mountPlanner(container) {
   renderPlanArea();
   renderDaily();
 
-  subscribePlanState(({ planState: state, planStats: stats }) => {
-    planState = state;
-    planStats = stats;
+  subscribePlanState(({ planStates: states, planStatsByUser: statsByUser }) => {
+    planStates = states;
+    planStatsByUser = statsByUser;
+    renderPlanStatus();
+  });
+
+  subscribeActiveUser((id) => {
+    activeUserId = id;
+    if (id) refreshPlanStats(id);
+    renderDaily();
+    renderPlanArea();
     renderPlanStatus();
   });
 
