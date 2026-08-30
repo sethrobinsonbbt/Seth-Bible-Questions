@@ -73,20 +73,17 @@ export function bookIndex(name) {
   return BOOKS.findIndex((b) => b.name === name);
 }
 
-// Public-domain translations, fetched with no API key via bible-api.com.
-// Kept deliberately short and distinct: KJV as the primary/devotional read,
-// YLT as a genuinely different (aggressively word-for-word) cross-check.
-// ASV was tried but dropped as too similar to KJV to be worth a second
-// slot — it's the same textual family and register, just with occasional
-// different word choices. WEB/BBE/WEBBE were dropped as too modern/plain
-// for this family's taste. Other modern copyrighted translations (NIV,
-// NLT, NKJV, RSV, ESV, etc.) require either a paid licensing/API
-// agreement or a browser-exposed API key tradeoff (see esv-config.js for
-// that story) and aren't included for that reason.
-export const BIBLE_VERSIONS = [
-  { id: "kjv", label: "King James Version (KJV)" },
-  { id: "ylt", label: "Young's Literal Translation (YLT)" },
-];
+// Just the one, deliberately: King James Version, public domain, fetched
+// for free with no API key from bible-api.com. ASV and YLT were both tried
+// and dropped — ASV was too similar to KJV to be worth a second slot, and
+// having both a devotional read and a very-literal one didn't add enough
+// to be worth the extra choice. WEB/BBE/WEBBE were too modern/plain for
+// this family's taste. Other modern copyrighted translations (NIV, NLT,
+// NKJV, RSV, ESV, etc.) require either a paid licensing/API agreement or a
+// browser-exposed API key tradeoff (see esv-config.js for that story) and
+// aren't included for that reason. If this list ever grows past one entry
+// again, the version dropdown in js/bible-reader.js reappears on its own.
+export const BIBLE_VERSIONS = [{ id: "kjv", label: "King James Version (KJV)" }];
 
 // Walk forward through the canonical book order from (startBook, startChapter)
 // through (endBook, endChapter) inclusive. Returns null if the range is

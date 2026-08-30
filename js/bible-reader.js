@@ -98,6 +98,9 @@ function buildSkeleton(container) {
     opt.textContent = v.label;
     refs.versionSelect.appendChild(opt);
   });
+  // Nothing to choose with only one version — hide the dropdown rather
+  // than show a select you can't actually change.
+  refs.versionSelect.hidden = BIBLE_VERSIONS.length <= 1;
 
   BOOKS.forEach((b) => {
     const opt = document.createElement("option");

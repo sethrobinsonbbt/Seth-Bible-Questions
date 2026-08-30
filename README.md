@@ -170,24 +170,25 @@ instead.
 
 ### Bible
 
-Pick a translation, book, and chapter from the dropdowns, or use ←
-Previous / Next → to move chapter by chapter. Chapters you've read are
-cached on your device, so they still load without a connection.
+Pick a book and chapter from the dropdowns, or use ← Previous / Next →
+to move chapter by chapter. Chapters you've read are cached on your
+device, so they still load without a connection.
 
-Only **KJV** and **YLT** (Young's Literal Translation) are offered —
-both public domain, fetched for free with no API key from
-[bible-api.com](https://bible-api.com). Kept deliberately to two
-options that actually feel different: KJV for reading, YLT as an
-aggressively word-for-word cross-check. A few others were tried and
+Just one translation is offered: the **King James Version**, public
+domain, fetched for free with no API key from
+[bible-api.com](https://bible-api.com). A few others were tried and
 dropped: ASV is public domain too, but close enough to KJV (same
-textual family and register) that it didn't earn a second slot; WEB,
-BBE, and WEBBE were too modern/plain for this family's taste. ESV
-support exists in the code but isn't enabled — see "Add the ESV
-translation" above. Other modern translations (NIV, NLT, NKJV, RSV,
-etc.) are copyrighted with no free API we know of, so they aren't
-included — you're welcome to add one yourself in `js/bible-data.js`
-(`BIBLE_VERSIONS`) and `js/bible-api.js` if you get access to such an
-API.
+textual family and register) that it didn't earn a second slot; YLT
+(aggressively word-for-word literal) wasn't different enough to be
+worth having alongside a devotional read either; WEB, BBE, and WEBBE
+were too modern/plain for this family's taste. ESV support exists in
+the code but isn't enabled — see "Add the ESV translation" above.
+Other modern translations (NIV, NLT, NKJV, RSV, etc.) are copyrighted
+with no free API we know of, so they aren't included — you're welcome
+to add one yourself in `js/bible-data.js` (`BIBLE_VERSIONS`) and
+`js/bible-api.js` if you get access to such an API. (With only one
+version, the version dropdown stays hidden — it reappears automatically
+if `BIBLE_VERSIONS` ever grows past one entry.)
 
 The little **Q⁺** badge between Previous and Next is a quick way to jot
 down a question inspired by whatever you're currently reading, without
