@@ -20,35 +20,100 @@ body {
   padding-bottom: 1rem;
 }
 
-.app-footer {
-  display: flex;
-  justify-content: center;
-  padding: 1.5rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
-}
-
-.footer-setup-btn {
-  border: none;
-  background: none;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  padding: 0.5rem 1rem;
-}
-
-.footer-setup-btn.active {
-  color: var(--indigo);
-  font-weight: 600;
-}
-
 .app-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.7rem;
   padding: 1rem 1.1rem 0.5rem;
 }
 
 .app-header h1 {
   font-size: 1.25rem;
   margin: 0;
+  flex: 1 1 auto;
+}
+
+.menu-toggle-btn {
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 0.2rem 0.4rem;
+  flex: 0 0 auto;
+}
+
+.side-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 60;
+}
+
+.side-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 260px;
+  max-width: 80vw;
+  background: var(--card-bg);
+  box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+  z-index: 61;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+}
+
+.side-menu.open {
+  transform: translateX(0);
+}
+
+.side-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+  font-weight: 700;
+}
+
+.side-menu-close-btn {
+  border: none;
+  background: none;
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  padding: 0.2rem 0.4rem;
+}
+
+.side-menu-links {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0;
+  overflow-y: auto;
+}
+
+.side-menu-item {
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 0.85rem 1.1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.side-menu-item.active {
+  background: var(--bg);
+  color: var(--indigo);
+}
+
+.side-menu-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.5rem 0;
 }
 
 .status-pill {

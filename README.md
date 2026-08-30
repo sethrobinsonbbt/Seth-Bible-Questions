@@ -1,6 +1,7 @@
 # Bible Questions
 
-A tiny family Bible app with five sections, tabbed across the top:
+A tiny family Bible app with five sections, reached from the ☰ menu (tap
+the icon at the top-left):
 
 - **Questions** — one tab per family member, each showing a random-question
   quiz card (with answer reveal, and ✅ Correct / ❌ Wrong buttons that track
@@ -16,9 +17,9 @@ A tiny family Bible app with five sections, tabbed across the top:
   fill in the first letter of each word given the reference, with 5
   difficulty levels from mostly-filled-in to completely blank. A "Who's
   memorizing?" picker tracks each person's own attempts/correct count.
-- **🔒 Setup** — a small link in the footer, deliberately not one of the
-  top tabs (it's an admin area, not something to bump into by accident).
-  Passcode-gated (see below). This is where you add
+- **🔒 Setup** — set off by a divider at the bottom of the ☰ menu, since
+  it's an admin area rather than something a family member needs
+  day-to-day. Passcode-gated (see below). This is where you add
   family members (each assigned to one or more age groups), and where all
   question authoring lives: add/edit/delete questions, assign them to an
   age group (2–3, 4–6, 7–10, 11–15, Adult), and the two bulk-import

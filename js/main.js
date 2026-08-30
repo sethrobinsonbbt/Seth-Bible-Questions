@@ -5,29 +5,50 @@ import { mountPlanner } from "./planner.js";
 import { mountMemorize } from "./memorize.js";
 import { mountSettings } from "./settings.js";
 
-// "settings" is deliberately left out of the primary tab row (it's an
-// admin-only area, easy to overlook or crowd out on a small screen) and
-// reached instead via the footer link built in setupFooter().
+// "settings" gets a visual divider in the menu (see renderSideMenu) since
+// it's an admin-only area, distinct from the family-facing sections above it.
 const SECTIONS = [
   { id: "questions", label: "Questions", mount: mountQuestions },
   { id: "bible", label: "Bible", mount: mountBibleReader },
   { id: "planner", label: "Planner", mount: mountPlanner },
   { id: "memorize", label: "Memorize", mount: mountMemorize },
-  { id: "settings", label: "🔒 Setup", mount: mountSettings, hideFromNav: true },
+  { id: "settings", label: "🔒 Setup", mount: mountSettings, divider: true },
 ];
 
 let activeSection = SECTIONS[0].id;
 
-function renderPrimaryNav() {
-  const nav = document.getElementById("primary-tabs");
-  nav.innerHTML = "";
-  SECTIONS.filter((section) => !section.hideFromNav).forEach((section) => {
+function renderSideMenu() {
+  const linksEl = document.getElementById("side-menu-links");
+  linksEl.innerHTML = "";
+  SECTIONS.forEach((section) => {
+    if (section.divider) {
+      linksEl.appendChild(document.createElement("hr")).className = "side-menu-divider";
+    }
     const btn = document.createElement("button");
-    btn.className = "tab-btn primary-tab-btn" + (section.id === activeSection ? " active" : "");
+    btn.className = "side-menu-item" + (section.id === activeSection ? " active" : "");
     btn.textContent = section.label;
-    btn.addEventListener("click", () => setActiveSection(section.id));
-    nav.appendChild(btn);
+    btn.addEventListener("click", () => {
+      setActiveSection(section.id);
+      closeMenu();
+    });
+    linksEl.appendChild(btn);
   });
+}
+
+function openMenu() {
+  document.getElementById("side-menu").classList.add("open");
+  document.getElementById("side-menu-backdrop").hidden = false;
+}
+
+function closeMenu() {
+  document.getElementById("side-menu").classList.remove("open");
+  document.getElementById("side-menu-backdrop").hidden = true;
+}
+
+function setupMenu() {
+  document.getElementById("menu-toggle-btn").addEventListener("click", openMenu);
+  document.getElementById("side-menu-close-btn").addEventListener("click", closeMenu);
+  document.getElementById("side-menu-backdrop").addEventListener("click", closeMenu);
 }
 
 function setActiveSection(id) {
@@ -35,22 +56,11 @@ function setActiveSection(id) {
   SECTIONS.forEach((section) => {
     document.getElementById(`section-${section.id}`).hidden = section.id !== id;
   });
-  renderPrimaryNav();
-  setupFooterActive();
-}
-
-function setupFooter() {
-  const btn = document.getElementById("footer-setup-btn");
-  btn.addEventListener("click", () => setActiveSection("settings"));
-  setupFooterActive();
-}
-
-function setupFooterActive() {
-  document.getElementById("footer-setup-btn").classList.toggle("active", activeSection === "settings");
+  renderSideMenu();
 }
 
 function initSections() {
-  renderPrimaryNav();
+  renderSideMenu();
   SECTIONS.forEach((section) => {
     document.getElementById(`section-${section.id}`).hidden = section.id !== activeSection;
   });
@@ -88,7 +98,7 @@ window.addEventListener("bible:navigate", (e) => {
 
 document.addEventListener("DOMContentLoaded", () => {
   initSections();
-  setupFooter();
+  setupMenu();
   setupStatusBanner();
 
   if ("serviceWorker" in navigator) {
