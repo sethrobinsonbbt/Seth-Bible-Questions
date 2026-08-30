@@ -1,13 +1,17 @@
-// Verse memorization. Home view: category chips (skipped entirely if no
-// categories exist yet), a Fill in the Blank / Flashcards mode tab, and a
-// verse list with a 0–3 star mastery rating per verse for whoever's
-// picked in the header's User dropdown. Tapping a verse launches whichever
-// mode is selected:
+// Verse memorization. Home view: a Memorizing/Future Memorization/Already
+// Memorized bucket tab row (per-user, see BUCKETS below), category chips
+// below that (skipped entirely if no custom categories exist yet), a
+// Fill in the Blank / Flashcards mode tab, a Play button, and the verse
+// list itself — each card showing a mastery dot and an icon-only bucket
+// picker. Tapping a verse (or Play) launches whichever mode is selected:
 //   - Fill in the Blank: pick a difficulty, then type the first letter of
-//     each blanked word — correct reveals the word and moves on, wrong
-//     flashes a momentary ✗ and lets you retry that word.
+//     each blanked word — correct reveals the word and moves on; wrong
+//     flashes a momentary ✗, and 3 wrong attempts (or the IDK button)
+//     auto-fills it and moves on.
 //   - Flashcards: shown either the verse or the reference (your choice),
 //     flip to see the other side, then self-grade Fail/Hard/Good/Easy.
+// Either mode's score feeds "Next Verse", which picks another verse from
+// the same pool the same way the Questions quiz picks questions.
 // Verses are added via a book/chapter/verse-range picker (see
 // verse-picker.js) — categorizing verses happens in Setup, not here.
 import { subscribeActiveUser } from "./active-user.js";
@@ -19,10 +23,6 @@ import {
   loadChapterVerses,
   computeVerseRangeSelection,
 } from "./verse-picker.js";
-import { resolveBookName, bookIndex } from "./bible-data.js";
-import { parseReadingLabel } from "./default-reading-plan.js";
-
-const OT_BOOK_COUNT = 39; // Genesis..Malachi — everything from Matthew on is NT
 
 // Common short/function words revealed first at easier levels, so the words
 // left to recall are the more distinctive ones. Includes KJV-specific terms.
@@ -60,33 +60,41 @@ const BUCKETS = [
   { id: "memorized", label: "Already Memorized" },
 ];
 
-// One shared adult head-in-profile outline, with a small circular badge
-// over the forehead whose contents mark which bucket this is — a gear
-// (in-progress/Memorizing), a little day-calendar showing "9" (Future
-// Memorization), or a check (Already Memorized). Pure line art via
-// currentColor, so it's automatically monochrome and adapts to the
-// light/dark theme.
+// One shared adult head-in-profile outline (facing right), with a large
+// icon filling the "brain area" marking which bucket this is — a gear
+// with a few sparks (actively working on it — Memorizing), an anatomical
+// brain (Future Memorization), or a lightbulb with a checkmark and idea
+// rays (got it — Already Memorized). Pure line art via currentColor, so
+// it's automatically monochrome and adapts to the light/dark theme.
 const BUCKET_HEAD_PATH =
-  "M14,3 L9,4.3 L8,6.5 L5.3,9.2 L7,10.3 L6.7,12 L7.6,14.2 L9.5,15.5 L9.8,17 L9.8,20.5 L16,20.5 L16,17.5 C18,15.6 19.6,13 19.6,10 C19.6,6.3 17.5,3.4 14,3 Z";
-const BUCKET_EAR_PATH = "M9.3,11.4 C8.2,11.2 7.2,12 7.2,13.1 C7.2,14.1 8,14.9 9,14.9";
-const BUCKET_BADGE_INSETS = {
+  "M10,3 L15,4.3 L16,6.5 L18.7,9.2 L17,10.3 L17.3,12 L16.4,14.2 L14.5,15.5 L14.2,17 L14.2,20.5 L8,20.5 L8,17.5 C6,15.6 4.4,13 4.4,10 C4.4,6.3 6.5,3.4 10,3 Z";
+const BUCKET_EAR_PATH = "M14.7,11.4 C15.8,11.2 16.8,12 16.8,13.1 C16.8,14.1 16,14.9 15,14.9";
+const BUCKET_CONTENT = {
   memorizing:
-    '<g stroke="currentColor" stroke-width="1.1" fill="none" stroke-linecap="round">' +
-    '<circle r="1.15"/><path d="M0,-2.3 L0,-1.5 M0,2.3 L0,1.5 M-2.3,0 L-1.5,0 M2.3,0 L1.5,0"/></g>',
+    '<g transform="translate(11,9.5)"><circle r="1.4"/>' +
+    '<path d="M0,-3.6 L0,-2.4 M0,3.6 L0,2.4 M-3.6,0 L-2.4,0 M3.6,0 L2.4,0 M-2.5,-2.5 L-1.7,-1.7 M2.5,2.5 L1.7,1.7 M-2.5,2.5 L-1.7,1.7 M2.5,-2.5 L1.7,-1.7"/></g>' +
+    '<path d="M8.5,4.5 L7.8,3 M8.5,4.5 L9.4,3.6"/><path d="M13.5,3.8 L14.4,2.4"/><path d="M15.6,6 L17,5.3"/>',
   future:
-    '<path stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round" ' +
-    'd="M-1.6,-1.4 L1.6,-1.4 M-1.6,-1.4 L-1.6,1.7 L1.6,1.7 L1.6,-1.4 M-0.8,-2 L-0.8,-1.4 M0.8,-2 L0.8,-1.4"/>' +
-    '<text x="0" y="1.15" font-size="2.3" font-family="Arial, sans-serif" font-weight="700" ' +
-    'text-anchor="middle" fill="currentColor" stroke="none">9</text>',
-  memorized: '<path stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M-1.7,0.1 L-0.6,1.3 L1.8,-1.4"/>',
+    '<g transform="translate(11,9.3)">' +
+    '<path d="M-3.4,0.3 A1.5,1.5 0 0 1 -2.6,-2.3 A1.5,1.5 0 0 1 0.1,-3.3 A1.5,1.5 0 0 1 2.8,-2.3 A1.6,1.6 0 0 1 3.5,0.4 A1.5,1.5 0 0 1 2.4,3.2 A1.5,1.5 0 0 1 -0.4,3.4 A1.5,1.5 0 0 1 -3.4,0.3 Z"/>' +
+    '<path d="M0.1,-3.3 L0.1,3.3"/>' +
+    '<path d="M-2,-1.4 C-1.3,-1 -0.5,-1 0.1,-1.4"/>' +
+    '<path d="M0.6,-1.4 C1.2,-1 1.9,-1.2 2.2,-1.8"/>' +
+    '<path d="M-1.6,0.8 C-1,1.2 -0.2,1.1 0.1,0.6"/>' +
+    '<path d="M0.6,0.7 C1.1,1.1 1.7,1 2,0.5"/></g>',
+  memorized:
+    '<g transform="translate(11,8.6)">' +
+    '<path d="M-2.3,-1.2 C-2.3,-2.8 -1.1,-4 0,-4 C1.1,-4 2.3,-2.8 2.3,-1.2 C2.3,-0.1 1.7,0.6 1.2,1.2 C0.9,1.6 0.7,2 0.7,2.5 L-0.7,2.5 C-0.7,2 -0.9,1.6 -1.2,1.2 C-1.7,0.6 -2.3,-0.1 -2.3,-1.2 Z"/>' +
+    '<path d="M-0.7,2.5 L-0.7,3.3 L0.7,3.3 L0.7,2.5"/>' +
+    '<path d="M-1,-1.4 L-0.2,-0.3 L1.4,-2.2"/></g>' +
+    '<path d="M11,3.6 L11,2.4 M8.3,4.7 L7.5,3.9 M13.7,4.7 L14.5,3.9"/>',
 };
 
 function bucketIconSvg(bucketId) {
   return `<svg class="mem-bucket-icon" viewBox="0 0 24 24" aria-hidden="true">
     <path d="${BUCKET_HEAD_PATH}"/>
     <path d="${BUCKET_EAR_PATH}"/>
-    <circle cx="10.3" cy="6.7" r="3.3"/>
-    <g transform="translate(10.3,6.7)">${BUCKET_BADGE_INSETS[bucketId] || ""}</g>
+    <g stroke-width="1.1">${BUCKET_CONTENT[bucketId] || ""}</g>
   </svg>`;
 }
 
@@ -143,23 +151,6 @@ function masteryColor(verse) {
 
 // ---------- Home view: categories, mode tabs, verse list ----------
 
-// "OT"/"NT" from a verse's reference (e.g. "Genesis 6:14" -> "OT",
-// "John 3:16" -> "NT") — the built-in split offered in place of custom
-// categories when none have been set up yet (see renderCategoryRow).
-function testamentForVerse(v) {
-  // parseReadingLabel's verse-range regex only tolerates a plain hyphen —
-  // imported references often use an en dash instead (e.g. "4:17–18"),
-  // which would otherwise fail to match at all and silently drop the verse
-  // out of both OT and NT.
-  const normalizedRef = (v.reference || "").replace(/[‒-―]/g, "-");
-  const parsed = parseReadingLabel(normalizedRef)[0];
-  const bookName = parsed && resolveBookName(parsed.book);
-  if (!bookName) return null;
-  const idx = bookIndex(bookName);
-  if (idx === -1) return null;
-  return idx < OT_BOOK_COUNT ? "OT" : "NT";
-}
-
 // Which of the three BUCKETS a verse is currently filed under for the
 // active user — missing/no-user defaults to "memorizing" so pre-existing
 // verses (added before buckets existed) show up in the main working set.
@@ -173,9 +164,7 @@ function versesInSelectedBucket() {
 
 function filteredVerses() {
   let list = versesInSelectedBucket();
-  if (selectedCategoryId === "OT" || selectedCategoryId === "NT") {
-    list = list.filter((v) => testamentForVerse(v) === selectedCategoryId);
-  } else if (selectedCategoryId) {
+  if (selectedCategoryId) {
     list = list.filter((v) => v.categoryId === selectedCategoryId);
   }
   return list;
@@ -197,6 +186,12 @@ function renderBucketTabs() {
 
 function renderCategoryRow() {
   const row = refs.categoryRow;
+  // No custom categories made yet — nothing to filter by, so skip the row
+  // entirely rather than showing a lone, useless "All" chip.
+  if (categories.length === 0) {
+    row.hidden = true;
+    return;
+  }
   row.hidden = false;
   row.innerHTML = "";
   const base = versesInSelectedBucket();
@@ -210,25 +205,6 @@ function renderCategoryRow() {
     renderVerseList();
   });
   row.appendChild(allChip);
-
-  // Old/New Testament are auto-assigned from each verse's reference, so
-  // they're always available alongside any custom categories — not just
-  // a fallback for when no custom categories have been made yet.
-  [
-    ["OT", "Old Testament"],
-    ["NT", "New Testament"],
-  ].forEach(([testament, label]) => {
-    const count = base.filter((v) => testamentForVerse(v) === testament).length;
-    const chip = document.createElement("button");
-    chip.className = "chip" + (selectedCategoryId === testament ? " active" : "");
-    chip.textContent = `${label} (${count})`;
-    chip.addEventListener("click", () => {
-      selectedCategoryId = testament;
-      renderCategoryRow();
-      renderVerseList();
-    });
-    row.appendChild(chip);
-  });
 
   categories.forEach((cat) => {
     const count = base.filter((v) => v.categoryId === cat.id).length;

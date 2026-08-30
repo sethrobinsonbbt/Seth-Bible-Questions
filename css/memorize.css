@@ -1,0 +1,441 @@
+/* Memorize: bucket tabs, verse list, Fill in the Blank, and Flashcards
+   (js/memorize.js). */
+
+.back-btn {
+  margin-bottom: 0.8rem;
+}
+
+.mem-mode-tabs {
+  display: flex;
+  background: var(--btn-bg);
+  border-radius: 999px;
+  padding: 0.25rem;
+  margin-bottom: 1rem;
+  gap: 0.25rem;
+}
+
+.mem-mode-tab {
+  flex: 1 1 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  padding: 0.5rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.mem-mode-tab.active {
+  background: var(--card-bg);
+  color: var(--indigo);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+
+.mem-verse-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.mem-verse-list[hidden] {
+  display: none;
+}
+
+.mem-verse-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+}
+
+.mem-verse-card {
+  cursor: pointer;
+}
+
+.mem-verse-card:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+
+.mem-verse-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.mem-verse-card-top-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.mem-mastery-dot {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.mem-verse-snippet {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.mem-bucket-icon {
+  width: 1.15em;
+  height: 1.15em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: middle;
+  flex: 0 0 auto;
+}
+
+.mem-bucket-pick {
+  position: relative;
+}
+
+.mem-bucket-pick > summary {
+  display: flex;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-muted);
+  padding: 0.15rem;
+  border-radius: 6px;
+}
+
+.mem-bucket-pick > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mem-bucket-pick[open] > summary {
+  background: var(--btn-bg);
+  color: var(--indigo);
+}
+
+.mem-bucket-pick-panel {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 20;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 190px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+}
+
+.mem-bucket-pick-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.mem-bucket-pick-option.active {
+  background: var(--btn-bg);
+  color: var(--indigo);
+  font-weight: 600;
+}
+
+.mem-blanks-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.6rem;
+}
+
+/* ---------- Fill in the Blank (challenge picker + blanks) ---------- */
+
+.mem-challenge-label {
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0.5rem 0;
+}
+
+.mem-ref-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--btn-bg);
+  color: var(--indigo);
+  font-weight: 700;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
+.mem-challenge-verse-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin: 0.8rem 0;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  text-align: center;
+  font-style: italic;
+}
+
+.mem-challenge-heading {
+  font-weight: 700;
+  margin: 1rem 0 0.6rem;
+  text-align: center;
+}
+
+.mem-challenge-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.mem-challenge-option {
+  border: 2px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 0.8rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.mem-challenge-option.active {
+  border-color: var(--indigo);
+  background: var(--btn-bg);
+}
+
+.mem-challenge-option-label {
+  font-weight: 700;
+}
+
+.mem-challenge-option small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  margin-right: 0.25rem;
+}
+
+.dot-easy { background: #22c55e; }
+.dot-medium { background: #f0b429; }
+.dot-hard { background: #ef4444; }
+.dot-blanksonly { background: #6b21a8; }
+
+.mem-practice-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.mem-difficulty-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.mem-blanks-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.2rem 1rem;
+  font-size: 1.15rem;
+  line-height: 2.6;
+  margin-bottom: 0.8rem;
+  text-align: center;
+}
+
+.blank-word {
+  white-space: nowrap;
+  position: relative;
+  display: inline-block;
+}
+
+.blank-pending {
+  background: var(--btn-bg);
+  border-radius: 8px;
+  padding: 0.1rem 0.3rem;
+}
+
+.blank-correct {
+  color: var(--success-text);
+  font-weight: 600;
+}
+
+.blank-helped {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-style: italic;
+}
+
+.blank-wrong-flash {
+  background: var(--danger-bg);
+}
+
+.blank-x-flash {
+  position: absolute;
+  top: -1.1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--danger);
+  font-weight: 800;
+  font-size: 0.9rem;
+  animation: blank-x-pop 0.5s ease-out forwards;
+}
+
+@keyframes blank-x-pop {
+  0% { opacity: 0; transform: translate(-50%, 0.2rem) scale(0.7); }
+  25% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -0.3rem) scale(1); }
+}
+
+.letter-input {
+  width: 1.5rem;
+  text-align: center;
+  border: none;
+  background: transparent;
+  border-bottom: 2px solid var(--text-muted);
+  padding: 0.1rem;
+  font-size: 1rem;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.letter-input:focus {
+  outline: none;
+  border-bottom-color: var(--indigo);
+}
+
+/* ---------- Flashcards ---------- */
+
+.mem-flashcard {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.2rem;
+  min-height: 8rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin-bottom: 0.9rem;
+}
+
+.mem-flashcard-main {
+  font-size: 1.15rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.mem-flashcard-divider {
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.9rem 0;
+}
+
+.mem-flashcard-back {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--indigo);
+  margin: 0;
+}
+
+.mem-grade-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.mem-grade-btn {
+  font-weight: 700;
+  padding: 0.7rem 0.3rem;
+}
+
+.mem-grade-fail { background: var(--danger-bg); color: var(--danger); }
+.mem-grade-hard { background: #fef1da; color: #b45309; }
+.mem-grade-good { background: #dbeafe; color: #1d4ed8; }
+.mem-grade-easy { background: var(--success-bg); color: var(--success-text); }
+
+.mem-startwith-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.mem-startwith-toggle {
+  display: flex;
+  background: var(--btn-bg);
+  border-radius: 999px;
+  padding: 0.2rem;
+  gap: 0.2rem;
+}
+
+.mem-startwith-btn {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.mem-startwith-btn.active {
+  background: var(--card-bg);
+  color: var(--indigo);
+}
+
+.practice-feedback {
+  font-weight: 600;
+  min-height: 1.2em;
+}
+
+.feedback-correct {
+  color: var(--success-text);
+}
+
+.feedback-wrong {
+  color: var(--danger);
+}

@@ -1,0 +1,250 @@
+/* Reading Plan: daily reading card, custom-plan checklist, and the
+   manage-plans page (js/planner.js). */
+
+.daily-reading-card {
+  background: linear-gradient(135deg, var(--indigo), var(--indigo-dark));
+  border-radius: var(--radius);
+  padding: 1.1rem 1.1rem 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 24px rgba(79,70,229,0.25);
+}
+
+.daily-reading-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.daily-reading-date-btn {
+  border: none;
+  background: rgba(255,255,255,0.12);
+  color: white;
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+}
+
+.daily-reading-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.daily-reading-card .plan-row {
+  background: rgba(255,255,255,0.92);
+  color: var(--fixed-light-text);
+}
+
+.daily-reading-card .plan-row .check-toggle-mark {
+  background: var(--fixed-light-bg);
+}
+
+.daily-reading-card .plan-row-done .plan-row-label {
+  color: var(--fixed-light-text-muted);
+}
+
+.change-plan-link {
+  display: block;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  padding: 0.4rem 0;
+  margin: 0.4rem 0 0.8rem;
+}
+
+.plan-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+.plan-range {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+}
+
+.plan-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.plan-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.8rem;
+}
+
+.check-toggle {
+  position: relative;
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+}
+
+.check-toggle input[type="checkbox"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.check-toggle-mark {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.check-toggle-mark::after {
+  content: "";
+  position: absolute;
+  left: 0.42rem;
+  top: 0.2rem;
+  width: 0.32rem;
+  height: 0.62rem;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.check-toggle input[type="checkbox"]:checked + .check-toggle-mark {
+  background: var(--indigo);
+  border-color: var(--indigo);
+}
+
+.check-toggle input[type="checkbox"]:checked + .check-toggle-mark::after {
+  opacity: 1;
+}
+
+.check-toggle input[type="checkbox"]:focus-visible + .check-toggle-mark {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+
+.mark-all-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.6rem;
+}
+
+.plan-status {
+  background: rgba(255,255,255,0.12);
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  margin-bottom: 0.6rem;
+  color: white;
+}
+
+.plan-status:empty {
+  display: none;
+}
+
+.plan-status-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.85);
+}
+
+.plan-stats-row {
+  display: flex;
+  gap: 1.2rem;
+  margin-bottom: 0.6rem;
+}
+
+.plan-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.plan-stat strong {
+  font-size: 1.3rem;
+  line-height: 1.1;
+}
+
+.plan-stat span {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.8);
+}
+
+.missed-days {
+  margin-bottom: 0.6rem;
+  color: white;
+}
+
+.missed-days summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.missed-days-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.missed-days-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255,255,255,0.92);
+  color: var(--fixed-light-text);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.missed-day-checkbox {
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.missed-day-label {
+  flex: 1 1 auto;
+}
+
+.missed-days-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.plan-row-label {
+  flex: 1 1 auto;
+}
+
+.plan-row-done .plan-row-label {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}

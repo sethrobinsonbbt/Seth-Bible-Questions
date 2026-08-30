@@ -35,15 +35,13 @@ device, driving whose score gets tracked wherever progress applies
   Adding/deleting questions still lives in Setup.
 - **Memorize** — a bank of King James verses, filed into three per-person
   buckets (Memorizing / Future Memorization / Already Memorized — same
-  head icon for all three, distinguished by a small gear/calendar/check
-  badge; pick one per verse from a compact icon-only dropdown), and
-  further filterable by category — a built-in **Old/New Testament**
-  split (auto-detected from each verse's reference) is always available
-  alongside any custom categories you make. A small mastery dot per verse
-  (gray until practiced, then green-to-red by how well recent attempts
-  went) and two practice modes chosen via a tab: **Fill in the Blank**
-  (choose a difficulty — Easy/Medium/Hard/Blanks Only blank out roughly
-  25/50/75/100% of the verse's words;
+  head icon for all three, showing a gear, a brain, or a lightbulb-and-
+  checkmark; pick one per verse from a compact icon-only dropdown), and
+  further filterable by any custom categories you make in Setup. A small
+  mastery dot per verse (gray until practiced, then green-to-red by how
+  well recent attempts went) and two practice modes chosen via a tab:
+  **Fill in the Blank** (choose a difficulty — Easy/Medium/Hard/Blanks
+  Only blank out roughly 25/50/75/100% of the verse's words;
   type the first letter of each blanked word, peek at the full verse any
   time via a toggle, and an **IDK** button or 3 wrong attempts auto-fills
   the current word and moves on) and **Flashcards** (verse-or-reference,
@@ -531,13 +529,12 @@ tab row along the top — three per-person buckets a verse can be filed
 under (see the per-verse picker below), defaulting to Memorizing so
 every newly-added verse (and anything added before buckets existed)
 starts in the main working set. All three share the same head-in-profile
-icon; only the small badge on the forehead differs — a gear for
-Memorizing (in progress), a little day-calendar showing "9" for Future
-Memorization, a check for Already Memorized. Below that, category chips
-(**All**, an always-available **Old Testament / New Testament** split
-auto-detected from each verse's reference, plus any custom categories
-made in Setup),
-a **✍️ Fill in the Blank** / **🗂️ Flashcards** tab that picks which mode
+icon; only the icon filling the "brain" changes — a gear with a few
+sparks for Memorizing (actively working on it), a brain for Future
+Memorization, a lightbulb with a checkmark for Already Memorized (got
+it). Below that, category chips — skipped entirely until you make at
+least one custom category in Setup — a **✍️ Fill in the Blank** /
+**🗂️ Flashcards** tab that picks which mode
 a verse launches into, a **▶ Play** button, and the verse list itself.
 Each verse's row shows a small mastery dot (top-right — gray until
 you've practiced it at all, then colored green-to-red by how well recent
@@ -625,7 +622,15 @@ matching anything.
 
 ## Files
 
-- `index.html` / `style.css` — page shell and all styling.
+- `index.html` — page shell (links all the stylesheets below).
+- `css/base.css` — shared theme tokens, header/menu chrome, and generic
+  components (buttons, modals, cards, chips, forms) reused across two or
+  more sections.
+- `css/questions.css`, `css/bible.css`, `css/planner.css`,
+  `css/memorize.css`, `css/settings.css` — one stylesheet per section,
+  holding only the styles specific to it. Splitting it this way (instead
+  of one large `style.css`) keeps a change to one section's look from
+  requiring a read through everyone else's.
 - `js/main.js` — top-level section navigation and app bootstrapping.
 - `js/firebase.js` — shared Firebase init (anonymous auth + Firestore).
 - `js/users.js` — shared "family members" Firestore collection (state +
@@ -671,9 +676,9 @@ matching anything.
 - `js/daily-plan-data.js` — tracks whether the Daily Reading plan has
   been "started" and computes completed/missed-day stats since then.
 - `js/memorize.js` — the verse memorization section (per-user
-  Memorizing/Future/Memorized buckets, categories alongside the always-on
-  OT/NT split, mode tabs, verse list with mastery stars, Fill in the
-  Blank, Flashcards, and the shared "Next Verse" picker both modes use).
+  Memorizing/Future/Memorized buckets, custom categories, mode tabs,
+  verse list with a mastery dot, Fill in the Blank, Flashcards, and the
+  shared "Next Verse" picker both modes use).
 - `js/memorize-data.js` — shared "memoryVerses" and "verseCategories"
   Firestore collections (state + CRUD + per-user progress reset, a
   rolling last-5-attempt-score window per verse, and per-user bucket

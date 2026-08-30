@@ -1,0 +1,128 @@
+/* Questions quiz card (js/questions.js). */
+
+.random-card {
+  background: linear-gradient(135deg, var(--indigo), var(--indigo-dark));
+  color: white;
+  border-radius: var(--radius);
+  padding: 1.3rem 1.3rem 1.1rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 8px 24px rgba(79,70,229,0.25);
+}
+
+.random-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.random-card-top-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+}
+
+.random-edit-btn {
+  border: none;
+  background: rgba(255,255,255,0.18);
+  color: inherit;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.random-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+  margin-bottom: 0.4rem;
+}
+
+.random-question-stat {
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: rgba(255,255,255,0.18);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.random-question-stat-warn {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.random-score {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-bottom: 0.5rem;
+}
+
+.random-text {
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 0 0 0.6rem;
+}
+
+.random-answer {
+  font-size: 1.05rem;
+  font-weight: 600;
+  background: rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  margin: 0 0 0.8rem;
+}
+
+.random-verse-text {
+  font-size: 0.95rem;
+  font-style: italic;
+  background: rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  margin: -0.4rem 0 0.8rem;
+  line-height: 1.4;
+}
+
+.random-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.nav-link-btn {
+  border: none;
+  background: none;
+  color: rgba(255,255,255,0.85);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.6rem 0.5rem;
+}
+
+.nav-link-btn:disabled {
+  opacity: 0.35;
+}
+
+.random-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.random-actions-score {
+  justify-content: stretch;
+}
+
+.random-actions-score .btn {
+  flex: 1 1 0;
+  min-height: 3rem;
+}
