@@ -376,10 +376,14 @@ a Switch Family action:
   (also still accepts an old JSON export) — **⬇️ Download template**
   in the Import dialog gives you a starter file with the right columns.
   Import shows a preview before anything is added (now properly
-  scrollable if it runs long): rows whose text exactly matches a
-  question already in the library are flagged as likely duplicates and
-  skipped by default (existing questions are never overwritten), with a
-  checkbox to import them anyway if you really do want a second copy.
+  scrollable if it runs long): rows whose text matches a question
+  already in the library (tolerating the odd curly-quote/whitespace
+  changes Excel/Sheets tend to introduce on a round-trip) update that
+  question's answer/reference/assignment in place instead of adding a
+  duplicate — the whole point being that exporting your questions,
+  editing them, and re-importing is a safe way to bulk-edit, not
+  something that doubles everything up. Only genuinely new question
+  text gets added as a new question.
 - **✍️ Memory Verses** — **Categories**: **+ Add Category** to name a
   group (e.g. "Salvation", "Peace"); **Rename** or **Delete** any of them
   (deleting a category un-categorizes its verses rather than deleting

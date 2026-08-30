@@ -24,6 +24,7 @@ import {
   subscribeMemoryVerses,
   subscribeVerseCategories,
   addMemoryVerse,
+  updateMemoryVerseText,
   addVerseCategory,
   updateVerseCategory,
   deleteVerseCategory,
@@ -131,6 +132,22 @@ function escapeHtml(str) {
 // data arrived as a spreadsheet or as pasted JSON from an older export.
 function normalizeHeader(h) {
   return (h || "").toString().trim().toLowerCase().replace(/[\s_]+/g, "");
+}
+
+// Matches an imported row back to an existing question/verse by its text
+// (or reference), tolerating the round-trip noise Excel/Sheets commonly
+// introduce — curly quotes swapped in for straight ones, doubled-up
+// whitespace, stray leading/trailing spaces — so editing a spreadsheet
+// and re-importing it updates the matching item instead of silently
+// failing to match and getting added as a duplicate.
+function normalizeForMatch(str) {
+  return (str || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/\s+/g, " ");
 }
 
 function splitDelimited(raw, delimiter) {
@@ -529,7 +546,7 @@ function openImportModal({ title, hint, sampleText, existingItems, keyFn, parseR
     reader.readAsText(file);
   });
 
-  const existingKeys = new Set(existingItems.map(keyFn));
+  const existingByKey = new Map(existingItems.map((item) => [keyFn(item), item]));
   let readyRows = null;
 
   previewBtn.addEventListener("click", () => {
@@ -552,22 +569,23 @@ function openImportModal({ title, hint, sampleText, existingItems, keyFn, parseR
       return;
     }
 
-    readyRows = rows.map((row) => ({ row, isDuplicate: existingKeys.has(keyFn(row)) }));
-    const dupCount = readyRows.filter((r) => r.isDuplicate).length;
+    readyRows = rows.map((row) => ({ row, existingMatch: existingByKey.get(keyFn(row)) }));
+    const updateCount = readyRows.filter((r) => r.existingMatch).length;
 
     previewEl.hidden = false;
     previewEl.innerHTML = `
       <p>${rows.length} row${rows.length === 1 ? "" : "s"} found${
-        dupCount > 0 ? ` — ${dupCount} look${dupCount === 1 ? "s" : ""} like ${dupCount === 1 ? "a duplicate" : "duplicates"} of something already here` : ""
+        updateCount > 0
+          ? ` — ${updateCount} match${updateCount === 1 ? "es" : ""} something already here and will be updated in place (not duplicated)`
+          : ""
       }.</p>
-      ${dupCount > 0 ? `<label class="import-dupe-toggle"><input type="checkbox" id="import-include-dupes" /> Import duplicates too (adds a second copy instead of skipping them)</label>` : ""}
       <ul class="question-list">
         ${readyRows
           .slice(0, 20)
           .map(
-            ({ row, isDuplicate }) =>
+            ({ row, existingMatch }) =>
               `<li class="question-card"><p class="question-text">${escapeHtml(describeRow(row))}</p>${
-                isDuplicate ? `<p class="question-score">🔁 looks like a duplicate</p>` : ""
+                existingMatch ? `<p class="question-score">🔁 already here — will update</p>` : ""
               }</li>`
           )
           .join("")}
@@ -579,16 +597,14 @@ function openImportModal({ title, hint, sampleText, existingItems, keyFn, parseR
 
   confirmBtn.addEventListener("click", () => {
     if (!readyRows) return;
-    const includeDupesBox = backdrop.querySelector("#import-include-dupes");
-    const includeDupes = includeDupesBox ? includeDupesBox.checked : false;
-    let count = 0;
-    readyRows.forEach(({ row, isDuplicate }) => {
-      if (isDuplicate && !includeDupes) return;
-      onImportRow(row);
-      count++;
-    });
+    const updateCount = readyRows.filter((r) => r.existingMatch).length;
+    readyRows.forEach(({ row, existingMatch }) => onImportRow(row, existingMatch));
     close();
-    alert(`Imported ${count} ${count === 1 ? "item" : "items"}.${count < readyRows.length ? ` (${readyRows.length - count} duplicate${readyRows.length - count === 1 ? "" : "s"} skipped.)` : ""}`);
+    const addCount = readyRows.length - updateCount;
+    const parts = [];
+    if (addCount > 0) parts.push(`${addCount} added`);
+    if (updateCount > 0) parts.push(`${updateCount} updated`);
+    alert(`Done — ${parts.join(", ")}.`);
   });
 }
 
@@ -775,7 +791,7 @@ function closeAddQuestionModal() {
 }
 
 function questionKey(item) {
-  return (item.text || "").trim().toLowerCase();
+  return normalizeForMatch(item.text);
 }
 
 const QUESTION_CSV_HEADERS = ["text", "answer", "reference", "assignedTo"];
@@ -826,7 +842,16 @@ function openQuestionImportModal() {
     keyFn: questionKey,
     parseRows: parseQuestionRows,
     describeRow: (row) => row.text + (row.answer ? ` — ${row.answer}` : ""),
-    onImportRow: (row) => addQuestion(row.text, row.answer, row.reference, row.assignedTo),
+    onImportRow: (row, existingMatch) => {
+      if (existingMatch) {
+        updateQuestion(existingMatch.id, row.text, row.answer, row.reference);
+        if (row.assignedTo !== (existingMatch.assignedTo || null)) {
+          updateQuestionAssignment(existingMatch.id, row.assignedTo);
+        }
+      } else {
+        addQuestion(row.text, row.answer, row.reference, row.assignedTo);
+      }
+    },
     downloadTemplate: downloadQuestionTemplate,
   });
 }
@@ -1100,7 +1125,7 @@ function renderVersesAdmin() {
 }
 
 function verseKey(item) {
-  return (item.reference || "").trim().toLowerCase();
+  return normalizeForMatch(item.reference);
 }
 
 const VERSE_CSV_HEADERS = ["reference", "text", "category"];
@@ -1144,7 +1169,16 @@ function openVerseImportModal() {
     describeRow: (row) =>
       `${row.reference} — ${row.text.length > 70 ? row.text.slice(0, 70) + "…" : row.text}` +
       (row.categoryName && !row.categoryId ? ` (category "${row.categoryName}" not found — will be Uncategorized)` : ""),
-    onImportRow: (row) => addMemoryVerse(row.reference, row.text, row.categoryId),
+    onImportRow: (row, existingMatch) => {
+      if (existingMatch) {
+        updateMemoryVerseText(existingMatch.id, row.reference, row.text);
+        if (row.categoryId !== (existingMatch.categoryId || null)) {
+          assignVerseCategory(existingMatch.id, row.categoryId);
+        }
+      } else {
+        addMemoryVerse(row.reference, row.text, row.categoryId);
+      }
+    },
     downloadTemplate: downloadVerseTemplate,
   });
 }

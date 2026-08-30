@@ -78,6 +78,13 @@ export function deleteMemoryVerse(id) {
   versesCollection().doc(id).delete();
 }
 
+// Updates a verse's reference/text in place (e.g. fixing a typo via
+// re-import) without touching its progress or bucket assignments.
+export function updateMemoryVerseText(id, reference, text) {
+  if (!db) return;
+  versesCollection().doc(id).update({ reference, text });
+}
+
 export function assignVerseCategory(verseId, categoryId) {
   if (!db) return;
   versesCollection().doc(verseId).update({ categoryId: categoryId || null });
