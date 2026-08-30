@@ -22,12 +22,18 @@ import {
 } from "./questions-data.js";
 import { QUESTION_BANK } from "./question-bank-data.js";
 import { FAMILY_QUESTIONS } from "./family-question-bank.js";
+import { subscribeMemoryVerses } from "./memorize-data.js";
+import { subscribePlanState } from "./daily-plan-data.js";
+import { ready } from "./firebase.js";
 
 const PASSWORD = "1967";
 const UNLOCK_KEY = "bible-questions-settings-unlocked";
 
 let users = [];
 let questions = [];
+let memoryVerses = [];
+let planState = null;
+let planStats = null;
 let editingUserId = null;
 let addingUser = false;
 let editingQuestionId = null;
@@ -368,6 +374,94 @@ function renderQuestionsAdmin() {
   });
 }
 
+// ---------- Family stats ----------
+
+function renderFamilyStats() {
+  const listEl = refs.statsList;
+  listEl.innerHTML = "";
+  refs.statsEmpty.hidden = users.length !== 0;
+
+  users.forEach((user) => {
+    let qCorrect = 0;
+    let qWrong = 0;
+    questions.forEach((q) => {
+      const p = q.progress && q.progress[user.id];
+      if (p) {
+        qCorrect += p.correctCount || 0;
+        qWrong += p.wrongCount || 0;
+      }
+    });
+
+    let vCorrect = 0;
+    let vAttempts = 0;
+    memoryVerses.forEach((v) => {
+      const p = v.progress && v.progress[user.id];
+      if (p) {
+        vCorrect += p.correctCount || 0;
+        vAttempts += p.attempts || 0;
+      }
+    });
+
+    const li = document.createElement("li");
+    li.className = "question-card";
+
+    const name = document.createElement("p");
+    name.className = "question-text";
+    name.textContent = user.name;
+    li.appendChild(name);
+
+    const line = document.createElement("p");
+    line.className = "question-answer";
+    line.textContent = `📖 Questions: ✅ ${qCorrect} · ❌ ${qWrong}   ✍️ Memorize: ✅ ${vCorrect} / ${vAttempts} attempts`;
+    li.appendChild(line);
+
+    listEl.appendChild(li);
+  });
+}
+
+function renderReadingPlanStat() {
+  const el = refs.readingPlanStat;
+  if (!planState) {
+    el.textContent = "📅 Daily Reading Plan: not started yet (see the Reading Plan page).";
+    return;
+  }
+  const stats = planStats || { completed: 0, missed: 0 };
+  el.textContent = `📅 Daily Reading Plan (family-wide): ✅ ${stats.completed} completed · ❌ ${stats.missed} missed`;
+}
+
+// ---------- Data export ----------
+
+async function exportAllData() {
+  const btn = refs.exportBtn;
+  const originalText = btn.textContent;
+  btn.textContent = "Exporting…";
+  btn.disabled = true;
+  try {
+    const db = await ready;
+    const collectionNames = ["users", "questions", "memoryVerses", "readingPlans", "dailyReadingProgress", "appState"];
+    const data = {};
+    for (const name of collectionNames) {
+      const snapshot = await db.collection(name).get();
+      data[name] = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bible-questions-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(err);
+    alert("Couldn't export data — check your internet connection and try again.");
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
 // ---------- Add-question modal ----------
 
 function openAddQuestionModal() {
@@ -446,6 +540,23 @@ function buildUnlockedView(container) {
       <p id="admin-question-empty" class="empty-state" hidden>No questions match this filter.</p>
     </div>
 
+    <div class="settings-panel">
+      <div class="list-toolbar">
+        <h2>Family Stats</h2>
+      </div>
+      <p id="reading-plan-stat" class="question-score"></p>
+      <ul id="family-stats-list" class="question-list"></ul>
+      <p id="family-stats-empty" class="empty-state" hidden>Add family members to see stats.</p>
+    </div>
+
+    <div class="settings-panel">
+      <div class="list-toolbar">
+        <h2>Backup</h2>
+      </div>
+      <p class="settings-fineprint">Download everything — family members, questions, memory verses, reading plans and progress — as one JSON file.</p>
+      <button id="export-data-btn" class="btn">⬇️ Export All Data</button>
+    </div>
+
     <div id="settings-question-modal-backdrop" class="modal-backdrop" hidden>
       <div class="modal">
         <h3>Add Question</h3>
@@ -477,6 +588,11 @@ function buildUnlockedView(container) {
   refs.qModalReference = container.querySelector("#settings-question-reference");
   refs.qModalAssignWrap = container.querySelector("#settings-question-assign-wrap");
   refs.qModalError = container.querySelector("#settings-question-error");
+  refs.statsList = container.querySelector("#family-stats-list");
+  refs.statsEmpty = container.querySelector("#family-stats-empty");
+  refs.readingPlanStat = container.querySelector("#reading-plan-stat");
+  refs.exportBtn = container.querySelector("#export-data-btn");
+  refs.exportBtn.addEventListener("click", exportAllData);
 
   container.querySelector("#settings-lock-btn").addEventListener("click", () => {
     setUnlocked(false);
@@ -523,6 +639,8 @@ function buildUnlockedView(container) {
 
   renderUsers();
   renderQuestionsAdmin();
+  renderFamilyStats();
+  renderReadingPlanStat();
 }
 
 export function mountSettings(container) {
@@ -535,9 +653,20 @@ export function mountSettings(container) {
   subscribeUsers((updated) => {
     users = updated;
     if (refs.userList) renderUsers();
+    if (refs.statsList) renderFamilyStats();
   });
   subscribeQuestions((updated) => {
     questions = updated;
     if (refs.adminQuestionList) renderQuestionsAdmin();
+    if (refs.statsList) renderFamilyStats();
+  });
+  subscribeMemoryVerses((updated) => {
+    memoryVerses = updated;
+    if (refs.statsList) renderFamilyStats();
+  });
+  subscribePlanState(({ planState: state, planStats: stats }) => {
+    planState = state;
+    planStats = stats;
+    if (refs.readingPlanStat) renderReadingPlanStat();
   });
 }

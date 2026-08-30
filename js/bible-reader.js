@@ -2,12 +2,18 @@ import { BOOKS, BIBLE_VERSIONS } from "./bible-data.js";
 import { fetchChapter } from "./bible-api.js";
 import { addQuestion } from "./questions-data.js";
 import { buildAgeGroupSelect } from "./age-groups-data.js";
+import { populateChapterSelect as populatePickerChapterSelect, loadChapterVerses, computeVerseSelection } from "./verse-picker.js";
+import { addMemoryVerse, getActiveMemorizeUser, setActiveMemorizeUser } from "./memorize-data.js";
+import { subscribeUsers } from "./users.js";
 
 const STORAGE_KEY = "bible-reader-state";
 
 let state = loadState();
 let refs = {};
 let requestId = 0;
+let speaking = false;
+let users = [];
+let pickerVerses = []; // verses of the chapter currently loaded in the M+ modal
 
 function loadState() {
   try {
@@ -46,7 +52,10 @@ function buildSkeleton(container) {
     </div>
     <div class="bible-nav-row">
       <button id="bible-prev-btn" class="btn btn-small">← Previous</button>
-      <button id="bible-addq-btn" class="q-plus-btn" aria-label="Add a question">Q<sup>+</sup></button>
+      <div class="bible-plus-group">
+        <button id="bible-addq-btn" class="q-plus-btn" aria-label="Add a question">Q<sup>+</sup></button>
+        <button id="bible-addm-btn" class="q-plus-btn m-plus-btn" aria-label="Add a memory verse">M<sup>+</sup></button>
+      </div>
       <button id="bible-next-btn" class="btn btn-small">Next →</button>
     </div>
     <div id="bible-content" class="bible-content"></div>
@@ -66,6 +75,29 @@ function buildSkeleton(container) {
         <div class="modal-actions">
           <button id="bible-addq-cancel-btn" class="btn">Cancel</button>
           <button id="bible-addq-save-btn" class="btn btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="bible-addm-modal-backdrop" class="modal-backdrop" hidden>
+      <div class="modal">
+        <h3>Add a Memory Verse</h3>
+        <label for="bible-addm-user-select">Who's memorizing?</label>
+        <select id="bible-addm-user-select" class="assign-select"></select>
+        <div class="verse-picker-controls">
+          <select id="bible-addm-book-select" class="bible-select"></select>
+          <select id="bible-addm-chapter-select" class="bible-select"></select>
+        </div>
+        <p class="blank-help">Uncheck any verses you don't want to memorize.</p>
+        <div class="verse-picker-select-row" id="bible-addm-select-row" hidden>
+          <button id="bible-addm-select-all-btn" class="btn btn-small">Select All</button>
+          <button id="bible-addm-select-none-btn" class="btn btn-small">Select None</button>
+        </div>
+        <div id="bible-addm-verse-list" class="verse-picker-list"></div>
+        <p id="bible-addm-error" class="form-error" hidden></p>
+        <div class="modal-actions">
+          <button id="bible-addm-cancel-btn" class="btn">Cancel</button>
+          <button id="bible-addm-save-btn" class="btn btn-primary">Add Selected</button>
         </div>
       </div>
     </div>
@@ -91,6 +123,36 @@ function buildSkeleton(container) {
     if (e.target === refs.addqModalBackdrop) closeAddQModal();
   });
   container.querySelector("#bible-addq-save-btn").addEventListener("click", saveQuickQuestion);
+
+  refs.addmBtn = container.querySelector("#bible-addm-btn");
+  refs.addmModalBackdrop = container.querySelector("#bible-addm-modal-backdrop");
+  refs.addmUserSelect = container.querySelector("#bible-addm-user-select");
+  refs.addmBookSelect = container.querySelector("#bible-addm-book-select");
+  refs.addmChapterSelect = container.querySelector("#bible-addm-chapter-select");
+  refs.addmSelectRow = container.querySelector("#bible-addm-select-row");
+  refs.addmVerseList = container.querySelector("#bible-addm-verse-list");
+  refs.addmError = container.querySelector("#bible-addm-error");
+
+  BOOKS.forEach((b) => {
+    const opt = document.createElement("option");
+    opt.value = b.name;
+    opt.textContent = b.name;
+    refs.addmBookSelect.appendChild(opt);
+  });
+
+  refs.addmBtn.addEventListener("click", openAddMModal);
+  container.querySelector("#bible-addm-cancel-btn").addEventListener("click", closeAddMModal);
+  refs.addmModalBackdrop.addEventListener("click", (e) => {
+    if (e.target === refs.addmModalBackdrop) closeAddMModal();
+  });
+  container.querySelector("#bible-addm-save-btn").addEventListener("click", saveVerseFromPicker);
+  container.querySelector("#bible-addm-select-all-btn").addEventListener("click", () => setAllPickerChecked(true));
+  container.querySelector("#bible-addm-select-none-btn").addEventListener("click", () => setAllPickerChecked(false));
+  refs.addmBookSelect.addEventListener("change", () => {
+    populatePickerChapterSelect(refs.addmChapterSelect, refs.addmBookSelect.value);
+    loadPickerChapter();
+  });
+  refs.addmChapterSelect.addEventListener("change", loadPickerChapter);
 
   BIBLE_VERSIONS.forEach((v) => {
     const opt = document.createElement("option");
@@ -175,6 +237,7 @@ function step(delta) {
 
 async function loadChapter() {
   const myRequest = ++requestId;
+  stopListening();
   refs.content.innerHTML = `<p class="bible-status">Loading ${state.book} ${state.chapter}…</p>`;
 
   try {
@@ -185,10 +248,22 @@ async function loadChapter() {
       .map((v) => `<p class="bible-verse"><sup>${v.verse}</sup> ${escapeHtml(v.text)}</p>`)
       .join("");
 
+    const listenBtn = supportsSpeech()
+      ? `<button id="bible-listen-btn" class="btn btn-small listen-btn">🔊 Listen</button>`
+      : "";
+
     refs.content.innerHTML = `
-      <h3 class="bible-chapter-heading">${escapeHtml(data.reference)} — ${escapeHtml(data.translationName)}</h3>
+      <div class="bible-chapter-heading-row">
+        <h3 class="bible-chapter-heading">${escapeHtml(data.reference)} — ${escapeHtml(data.translationName)}</h3>
+        ${listenBtn}
+      </div>
       ${verseHtml || '<p class="bible-status">No verses returned.</p>'}
     `;
+
+    if (supportsSpeech()) {
+      const chapterText = data.verses.map((v) => v.text).join(" ");
+      refs.content.querySelector("#bible-listen-btn").addEventListener("click", () => toggleListen(chapterText));
+    }
   } catch (err) {
     if (myRequest !== requestId) return;
     console.error(err);
@@ -208,6 +283,39 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
+}
+
+// ---------- Read-aloud ----------
+
+function supportsSpeech() {
+  return "speechSynthesis" in window;
+}
+
+function stopListening() {
+  if (supportsSpeech() && speaking) window.speechSynthesis.cancel();
+  speaking = false;
+}
+
+function toggleListen(text) {
+  if (!supportsSpeech()) return;
+  const btn = refs.content.querySelector("#bible-listen-btn");
+  if (speaking) {
+    stopListening();
+    if (btn) btn.textContent = "🔊 Listen";
+    return;
+  }
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.onend = () => {
+    speaking = false;
+    if (btn) btn.textContent = "🔊 Listen";
+  };
+  utterance.onerror = () => {
+    speaking = false;
+    if (btn) btn.textContent = "🔊 Listen";
+  };
+  speaking = true;
+  if (btn) btn.textContent = "⏹ Stop";
+  window.speechSynthesis.speak(utterance);
 }
 
 // ---------- Quick "Q+" add-question (no Setup passcode needed) ----------
@@ -248,6 +356,101 @@ function saveQuickQuestion() {
   closeAddQModal();
 }
 
+// ---------- Quick "M+" add-memory-verse (mirrors Q+) ----------
+
+function renderAddmUserSelect() {
+  const select = refs.addmUserSelect;
+  select.innerHTML = "";
+  const noneOpt = document.createElement("option");
+  noneOpt.value = "";
+  noneOpt.textContent = users.length === 0 ? "No family members yet (add in Settings)" : "Select a person…";
+  select.appendChild(noneOpt);
+  users.forEach((u) => {
+    const opt = document.createElement("option");
+    opt.value = u.id;
+    opt.textContent = u.name;
+    select.appendChild(opt);
+  });
+  select.value = getActiveMemorizeUser() && users.some((u) => u.id === getActiveMemorizeUser()) ? getActiveMemorizeUser() : "";
+}
+
+function openAddMModal() {
+  refs.addmError.hidden = true;
+  refs.addmVerseList.innerHTML = "";
+  refs.addmSelectRow.hidden = true;
+  renderAddmUserSelect();
+  refs.addmBookSelect.value = state.book;
+  populatePickerChapterSelect(refs.addmChapterSelect, refs.addmBookSelect.value);
+  refs.addmChapterSelect.value = String(state.chapter);
+  refs.addmModalBackdrop.hidden = false;
+  loadPickerChapter();
+}
+
+function closeAddMModal() {
+  refs.addmModalBackdrop.hidden = true;
+}
+
+async function loadPickerChapter() {
+  const book = refs.addmBookSelect.value;
+  const chapter = Number(refs.addmChapterSelect.value);
+  refs.addmError.hidden = true;
+  refs.addmVerseList.innerHTML = `<p class="bible-status">Loading ${book} ${chapter}…</p>`;
+  refs.addmSelectRow.hidden = true;
+  try {
+    pickerVerses = await loadChapterVerses(book, chapter);
+    renderPickerVerseList();
+  } catch (err) {
+    console.error(err);
+    pickerVerses = [];
+    refs.addmVerseList.innerHTML = "";
+    refs.addmError.textContent = "Couldn't load that chapter. Check your internet connection and try again.";
+    refs.addmError.hidden = false;
+  }
+}
+
+function renderPickerVerseList() {
+  refs.addmVerseList.innerHTML = "";
+  refs.addmSelectRow.hidden = pickerVerses.length === 0;
+  pickerVerses.forEach((v) => {
+    const label = document.createElement("label");
+    label.className = "verse-picker-row";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = true;
+    cb.dataset.verse = String(v.verse);
+    const span = document.createElement("span");
+    span.innerHTML = `<sup>${v.verse}</sup> ${escapeHtml(v.text)}`;
+    label.appendChild(cb);
+    label.appendChild(span);
+    refs.addmVerseList.appendChild(label);
+  });
+}
+
+function setAllPickerChecked(checked) {
+  refs.addmVerseList.querySelectorAll('input[type="checkbox"]').forEach((cb) => (cb.checked = checked));
+}
+
+function saveVerseFromPicker() {
+  const userId = refs.addmUserSelect.value;
+  if (!userId) {
+    refs.addmError.textContent = "Pick who's memorizing this verse.";
+    refs.addmError.hidden = false;
+    return;
+  }
+  const checkedSet = new Set(
+    Array.from(refs.addmVerseList.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => Number(cb.dataset.verse))
+  );
+  const selection = computeVerseSelection(refs.addmBookSelect.value, Number(refs.addmChapterSelect.value), pickerVerses, checkedSet);
+  if (!selection) {
+    refs.addmError.textContent = "Check at least one verse to memorize.";
+    refs.addmError.hidden = false;
+    return;
+  }
+  addMemoryVerse(selection.reference, selection.text);
+  setActiveMemorizeUser(userId);
+  closeAddMModal();
+}
+
 export function goTo(book, chapter, version) {
   state.book = book;
   state.chapter = chapter;
@@ -261,4 +464,7 @@ export function mountBibleReader(container) {
   buildSkeleton(container);
   syncControls();
   loadChapter();
+  subscribeUsers((updated) => {
+    users = updated;
+  });
 }

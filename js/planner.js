@@ -4,6 +4,7 @@
 import { ready } from "./firebase.js";
 import { BOOKS, computeChapterSequence } from "./bible-data.js";
 import { readingsForDate, parseReadingLabel, dateKey } from "./default-reading-plan.js";
+import { subscribePlanState, startPlan, resetPlan, refreshPlanStats } from "./daily-plan-data.js";
 
 let db = null;
 let plans = []; // [{id, name, startBook, startChapter, endBook, endChapter, chapters, progress}]
@@ -11,6 +12,8 @@ let activePlanId = null;
 let dailyDate = new Date();
 let dailyProgress = { read1: false, read2: false, read3: false };
 let dailyUnsub = null;
+let planState = null;
+let planStats = null;
 let refs = {};
 
 const MONTH_NAMES = [
@@ -30,7 +33,11 @@ function buildSkeleton(container) {
       <div class="daily-reading-toolbar">
         <button id="daily-today-btn" class="btn btn-small" hidden>Jump to Today</button>
       </div>
+      <div id="daily-plan-status" class="plan-status"></div>
       <ul class="plan-checklist" id="daily-reading-list"></ul>
+      <div class="mark-all-row">
+        <button id="daily-mark-all-btn" class="btn btn-primary btn-small" hidden>✓ Mark All Complete</button>
+      </div>
     </div>
 
     <div id="daily-date-modal-backdrop" class="modal-backdrop" hidden>
@@ -85,6 +92,9 @@ function buildSkeleton(container) {
   refs.dailyDateLabel = container.querySelector("#daily-reading-date");
   refs.dailyTodayBtn = container.querySelector("#daily-today-btn");
   refs.dailyList = container.querySelector("#daily-reading-list");
+  refs.dailyMarkAllBtn = container.querySelector("#daily-mark-all-btn");
+  refs.dailyMarkAllBtn.addEventListener("click", markAllDailyComplete);
+  refs.planStatus = container.querySelector("#daily-plan-status");
   refs.dailyMonthSelect = container.querySelector("#daily-month-select");
   refs.dailyDaySelect = container.querySelector("#daily-day-select");
   refs.dailyDateModalBackdrop = container.querySelector("#daily-date-modal-backdrop");
@@ -269,10 +279,7 @@ function renderDetail() {
     const li = document.createElement("li");
     li.className = "plan-row" + (plan.progress[i] ? " plan-row-done" : "");
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = !!plan.progress[i];
-    checkbox.addEventListener("change", () => toggleChapter(plan, i));
+    const toggle = buildCheckToggle(!!plan.progress[i], () => toggleChapter(plan, i));
 
     const label = document.createElement("span");
     label.className = "plan-row-label";
@@ -283,7 +290,7 @@ function renderDetail() {
     readBtn.textContent = "Read";
     readBtn.addEventListener("click", () => navigateToChapter(ch.book, ch.chapter));
 
-    li.appendChild(checkbox);
+    li.appendChild(toggle);
     li.appendChild(label);
     li.appendChild(readBtn);
     listEl.appendChild(li);
@@ -294,6 +301,22 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
+}
+
+// A checkbox styled as a rounded checkmark toggle, used for both the
+// custom-plan checklist and the daily reading list.
+function buildCheckToggle(checked, onChange) {
+  const label = document.createElement("label");
+  label.className = "check-toggle";
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.checked = checked;
+  input.addEventListener("change", onChange);
+  const mark = document.createElement("span");
+  mark.className = "check-toggle-mark";
+  label.appendChild(input);
+  label.appendChild(mark);
+  return label;
 }
 
 // ---------- Daily reading (default plan, calendar-linked) ----------
@@ -321,7 +344,16 @@ function toggleDailyRead(index) {
   const field = `read${index + 1}`;
   db.collection("dailyReadingProgress")
     .doc(dateKey(dailyDate))
-    .set({ [field]: !dailyProgress[field] }, { merge: true });
+    .set({ [field]: !dailyProgress[field] }, { merge: true })
+    .then(refreshPlanStats);
+}
+
+function markAllDailyComplete() {
+  if (!db) return;
+  db.collection("dailyReadingProgress")
+    .doc(dateKey(dailyDate))
+    .set({ read1: true, read2: true, read3: true }, { merge: true })
+    .then(refreshPlanStats);
 }
 
 function populateDaySelect(month) {
@@ -361,6 +393,73 @@ function jumpToToday() {
   renderDaily();
 }
 
+function goToMissedDate(key) {
+  dailyDate = new Date(`${key}T00:00:00`);
+  subscribeDaily(dailyDate);
+  renderDaily();
+}
+
+function renderPlanStatus() {
+  const el = refs.planStatus;
+  if (!planState) {
+    el.innerHTML = `
+      <p class="plan-status-hint">Track how many days you complete (and miss) by starting the plan.</p>
+      <button id="start-plan-btn" class="btn btn-primary btn-small">▶ Start Plan</button>
+    `;
+    el.querySelector("#start-plan-btn").addEventListener("click", startPlan);
+    return;
+  }
+
+  const stats = planStats || { completed: 0, missed: 0, missedDates: [] };
+  const startLabel = new Date(`${planState.startDate}T00:00:00`).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  el.innerHTML = `
+    <p class="plan-status-hint">Started ${startLabel}</p>
+    <div class="plan-stats-row">
+      <div class="plan-stat"><strong>${stats.completed}</strong><span>Completed</span></div>
+      <div class="plan-stat"><strong>${stats.missed}</strong><span>Missed</span></div>
+    </div>
+    ${
+      stats.missedDates.length > 0
+        ? `<details class="missed-days"><summary>Catch up on ${stats.missedDates.length} missed day${stats.missedDates.length === 1 ? "" : "s"}</summary>
+            <ul class="missed-days-list" id="missed-days-list"></ul>
+          </details>`
+        : ""
+    }
+    <button id="reset-plan-btn" class="btn btn-small">Reset Streak</button>
+  `;
+
+  if (stats.missedDates.length > 0) {
+    const listEl = el.querySelector("#missed-days-list");
+    stats.missedDates.forEach((key) => {
+      const li = document.createElement("li");
+      const label = document.createElement("span");
+      label.textContent = new Date(`${key}T00:00:00`).toLocaleDateString(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      });
+      const btn = document.createElement("button");
+      btn.className = "btn btn-small";
+      btn.textContent = "Catch Up";
+      btn.addEventListener("click", () => goToMissedDate(key));
+      li.appendChild(label);
+      li.appendChild(btn);
+      listEl.appendChild(li);
+    });
+  }
+
+  el.querySelector("#reset-plan-btn").addEventListener("click", () => {
+    if (confirm("Reset your reading streak? This clears your start date — your daily checkmarks stay recorded.")) {
+      resetPlan();
+    }
+  });
+}
+
 function openDateModal() {
   refs.dailyDateModalBackdrop.hidden = false;
 }
@@ -392,10 +491,7 @@ function renderDaily() {
     const done = !!dailyProgress[field];
     li.className = "plan-row" + (done ? " plan-row-done" : "");
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = done;
-    checkbox.addEventListener("change", () => toggleDailyRead(i));
+    const toggle = buildCheckToggle(done, () => toggleDailyRead(i));
 
     const labelEl = document.createElement("span");
     labelEl.className = "plan-row-label";
@@ -409,11 +505,13 @@ function renderDaily() {
       if (chapters.length > 0) navigateToChapter(chapters[0].book, chapters[0].chapter);
     });
 
-    li.appendChild(checkbox);
+    li.appendChild(toggle);
     li.appendChild(labelEl);
     li.appendChild(readBtn);
     refs.dailyList.appendChild(li);
   });
+
+  refs.dailyMarkAllBtn.hidden = readings.every((_, i) => dailyProgress[`read${i + 1}`]);
 }
 
 export function mountPlanner(container) {
@@ -421,6 +519,12 @@ export function mountPlanner(container) {
   renderTabs();
   renderDetail();
   renderDaily();
+
+  subscribePlanState(({ planState: state, planStats: stats }) => {
+    planState = state;
+    planStats = stats;
+    renderPlanStatus();
+  });
 
   ready.then((firestoreDb) => {
     db = firestoreDb;

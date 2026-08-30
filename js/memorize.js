@@ -4,12 +4,19 @@
 //   2. "Fill in the Blanks" — shown the reference, type the first letter of
 //      each word from memory. A 5-level scaffold decides how many words are
 //      already filled in for you (easiest) vs. fully blank (hardest).
-import { ready } from "./firebase.js";
-import { fetchVerseRange } from "./bible-api.js";
+// Verses are added via a book/chapter picker that lets individual verses be
+// unchecked, so only part of a passage gets memorized if that's all that's
+// wanted (see verse-picker.js).
 import { subscribeUsers } from "./users.js";
-
-const VERSION = "kjv"; // memorization is always King James per the spec
-const ACTIVE_USER_KEY = "bible-questions-memorize-active-user";
+import {
+  subscribeMemoryVerses,
+  getActiveMemorizeUser,
+  setActiveMemorizeUser,
+  addMemoryVerse,
+  deleteMemoryVerse,
+  recordVerseProgress,
+} from "./memorize-data.js";
+import { populateBookSelect, populateChapterSelect, loadChapterVerses, computeVerseSelection } from "./verse-picker.js";
 
 // Common short/function words revealed first at easier levels, so the words
 // left to recall are the more distinctive ones. Includes KJV-specific terms.
@@ -22,10 +29,9 @@ const STOPWORDS = new Set([
   "hast","hath","doth","O","one","also","upon","among","because","therefore","behold",
 ]);
 
-let db = null;
 let verses = []; // [{id, reference, text, progress}]
 let users = [];
-let activeUserId = loadActiveUser();
+let activeUserId = getActiveMemorizeUser();
 let refs = {};
 let view = "list"; // "list" | "guess" | "blanks"
 let guessDifficulty = "easy"; // "easy" | "hard"
@@ -34,75 +40,23 @@ let currentVerseId = null;
 let currentOptions = [];
 let blanksTokens = [];
 let answered = false;
-
-function loadActiveUser() {
-  try {
-    return localStorage.getItem(ACTIVE_USER_KEY) || null;
-  } catch (e) {
-    return null;
-  }
-}
-
-function saveActiveUser(id) {
-  try {
-    if (id) localStorage.setItem(ACTIVE_USER_KEY, id);
-    else localStorage.removeItem(ACTIVE_USER_KEY);
-  } catch (e) {
-    /* ignore */
-  }
-}
-
-function recordVerseProgress(verseId, wasCorrect) {
-  if (!db || !activeUserId) return;
-  const v = verses.find((v) => v.id === verseId);
-  if (!v) return;
-  const prev = (v.progress && v.progress[activeUserId]) || { correctCount: 0, attempts: 0 };
-  db.collection("memoryVerses")
-    .doc(verseId)
-    .update({
-      [`progress.${activeUserId}`]: {
-        correctCount: (prev.correctCount || 0) + (wasCorrect ? 1 : 0),
-        attempts: (prev.attempts || 0) + 1,
-      },
-    });
-}
+let pickerVerses = []; // verses of the chapter currently loaded in the add-verse modal
 
 function pickRandomVerse(excludeId) {
-  const pool = excludeId ? verses.filter((v) => v.id !== excludeId) : verses;
-  const list = pool.length > 0 ? pool : verses;
-  return list[Math.floor(Math.random() * list.length)];
+  const reviewPool = verses.filter(
+    (v) => v.progress && v.progress[activeUserId] && v.progress[activeUserId].needsReview
+  );
+  const pool = reviewPool.length > 0 ? reviewPool : verses;
+  let candidates = pool;
+  if (excludeId && pool.length > 1) {
+    const filtered = pool.filter((v) => v.id !== excludeId);
+    if (filtered.length > 0) candidates = filtered;
+  }
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 function normalizeRef(str) {
   return str.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-// ---------- Firestore actions ----------
-
-async function addVerse(reference) {
-  const errorEl = refs.addError;
-  errorEl.hidden = true;
-  try {
-    const data = await fetchVerseRange(reference, VERSION);
-    if (!data.text) throw new Error("That reference didn't return any text.");
-    if (!db) return;
-    await db.collection("memoryVerses").add({
-      reference: data.reference,
-      text: data.text,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-    refs.refInput.value = "";
-  } catch (err) {
-    console.error(err);
-    errorEl.textContent = `Couldn't find "${reference}". Try a format like "John 3:16" or "Psalm 23:1-3".`;
-    errorEl.hidden = false;
-  }
-}
-
-function deleteVerse(id) {
-  if (!db) return;
-  if (!confirm("Remove this verse from your memory list?")) return;
-  db.collection("memoryVerses").doc(id).delete();
 }
 
 // ---------- List view ----------
@@ -146,7 +100,9 @@ function renderList() {
     if (progress) {
       const scoreLine = document.createElement("p");
       scoreLine.className = "question-score";
-      scoreLine.textContent = `✅ ${progress.correctCount || 0} / ${progress.attempts || 0} attempts`;
+      scoreLine.textContent = `✅ ${progress.correctCount || 0} / ${progress.attempts || 0} attempts${
+        progress.needsReview ? " · 🔁 needs review" : ""
+      }`;
       li.appendChild(scoreLine);
     }
 
@@ -155,12 +111,88 @@ function renderList() {
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "btn btn-danger btn-small";
     deleteBtn.textContent = "Delete";
-    deleteBtn.addEventListener("click", () => deleteVerse(v.id));
+    deleteBtn.addEventListener("click", () => {
+      if (confirm("Remove this verse from your memory list?")) deleteMemoryVerse(v.id);
+    });
     actions.appendChild(deleteBtn);
     li.appendChild(actions);
 
     refs.listEl.appendChild(li);
   });
+}
+
+// ---------- Add-verse picker modal ----------
+
+function openAddVerseModal() {
+  refs.vpError.hidden = true;
+  refs.vpVerseList.innerHTML = "";
+  refs.vpVerseList.hidden = true;
+  refs.vpSelectRow.hidden = true;
+  populateChapterSelect(refs.vpChapterSelect, refs.vpBookSelect.value);
+  refs.vpModalBackdrop.hidden = false;
+  loadPickerChapter();
+}
+
+function closeAddVerseModal() {
+  refs.vpModalBackdrop.hidden = true;
+}
+
+async function loadPickerChapter() {
+  const book = refs.vpBookSelect.value;
+  const chapter = Number(refs.vpChapterSelect.value);
+  refs.vpError.hidden = true;
+  refs.vpVerseList.innerHTML = `<p class="bible-status">Loading ${book} ${chapter}…</p>`;
+  refs.vpVerseList.hidden = false;
+  refs.vpSelectRow.hidden = true;
+  try {
+    pickerVerses = await loadChapterVerses(book, chapter);
+    renderPickerVerseList();
+  } catch (err) {
+    console.error(err);
+    pickerVerses = [];
+    refs.vpVerseList.innerHTML = "";
+    refs.vpVerseList.hidden = true;
+    refs.vpError.textContent = "Couldn't load that chapter. Check your internet connection and try again.";
+    refs.vpError.hidden = false;
+  }
+}
+
+function renderPickerVerseList() {
+  refs.vpVerseList.innerHTML = "";
+  refs.vpSelectRow.hidden = pickerVerses.length === 0;
+  pickerVerses.forEach((v) => {
+    const label = document.createElement("label");
+    label.className = "verse-picker-row";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = true;
+    cb.dataset.verse = String(v.verse);
+    const span = document.createElement("span");
+    span.innerHTML = `<sup>${v.verse}</sup> ${escapeHtml(v.text)}`;
+    label.appendChild(cb);
+    label.appendChild(span);
+    refs.vpVerseList.appendChild(label);
+  });
+}
+
+function setAllPickerChecked(checked) {
+  refs.vpVerseList.querySelectorAll('input[type="checkbox"]').forEach((cb) => (cb.checked = checked));
+}
+
+function saveVerseFromPicker() {
+  const checkedSet = new Set(
+    Array.from(refs.vpVerseList.querySelectorAll('input[type="checkbox"]:checked')).map((cb) =>
+      Number(cb.dataset.verse)
+    )
+  );
+  const selection = computeVerseSelection(refs.vpBookSelect.value, Number(refs.vpChapterSelect.value), pickerVerses, checkedSet);
+  if (!selection) {
+    refs.vpError.textContent = "Check at least one verse to memorize.";
+    refs.vpError.hidden = false;
+    return;
+  }
+  addMemoryVerse(selection.reference, selection.text);
+  closeAddVerseModal();
 }
 
 // ---------- Guess the Reference ----------
@@ -263,7 +295,7 @@ function renderGuess() {
 function gradeGuess(givenRef, verse) {
   answered = true;
   const correct = normalizeRef(givenRef) === normalizeRef(verse.reference);
-  recordVerseProgress(verse.id, correct);
+  recordVerseProgress(verse.id, activeUserId, correct);
   const feedback = refs.practiceArea.querySelector("#guess-feedback");
   feedback.textContent = correct
     ? "✅ Correct!"
@@ -401,7 +433,7 @@ function gradeBlanks() {
   const feedback = refs.practiceArea.querySelector("#blanks-feedback");
   feedback.textContent = `${correctCount} / ${total} correct`;
   feedback.className = "practice-feedback " + (correctCount === total ? "feedback-correct" : "feedback-wrong");
-  recordVerseProgress(currentVerseId, total > 0 && correctCount === total);
+  recordVerseProgress(currentVerseId, activeUserId, total > 0 && correctCount === total);
 
   inputs.forEach((input) => (input.disabled = true));
   refs.practiceArea.querySelector("#blanks-check-btn").hidden = true;
@@ -439,16 +471,12 @@ function buildSkeleton(container) {
   container.innerHTML = `
     <div class="list-toolbar">
       <h2>Memory Verses</h2>
+      <button id="add-verse-btn" class="btn btn-primary">+ Add Verse</button>
     </div>
     <label for="memorize-user-select">Who's memorizing?</label>
     <select id="memorize-user-select" class="assign-select"></select>
-    <div class="add-verse-row">
-      <input id="verse-ref-input" type="text" placeholder="e.g. John 3:16 (King James Version)" />
-      <button id="add-verse-btn" class="btn btn-primary">+ Add Verse</button>
-    </div>
-    <p id="verse-add-error" class="form-error" hidden></p>
     <ul id="verse-list" class="question-list"></ul>
-    <p id="verse-empty" class="empty-state" hidden>No memory verses yet — add one above (King James Version).</p>
+    <p id="verse-empty" class="empty-state" hidden>No memory verses yet — tap "+ Add Verse" to pick a passage (King James Version).</p>
 
     <div class="practice-launch-row" id="practice-launch-row" hidden>
       <button id="practice-guess-btn" class="btn btn-primary">🔤 Guess the Reference</button>
@@ -456,32 +484,65 @@ function buildSkeleton(container) {
     </div>
 
     <div id="practice-area"></div>
+
+    <div id="verse-picker-modal-backdrop" class="modal-backdrop" hidden>
+      <div class="modal">
+        <h3>Add a Verse</h3>
+        <div class="verse-picker-controls">
+          <select id="vp-book-select" class="bible-select"></select>
+          <select id="vp-chapter-select" class="bible-select"></select>
+        </div>
+        <p class="blank-help">Uncheck any verses you don't want to memorize.</p>
+        <div class="verse-picker-select-row" id="vp-select-row" hidden>
+          <button id="vp-select-all-btn" class="btn btn-small">Select All</button>
+          <button id="vp-select-none-btn" class="btn btn-small">Select None</button>
+        </div>
+        <div id="vp-verse-list" class="verse-picker-list"></div>
+        <p id="vp-error" class="form-error" hidden></p>
+        <div class="modal-actions">
+          <button id="vp-cancel-btn" class="btn">Cancel</button>
+          <button id="vp-save-btn" class="btn btn-primary">Add Selected</button>
+        </div>
+      </div>
+    </div>
   `;
 
-  refs.refInput = container.querySelector("#verse-ref-input");
-  refs.addError = container.querySelector("#verse-add-error");
   refs.listEl = container.querySelector("#verse-list");
   refs.emptyEl = container.querySelector("#verse-empty");
   refs.practiceRow = container.querySelector("#practice-launch-row");
   refs.practiceArea = container.querySelector("#practice-area");
   refs.userSelect = container.querySelector("#memorize-user-select");
 
+  refs.vpModalBackdrop = container.querySelector("#verse-picker-modal-backdrop");
+  refs.vpBookSelect = container.querySelector("#vp-book-select");
+  refs.vpChapterSelect = container.querySelector("#vp-chapter-select");
+  refs.vpSelectRow = container.querySelector("#vp-select-row");
+  refs.vpVerseList = container.querySelector("#vp-verse-list");
+  refs.vpError = container.querySelector("#vp-error");
+
+  populateBookSelect(refs.vpBookSelect);
+  populateChapterSelect(refs.vpChapterSelect, refs.vpBookSelect.value);
+
   refs.userSelect.addEventListener("change", () => {
     activeUserId = refs.userSelect.value || null;
-    saveActiveUser(activeUserId);
+    setActiveMemorizeUser(activeUserId);
     renderList();
   });
 
-  container.querySelector("#add-verse-btn").addEventListener("click", () => {
-    const val = refs.refInput.value.trim();
-    if (val) addVerse(val);
+  container.querySelector("#add-verse-btn").addEventListener("click", openAddVerseModal);
+  container.querySelector("#vp-cancel-btn").addEventListener("click", closeAddVerseModal);
+  refs.vpModalBackdrop.addEventListener("click", (e) => {
+    if (e.target === refs.vpModalBackdrop) closeAddVerseModal();
   });
-  refs.refInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      const val = refs.refInput.value.trim();
-      if (val) addVerse(val);
-    }
+  container.querySelector("#vp-save-btn").addEventListener("click", saveVerseFromPicker);
+  container.querySelector("#vp-select-all-btn").addEventListener("click", () => setAllPickerChecked(true));
+  container.querySelector("#vp-select-none-btn").addEventListener("click", () => setAllPickerChecked(false));
+
+  refs.vpBookSelect.addEventListener("change", () => {
+    populateChapterSelect(refs.vpChapterSelect, refs.vpBookSelect.value);
+    loadPickerChapter();
   });
+  refs.vpChapterSelect.addEventListener("change", loadPickerChapter);
 
   container.querySelector("#practice-guess-btn").addEventListener("click", startGuess);
   container.querySelector("#practice-blanks-btn").addEventListener("click", startBlanks);
@@ -497,17 +558,11 @@ export function mountMemorize(container) {
     renderList();
   });
 
-  ready.then((firestoreDb) => {
-    db = firestoreDb;
-    db.collection("memoryVerses").onSnapshot(
-      (snapshot) => {
-        verses = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        renderList();
-        if (view !== "list" && !verses.find((v) => v.id === currentVerseId)) {
-          showList();
-        }
-      },
-      (err) => console.error(err)
-    );
-  }).catch((err) => console.error(err));
+  subscribeMemoryVerses((updated) => {
+    verses = updated;
+    renderList();
+    if (view !== "list" && !verses.find((v) => v.id === currentVerseId)) {
+      showList();
+    }
+  });
 }

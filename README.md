@@ -167,6 +167,14 @@ instead.
   whose text already matches a question you have, so they're safe to
   click more than once.
 - Changes sync instantly to everyone else with the app open.
+- **Family Stats**: a per-person rollup of Questions (✅/❌) and Memorize
+  (✅ correct / attempts) scores, plus one family-wide line for the
+  Daily Reading Plan's completed/missed count (reading progress isn't
+  tracked per person — it's one shared family log).
+- **Backup**: **⬇️ Export All Data** downloads every collection (family
+  members, questions, memory verses, reading plans, and all reading
+  progress) as one JSON file — a manual safety net alongside Firebase's
+  own backups.
 
 ### Bible
 
@@ -197,6 +205,17 @@ needing the Setup passcode. Same fields as Setup's question form
 the current book/chapter — and age-group assignment); it adds straight
 into the shared question pool.
 
+Next to it, the amber **M⁺** badge quick-adds a memory verse straight
+from whatever chapter you have open — pick who's memorizing it, uncheck
+any verses you don't want (so you can memorize just part of a passage),
+and **Add Selected**. It shares the exact same verse-picker as Memorize's
+own **+ Add Verse** (see below).
+
+Tap **🔊 Listen** above the chapter text to have the device read the
+whole chapter aloud (using your browser's built-in text-to-speech — no
+API key, works offline); tap it again (now **⏹ Stop**) to stop. It
+automatically stops when you navigate to another chapter.
+
 ### Reading Plan
 
 - **Daily Reading** (top of the section): the classic "Bible Companion"
@@ -205,8 +224,18 @@ into the shared question pool.
   Opens to today by default; use **‹ / ›** to step a day at a time,
   **Jump to Today** to snap back, or tap the date itself to pop up
   month/day dropdowns and jump straight to any date. Each of the day's
-  three readings has its own checkbox (synced across devices) and a
-  **Read** button that jumps straight to it in the **Bible** section.
+  three readings has its own rounded checkmark toggle (synced across
+  devices) and a **Read** button that jumps straight to it in the
+  **Bible** section. **✓ Mark All Complete** at the bottom checks off all
+  three readings for the date you're viewing in one tap.
+- **▶ Start Plan** begins tracking your streak on the Daily Reading plan
+  from today: once started, a small stats block shows how many days
+  you've **Completed** vs. **Missed** (a day counts as missed once it's
+  passed without all three readings checked off). Missed days collapse
+  into a **Catch up on N missed days** list — tap **Catch Up** next to
+  any of them to jump straight to that date and check off what you
+  finish. **Reset Streak** clears the start date (your daily checkmarks
+  themselves are never deleted).
 - **Custom Reading Plans** (below that): **+ New Plan** lets you name a
   plan and pick a start book/chapter and an end book/chapter (inclusive).
   The plan can span multiple books, in Bible order — e.g. start at
@@ -222,8 +251,15 @@ into the shared question pool.
 - Pick **Who's memorizing?** at the top (family members are managed in
   Setup) so attempts get tracked under the right person — this is
   optional; practicing without picking anyone just won't record a score.
-- Add a verse by typing its reference (e.g. `John 3:16` or
-  `Psalm 23:1-3`) — the King James text is looked up automatically.
+- **+ Add Verse** opens a picker: choose a book and chapter (the King
+  James text loads automatically), then uncheck any verses you don't
+  want — handy for memorizing just part of a passage (e.g. only verses
+  16–17 of a chapter). **Select All / Select None** speed up picking.
+  The saved reference is computed from whatever's still checked (e.g.
+  `John 3:16-18,20` for a non-contiguous pick, or just `John 3` if the
+  whole chapter stays checked). The Bible page's **M⁺** badge (see
+  above) opens the same picker pre-filled to whatever chapter you're
+  reading.
 - **🔤 Guess the Reference**: shown the verse text, pick the right
   reference. Toggle **Multiple Choice** (easier) or **Type the
   Reference** (harder — must match the reference format, e.g. "John
@@ -236,6 +272,9 @@ into the shared question pool.
   - **Medium/Hard**: fewer words filled in.
   - **Expert**: every word is blank — pure recall.
   - After checking, **Show Full Verse** reveals the whole text.
+- Both practice modes prioritize verses missed last time (marked
+  **🔁 needs review** in the list) the same way Questions does, so
+  practice naturally circles back to the ones that need it.
 
 ## Adding another person, or another age group
 
@@ -283,7 +322,16 @@ matching anything.
 - `js/default-reading-plan.js` — the 365-day default reading plan data
   and its passage-label parser (used to jump to a reading in the Bible
   section).
+- `js/daily-plan-data.js` — tracks whether the Daily Reading plan has
+  been "started" and computes completed/missed-day stats since then.
 - `js/memorize.js` — the verse memorization section.
+- `js/memorize-data.js` — shared "memoryVerses" Firestore collection
+  (state + CRUD) and the "who's memorizing" active-user preference,
+  used by both Memorize and the Bible page's M⁺ button.
+- `js/verse-picker.js` — the shared book/chapter/verse-checkbox picker
+  logic (fetch a chapter, collapse checked verses into a reference like
+  "John 3:16-18,20") used by both Memorize's + Add Verse and the Bible
+  page's M⁺ button.
 - `firebase-config.js` — your project's Firebase config (fill this in).
 - `esv-config.js` — your (optional) free ESV API key (fill this in).
 - `manifest.json` / `service-worker.js` / `icons/` — makes it installable
