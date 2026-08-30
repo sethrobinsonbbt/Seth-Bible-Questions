@@ -39,7 +39,10 @@ body {
   color: var(--text);
   font-size: 1.4rem;
   line-height: 1;
-  padding: 0.2rem 0.4rem;
+  padding: 0.6rem;
+  margin: -0.6rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   flex: 0 0 auto;
 }
 
@@ -85,7 +88,10 @@ body {
   background: none;
   font-size: 1.1rem;
   color: var(--text-muted);
-  padding: 0.2rem 0.4rem;
+  padding: 0.6rem;
+  margin: -0.6rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
 }
 
 .side-menu-links {
@@ -231,6 +237,27 @@ body {
   margin: 0 0 0.8rem;
 }
 
+.random-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.nav-link-btn {
+  border: none;
+  background: none;
+  color: rgba(255,255,255,0.85);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.6rem 0.5rem;
+}
+
+.nav-link-btn:disabled {
+  opacity: 0.35;
+}
+
 .random-actions {
   display: flex;
   justify-content: space-between;
@@ -244,6 +271,7 @@ body {
 
 .random-actions-score .btn {
   flex: 1 1 0;
+  min-height: 3rem;
 }
 
 .list-toolbar {
@@ -343,7 +371,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.35rem 0.5rem;
-  font-size: 0.8rem;
+  font-size: 1rem;
   background: white;
 }
 
@@ -363,7 +391,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.5rem;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-family: inherit;
   margin-bottom: 0.6rem;
 }
@@ -450,7 +478,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.5rem;
-  font-size: 0.9rem;
+  font-size: 1rem;
   background: white;
 }
 

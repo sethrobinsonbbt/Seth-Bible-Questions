@@ -1,9 +1,11 @@
 // Shared "questions" Firestore collection: state + CRUD. Used by the
 // kid-facing quiz view (questions.js) and the admin view (settings.js).
 //
-// Doc shape: { text, answer, assignedTo: ageGroupId|null, progress, createdAt }
-// `assignedTo` is an age-group id (see age-groups-data.js) or null for the
-// unassigned Library pool. `progress` is a map keyed by user id:
+// Doc shape: { text, answer, reference, assignedTo: ageGroupId|null,
+// progress, createdAt }. `reference` is an optional Bible citation (e.g.
+// "Genesis 1:3") backing up the answer. `assignedTo` is an age-group id
+// (see age-groups-data.js) or null for the unassigned Library pool.
+// `progress` is a map keyed by user id:
 // { [userId]: { correctCount, wrongCount, needsReview } } — tracked per
 // user so two kids sharing an age group don't share the same score.
 import { ready } from "./firebase.js";
@@ -28,20 +30,21 @@ export function getQuestions() {
   return questions;
 }
 
-export function addQuestion(text, answer, assignedTo) {
+export function addQuestion(text, answer, reference, assignedTo) {
   if (!db) return;
   db.collection("questions").add({
     text,
     answer: answer || null,
+    reference: reference || null,
     assignedTo: assignedTo || null,
     progress: {},
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
 }
 
-export function updateQuestion(id, text, answer) {
+export function updateQuestion(id, text, answer, reference) {
   if (!db) return;
-  db.collection("questions").doc(id).update({ text, answer: answer || null });
+  db.collection("questions").doc(id).update({ text, answer: answer || null, reference: reference || null });
 }
 
 export function updateQuestionAssignment(id, assignedTo) {
@@ -88,6 +91,7 @@ export function bulkImport(items) {
     batch.set(col.doc(), {
       text: item.text,
       answer: item.answer || null,
+      reference: item.reference || null,
       assignedTo: item.assignedTo || null,
       progress: {},
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),

@@ -293,6 +293,13 @@ function renderQuestionsAdmin() {
       answerInput.value = q.answer || "";
       li.appendChild(answerInput);
 
+      const referenceInput = document.createElement("input");
+      referenceInput.type = "text";
+      referenceInput.className = "edit-answer-input";
+      referenceInput.placeholder = "Reference (optional) — e.g. Genesis 1:3";
+      referenceInput.value = q.reference || "";
+      li.appendChild(referenceInput);
+
       const actions = document.createElement("div");
       actions.className = "question-row-actions";
 
@@ -301,7 +308,7 @@ function renderQuestionsAdmin() {
       saveBtn.textContent = "Save";
       saveBtn.addEventListener("click", () => {
         const val = textarea.value.trim();
-        if (val) updateQuestion(q.id, val, answerInput.value.trim());
+        if (val) updateQuestion(q.id, val, answerInput.value.trim(), referenceInput.value.trim());
         editingQuestionId = null;
         renderQuestionsAdmin();
       });
@@ -323,10 +330,12 @@ function renderQuestionsAdmin() {
       p.textContent = q.text;
       li.appendChild(p);
 
-      if (q.answer) {
+      if (q.answer || q.reference) {
         const a = document.createElement("p");
         a.className = "question-answer";
-        a.textContent = `Answer: ${q.answer}`;
+        a.textContent = [q.answer && `Answer: ${q.answer}`, q.reference && `Reference: ${q.reference}`]
+          .filter(Boolean)
+          .join(" — ");
         li.appendChild(a);
       }
 
@@ -384,6 +393,7 @@ function renderQuestionsAdmin() {
 function openAddQuestionModal() {
   refs.qModalText.value = "";
   refs.qModalAnswer.value = "";
+  refs.qModalReference.value = "";
   const select = buildAgeGroupSelect(questionFilter === "unassigned" || questionFilter === "all" ? "" : questionFilter);
   refs.qModalAssignWrap.innerHTML = "";
   refs.qModalAssignWrap.appendChild(select);
@@ -462,6 +472,8 @@ function buildUnlockedView(container) {
         <textarea id="settings-question-text" rows="4" placeholder="e.g. Who built the ark?"></textarea>
         <label for="settings-question-answer">Answer (optional)</label>
         <input id="settings-question-answer" type="text" placeholder="e.g. Noah" />
+        <label for="settings-question-reference">Reference (optional)</label>
+        <input id="settings-question-reference" type="text" placeholder="e.g. Genesis 1:3" />
         <label>Assign to</label>
         <div id="settings-question-assign-wrap"></div>
         <div class="modal-actions">
@@ -480,6 +492,7 @@ function buildUnlockedView(container) {
   refs.qModalBackdrop = container.querySelector("#settings-question-modal-backdrop");
   refs.qModalText = container.querySelector("#settings-question-text");
   refs.qModalAnswer = container.querySelector("#settings-question-answer");
+  refs.qModalReference = container.querySelector("#settings-question-reference");
   refs.qModalAssignWrap = container.querySelector("#settings-question-assign-wrap");
 
   container.querySelector("#settings-lock-btn").addEventListener("click", () => {
@@ -507,8 +520,9 @@ function buildUnlockedView(container) {
     const text = refs.qModalText.value.trim();
     if (!text) return;
     const answer = refs.qModalAnswer.value.trim();
+    const reference = refs.qModalReference.value.trim();
     const assignedTo = refs.qModalAssign.value || null;
-    addQuestion(text, answer, assignedTo);
+    addQuestion(text, answer, reference, assignedTo);
     closeAddQuestionModal();
   });
 

@@ -11,6 +11,8 @@ let allQuestions = [];
 let activeUserId = null;
 let currentRandomId = null;
 let showingAnswer = false;
+let history = []; // question ids shown, in order, for the ‹ Back / Next › browsing
+let historyIndex = -1;
 
 const el = (id) => document.getElementById(id);
 
@@ -59,6 +61,8 @@ function renderTabs() {
     btn.addEventListener("click", () => {
       activeUserId = user.id;
       currentRandomId = null;
+      history = [];
+      historyIndex = -1;
       render();
     });
     tabsEl.appendChild(btn);
@@ -85,8 +89,7 @@ function renderRandomCard(list) {
   let pick = list.find((q) => q.id === currentRandomId);
   if (!pick) {
     pick = pickRandomQuestion(list, user.id, currentRandomId);
-    currentRandomId = pick.id;
-    showingAnswer = false;
+    pushHistory(pick.id);
   }
 
   const pickProgress = (pick.progress && pick.progress[user.id]) || {};
@@ -94,21 +97,49 @@ function renderRandomCard(list) {
   el("random-text").textContent = pick.text;
   el("random-review-tag").hidden = !pickProgress.needsReview;
   el("random-answer").hidden = !showingAnswer;
-  el("random-answer").textContent = pick.answer ? `Answer: ${pick.answer}` : "";
-  el("random-show-answer-btn").hidden = !pick.answer;
+  el("random-answer").textContent = [pick.answer && `Answer: ${pick.answer}`, pick.reference && `Reference: ${pick.reference}`]
+    .filter(Boolean)
+    .join(" — ");
+  el("random-show-answer-btn").hidden = !pick.answer && !pick.reference;
   el("random-show-answer-btn").textContent = showingAnswer ? "🙈 Hide Answer" : "👁️ Show Answer";
+  el("random-back-btn").disabled = historyIndex <= 0;
 }
 
-// Forces a fresh pick (used by "Skip" / Correct / Wrong), as opposed to
+// Records a freshly-shown question id, truncating any "redo" history past
+// the current point (mirrors normal back/forward browsing).
+function pushHistory(id) {
+  history = history.slice(0, historyIndex + 1);
+  history.push(id);
+  historyIndex = history.length - 1;
+  currentRandomId = id;
+  showingAnswer = false;
+}
+
+// Forces a fresh pick (used by "Next ›" / Correct / Wrong), as opposed to
 // renderRandomCard's default of preserving whatever is currently shown
 // across incidental re-renders (e.g. an unrelated Firestore update).
 function nextRandomQuestion() {
   const user = activeUser();
   const list = questionsForUser(user);
   if (list.length === 0) return;
-  currentRandomId = pickRandomQuestion(list, user.id, currentRandomId).id;
-  showingAnswer = false;
+
+  if (historyIndex < history.length - 1) {
+    // Already have a "forward" entry from a previous Back — reuse it.
+    historyIndex++;
+    currentRandomId = history[historyIndex];
+    showingAnswer = false;
+  } else {
+    pushHistory(pickRandomQuestion(list, user.id, currentRandomId).id);
+  }
   renderRandomCard(list);
+}
+
+function previousQuestion() {
+  if (historyIndex <= 0) return;
+  historyIndex--;
+  currentRandomId = history[historyIndex];
+  showingAnswer = false;
+  renderRandomCard(questionsForUser(activeUser()));
 }
 
 function toggleAnswer() {
@@ -174,6 +205,7 @@ function render() {
 }
 
 export function mountQuestions() {
+  el("random-back-btn").addEventListener("click", previousQuestion);
   el("random-next-btn").addEventListener("click", nextRandomQuestion);
   el("random-show-answer-btn").addEventListener("click", toggleAnswer);
   el("random-correct-btn").addEventListener("click", () => answerCurrent(true));
