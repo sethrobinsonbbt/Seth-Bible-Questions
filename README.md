@@ -154,6 +154,13 @@ ESV are copyrighted and require a paid licensing/API agreement, so they
 aren't included — you're welcome to add one yourself in
 `js/bible-data.js` (`BIBLE_VERSIONS`) if you get access to such an API.
 
+The little **Q⁺** badge between Previous and Next is a quick way to jot
+down a question inspired by whatever you're currently reading, without
+needing the Setup passcode. Same fields as Setup's question form
+(question text, required answer, optional reference — pre-filled with
+the current book/chapter — and age-group assignment); it adds straight
+into the shared question pool.
+
 ### Planner
 
 - **Daily Reading** (top of the section): the classic "Bible Companion"
@@ -164,11 +171,6 @@ aren't included — you're welcome to add one yourself in
   month/day dropdowns and jump straight to any date. Each of the day's
   three readings has its own checkbox (synced across devices) and a
   **Read** button that jumps straight to it in the **Bible** section.
-- **Q+ Add Question**: a quick way to jot down a question inspired by
-  today's reading, without needing the Setup passcode. Same fields as
-  Setup's question form (question text, required answer, optional
-  reference, age-group assignment) — it adds straight into the shared
-  question pool.
 - **Custom Reading Plans** (below that): **+ New Plan** lets you name a
   plan and pick a start book/chapter and an end book/chapter (inclusive).
   The plan can span multiple books, in Bible order — e.g. start at

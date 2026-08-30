@@ -494,8 +494,29 @@ body {
 
 .bible-nav-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   margin-bottom: 1rem;
+}
+
+.q-plus-btn {
+  border: none;
+  background: linear-gradient(135deg, var(--indigo), var(--indigo-dark));
+  color: white;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  line-height: 1;
+  box-shadow: 0 3px 10px rgba(79,70,229,0.4);
+  flex: 0 0 auto;
+}
+
+.q-plus-btn sup {
+  font-size: 0.55em;
+  font-weight: 800;
 }
 
 .bible-content {
@@ -572,13 +593,8 @@ body {
 .daily-reading-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 0.6rem;
-}
-
-.daily-reading-toolbar #daily-addq-btn {
-  margin-left: auto;
 }
 
 .daily-reading-card .plan-row {

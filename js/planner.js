@@ -4,8 +4,6 @@
 import { ready } from "./firebase.js";
 import { BOOKS, computeChapterSequence } from "./bible-data.js";
 import { readingsForDate, parseReadingLabel, dateKey } from "./default-reading-plan.js";
-import { addQuestion } from "./questions-data.js";
-import { buildAgeGroupSelect } from "./age-groups-data.js";
 
 let db = null;
 let plans = []; // [{id, name, startBook, startChapter, endBook, endChapter, chapters, progress}]
@@ -31,7 +29,6 @@ function buildSkeleton(container) {
       </div>
       <div class="daily-reading-toolbar">
         <button id="daily-today-btn" class="btn btn-small" hidden>Jump to Today</button>
-        <button id="daily-addq-btn" class="btn btn-small">Q+ Add Question</button>
       </div>
       <ul class="plan-checklist" id="daily-reading-list"></ul>
     </div>
@@ -46,25 +43,6 @@ function buildSkeleton(container) {
         </div>
         <div class="modal-actions">
           <button id="daily-date-close-btn" class="btn btn-primary">Done</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="daily-addq-modal-backdrop" class="modal-backdrop" hidden>
-      <div class="modal">
-        <h3>Quick Add Question</h3>
-        <label for="daily-addq-text">Question</label>
-        <textarea id="daily-addq-text" rows="3" placeholder="e.g. Who built the ark?"></textarea>
-        <label for="daily-addq-answer">Answer</label>
-        <input id="daily-addq-answer" type="text" placeholder="e.g. Noah" />
-        <label for="daily-addq-reference">Reference (optional)</label>
-        <input id="daily-addq-reference" type="text" placeholder="e.g. Genesis 6:14" />
-        <label>Assign to</label>
-        <div id="daily-addq-assign-wrap"></div>
-        <p id="daily-addq-error" class="form-error" hidden></p>
-        <div class="modal-actions">
-          <button id="daily-addq-cancel-btn" class="btn">Cancel</button>
-          <button id="daily-addq-save-btn" class="btn btn-primary">Save</button>
         </div>
       </div>
     </div>
@@ -131,21 +109,6 @@ function buildSkeleton(container) {
     goToPickedDate();
   });
   refs.dailyDaySelect.addEventListener("change", goToPickedDate);
-
-  refs.addqBtn = container.querySelector("#daily-addq-btn");
-  refs.addqModalBackdrop = container.querySelector("#daily-addq-modal-backdrop");
-  refs.addqText = container.querySelector("#daily-addq-text");
-  refs.addqAnswer = container.querySelector("#daily-addq-answer");
-  refs.addqReference = container.querySelector("#daily-addq-reference");
-  refs.addqAssignWrap = container.querySelector("#daily-addq-assign-wrap");
-  refs.addqError = container.querySelector("#daily-addq-error");
-
-  refs.addqBtn.addEventListener("click", openAddQModal);
-  container.querySelector("#daily-addq-cancel-btn").addEventListener("click", closeAddQModal);
-  refs.addqModalBackdrop.addEventListener("click", (e) => {
-    if (e.target === refs.addqModalBackdrop) closeAddQModal();
-  });
-  container.querySelector("#daily-addq-save-btn").addEventListener("click", saveQuickQuestion);
 
   refs.tabs = container.querySelector("#plan-tabs");
   refs.detail = container.querySelector("#plan-detail");
@@ -404,44 +367,6 @@ function openDateModal() {
 
 function closeDateModal() {
   refs.dailyDateModalBackdrop.hidden = true;
-}
-
-// ---------- Quick "Q+" add-question (no Setup passcode needed) ----------
-
-function openAddQModal() {
-  refs.addqText.value = "";
-  refs.addqAnswer.value = "";
-  refs.addqReference.value = "";
-  refs.addqError.hidden = true;
-  const select = buildAgeGroupSelect("");
-  refs.addqAssignWrap.innerHTML = "";
-  refs.addqAssignWrap.appendChild(select);
-  refs.addqAssign = select;
-  refs.addqModalBackdrop.hidden = false;
-  refs.addqText.focus();
-}
-
-function closeAddQModal() {
-  refs.addqModalBackdrop.hidden = true;
-}
-
-function saveQuickQuestion() {
-  const text = refs.addqText.value.trim();
-  const answer = refs.addqAnswer.value.trim();
-  if (!text) {
-    refs.addqError.textContent = "Give the question some text.";
-    refs.addqError.hidden = false;
-    return;
-  }
-  if (!answer) {
-    refs.addqError.textContent = "An answer is required (reference is optional).";
-    refs.addqError.hidden = false;
-    return;
-  }
-  const reference = refs.addqReference.value.trim();
-  const assignedTo = refs.addqAssign.value || null;
-  addQuestion(text, answer, reference, assignedTo);
-  closeAddQModal();
 }
 
 function renderDaily() {
