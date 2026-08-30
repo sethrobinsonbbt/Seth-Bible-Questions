@@ -78,6 +78,7 @@ export function bookIndex(name) {
 // licensing/API agreement and aren't included for that reason.
 export const BIBLE_VERSIONS = [
   { id: "kjv", label: "King James Version (KJV)" },
+  { id: "asv", label: "American Standard Version (ASV)" },
   { id: "web", label: "World English Bible (WEB)" },
   { id: "bbe", label: "Bible in Basic English (BBE)" },
   { id: "webbe", label: "World English Bible, British Edition (WEBBE)" },

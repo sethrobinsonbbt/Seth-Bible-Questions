@@ -1,5 +1,5 @@
 // Bump CACHE_NAME whenever app-shell files change so clients pick up the update.
-const CACHE_NAME = "bible-questions-v11";
+const CACHE_NAME = "bible-questions-v12";
 const APP_SHELL = [
   "./",
   "./index.html",

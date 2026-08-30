@@ -148,12 +148,14 @@ Pick a translation, book, and chapter from the dropdowns, or use ←
 Previous / Next → to move chapter by chapter. Chapters you've read are
 cached on your device, so they still load without a connection.
 
-Only public-domain translations are included (KJV, WEB, BBE, WEBBE),
-fetched for free with no API key from
-[bible-api.com](https://bible-api.com). Modern translations like NIV or
-ESV are copyrighted and require a paid licensing/API agreement, so they
-aren't included — you're welcome to add one yourself in
-`js/bible-data.js` (`BIBLE_VERSIONS`) if you get access to such an API.
+Only public-domain translations are included (KJV, ASV, WEB, BBE,
+WEBBE), fetched for free with no API key from
+[bible-api.com](https://bible-api.com). Modern translations like NIV,
+ESV, or NLT are copyrighted and require a paid licensing/API agreement
+(Crossway's ESV API offers a free tier for small non-commercial use,
+but needs your own sign-up) — add one in `js/bible-data.js`
+(`BIBLE_VERSIONS`) and `js/bible-api.js` if you get access to such an
+API.
 
 The little **Q⁺** badge between Previous and Next is a quick way to jot
 down a question inspired by whatever you're currently reading, without
