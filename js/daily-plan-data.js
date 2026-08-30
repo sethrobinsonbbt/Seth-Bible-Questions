@@ -37,6 +37,18 @@ export function resetPlan() {
   db.collection("appState").doc("dailyPlan").delete();
 }
 
+// Marks one of a day's three readings done — used by the Bible page's
+// "Mark as Read" button (see bible-reader.js) as well as the Reading
+// Plan page's own per-reading toggle.
+export function markDailyReadingDone(dateKeyStr, index) {
+  if (!db) return;
+  const field = `read${index + 1}`;
+  db.collection("dailyReadingProgress")
+    .doc(dateKeyStr)
+    .set({ [field]: true }, { merge: true })
+    .then(refreshPlanStats);
+}
+
 // Reads today's own progress doc directly (it's outside the start..yesterday
 // range everything else scans, since "today" isn't finalized as missed or
 // completed until the day is over).

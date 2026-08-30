@@ -232,8 +232,8 @@ function toggleChapter(plan, index) {
   db.collection("readingPlans").doc(plan.id).update({ progress });
 }
 
-function navigateToChapter(book, chapter) {
-  window.dispatchEvent(new CustomEvent("bible:navigate", { detail: { book, chapter } }));
+function navigateToChapter(book, chapter, dailyCtx) {
+  window.dispatchEvent(new CustomEvent("bible:navigate", { detail: { book, chapter, dailyContext: dailyCtx } }));
 }
 
 function renderTabs() {
@@ -538,7 +538,9 @@ function renderDaily() {
     readBtn.textContent = "Read";
     readBtn.addEventListener("click", () => {
       const chapters = parseReadingLabel(label);
-      if (chapters.length > 0) navigateToChapter(chapters[0].book, chapters[0].chapter);
+      if (chapters.length > 0) {
+        navigateToChapter(chapters[0].book, chapters[0].chapter, { dateKey: dateKey(dailyDate), index: i });
+      }
     });
 
     li.appendChild(toggle);

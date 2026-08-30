@@ -6,18 +6,20 @@ the header on every page — pick a family member there once and it's
 remembered on that device, driving whose score gets tracked wherever
 progress applies (Questions, Memorize).
 
-- **Reading Plan** — the default landing page. The daily plan (see
-  below) plus custom reading plans between any two chapters (e.g. all
-  of Judges, or 1 Samuel through 2 Kings for "the kings of Israel"),
-  with a checklist to track progress, plus a start/streak/missed-days
-  system for the daily plan.
+- **Bible** — the default landing page: opens straight to today's first
+  Reading Plan passage. Read the King James Version, any book and
+  chapter, with Previous/Next navigation, a "Jump to…" reference box,
+  and a text-to-speech "Listen" button. When the chapter on screen is
+  part of today's reading, a footer offers **✓ Mark as Read**, **Next
+  Chapter**, and **Next Reading** (jumps to the day's next passage).
+- **Reading Plan** — the daily plan (see below) plus custom reading
+  plans between any two chapters (e.g. all of Judges, or 1 Samuel
+  through 2 Kings for "the kings of Israel"), with a checklist to track
+  progress, plus a start/streak/missed-days system for the daily plan.
 - **Questions** — a random-question quiz card for whoever's picked up top
   (with answer reveal, and ✅ Correct / ❌ Wrong buttons that track a
   score and automatically resurface missed questions). Read-only and
   kid-safe — no editing controls live here.
-- **Bible** — read the King James Version, any book and chapter, with
-  Previous/Next navigation, a "Jump to…" reference box, and a
-  text-to-speech "Listen" button.
 - **Memorize** — a bank of King James verses with two practice modes:
   guess the reference from the verse (multiple choice or type-in), and
   fill in the first letter of each word given the reference, with 5
@@ -235,11 +237,27 @@ that device, so it doesn't need to be reselected every visit.
 
 ### Bible
 
-Type a reference into the **Jump to…** box (e.g. "John 3:16" or
-"Genesis 5") and tap **Go** to jump straight there, or pick a book and
-chapter from the dropdowns, or use ← Previous / Next → to move chapter
-by chapter. Chapters you've read are cached on your device, so they
-still load without a connection.
+This is the app's landing page — the very first thing it opens to (once
+per app load) is today's first Reading Plan passage, so there's always
+something to read right away. From there, type a reference into the
+**Jump to…** box (e.g. "John 3:16" or "Genesis 5") and tap **Go** to jump
+straight there, or pick a book and chapter from the dropdowns, or use ←
+Previous / Next → to move chapter by chapter. Chapters you've read are
+cached on your device, so they still load without a connection.
+
+Whenever the chapter on screen is part of a tracked daily reading (either
+because you just landed here, or you tapped **Read** on one from the
+Reading Plan page), a footer appears below the text:
+
+- **✓ Mark as Read** checks off that reading in the Reading Plan's
+  streak tracking, without leaving the page.
+- **Next Chapter →** moves forward one chapter (same as the ← Previous /
+  Next → row above, just handy without scrolling back up).
+- **Next Reading →** jumps straight to the day's next passage (hidden
+  once you're on the day's third/last one).
+
+The **Q⁺** and **M⁺** badges (see below) float at the top-right of the
+chapter text and stay put as you scroll, so they're always reachable.
 
 Just one translation is offered: the **King James Version**, public
 domain, fetched for free with no API key from
@@ -273,9 +291,18 @@ one's selected yet). It shares the exact same verse-picker as Memorize's
 own **+ Add Verse** (see below).
 
 Tap **🔊 Listen** above the chapter text to have the device read the
-whole chapter aloud (using your browser's built-in text-to-speech — no
-API key, works offline); tap it again (now **⏹ Stop**) to stop. It
-automatically stops when you navigate to another chapter.
+chapter aloud, one verse at a time (using your browser's built-in
+text-to-speech — no API key, works offline); tap it again (now **⏹
+Stop**) to stop. It automatically stops when you navigate to another
+chapter. A **Voice** dropdown appears whenever your device offers more
+than one — the default pick favors a higher-quality network voice over
+a device's flat built-in one where available; your choice is
+remembered. **Press and hold** the Listen button to read at 2× speed
+for as long as you hold it, releasing back to normal speed. If the
+chapter is part of today's reading plan, letting it play through to the
+end automatically marks that reading done and moves on to the day's
+next reading, hands-free — until the day's last reading finishes, when
+it stops.
 
 ### Reading Plan
 

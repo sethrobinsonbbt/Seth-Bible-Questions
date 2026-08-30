@@ -10,7 +10,8 @@ import {
 } from "./verse-picker.js";
 import { addMemoryVerse } from "./memorize-data.js";
 import { getActiveUser } from "./active-user.js";
-import { parseReadingLabel } from "./default-reading-plan.js";
+import { parseReadingLabel, readingsForDate, dateKey } from "./default-reading-plan.js";
+import { markDailyReadingDone } from "./daily-plan-data.js";
 
 const STORAGE_KEY = "bible-reader-state";
 
@@ -18,7 +19,24 @@ let state = loadState();
 let refs = {};
 let requestId = 0;
 let speaking = false;
+let stoppingDeliberately = false; // true while we're cancelling speech ourselves (not a natural finish)
+let currentVerses = []; // verse texts for the currently-loaded chapter, spoken one at a time
+let currentVerseIndex = 0;
+let fastForwardActive = false; // long-press-to-speed-up on the Listen button
+let autoPlayNextChapter = false; // set when auto-advancing to the next daily reading mid-speech
+let longPressTimer = null;
+let longPressTriggered = false;
+const NORMAL_RATE = 1;
+const FAST_RATE = 2.2;
+const LONG_PRESS_MS = 350;
+const VOICE_KEY = "bible-questions-voice-uri";
 let pickerVerses = []; // verses of the chapter currently loaded in the M+ modal
+// Set when the chapter on screen is (part of) a tracked daily reading —
+// { dateKey, index } where index is 0/1/2 for that day's 1st/2nd/3rd
+// reading. Drives the "Mark as Read" / "Next Reading" footer. Cleared by
+// any deliberate "go somewhere else" navigation (book picker, jump-to
+// search) but preserved across Previous/Next chapter paging.
+let dailyContext = null;
 
 function loadState() {
   try {
@@ -201,6 +219,7 @@ function buildSkeleton(container) {
   refs.bookSelect.addEventListener("change", () => {
     state.book = refs.bookSelect.value;
     state.chapter = 1;
+    dailyContext = null;
     saveState();
     populateChapterSelect();
     loadChapter();
@@ -269,8 +288,31 @@ async function loadChapter() {
       .map((v) => `<p class="bible-verse"><sup>${v.verse}</sup> ${escapeHtml(v.text)}</p>`)
       .join("");
 
+    const voices = supportsSpeech() ? window.speechSynthesis.getVoices() : [];
     const listenBtn = supportsSpeech()
       ? `<button id="bible-listen-btn" class="btn btn-small listen-btn">🔊 Listen</button>`
+      : "";
+    const voiceRowHtml =
+      supportsSpeech() && voices.length > 1
+        ? `
+          <div class="bible-voice-row">
+            <label for="bible-voice-select">Voice</label>
+            <select id="bible-voice-select" class="bible-select"></select>
+          </div>
+        `
+        : "";
+
+    const dailyFooterHtml = dailyContext
+      ? `
+        <div class="bible-daily-actions">
+          <button id="bible-mark-read-btn" class="btn btn-primary">✓ Mark as Read</button>
+          <p id="bible-mark-read-status" class="bible-mark-read-status" hidden>Marked! ✅</p>
+          <div class="bible-daily-actions-row">
+            <button id="bible-next-chapter-btn" class="btn btn-small">Next Chapter →</button>
+            ${dailyContext.index < 2 ? `<button id="bible-next-reading-btn" class="btn btn-small">Next Reading →</button>` : ""}
+          </div>
+        </div>
+      `
       : "";
 
     refs.content.innerHTML = `
@@ -278,12 +320,26 @@ async function loadChapter() {
         <h3 class="bible-chapter-heading">${escapeHtml(data.reference)} — ${escapeHtml(data.translationName)}</h3>
         ${listenBtn}
       </div>
+      ${voiceRowHtml}
       ${verseHtml || '<p class="bible-status">No verses returned.</p>'}
+      ${dailyFooterHtml}
     `;
 
     if (supportsSpeech()) {
-      const chapterText = data.verses.map((v) => v.text).join(" ");
-      refs.content.querySelector("#bible-listen-btn").addEventListener("click", () => toggleListen(chapterText));
+      const verseTexts = data.verses.map((v) => v.text);
+      setupListenButton(verseTexts);
+      setupVoiceSelect(voices);
+      if (autoPlayNextChapter) {
+        autoPlayNextChapter = false;
+        startListening(verseTexts);
+      }
+    }
+
+    if (dailyContext) {
+      refs.content.querySelector("#bible-mark-read-btn").addEventListener("click", markCurrentReadingRead);
+      refs.content.querySelector("#bible-next-chapter-btn").addEventListener("click", () => step(1));
+      const nextReadingBtn = refs.content.querySelector("#bible-next-reading-btn");
+      if (nextReadingBtn) nextReadingBtn.addEventListener("click", goToNextReadingForDay);
     }
   } catch (err) {
     if (myRequest !== requestId) return;
@@ -307,36 +363,200 @@ function escapeHtml(str) {
 }
 
 // ---------- Read-aloud ----------
+//
+// Spoken one verse at a time (chained via onend) rather than as one long
+// utterance, so a long-press on the Listen button can restart just the
+// current verse at a faster rate instead of losing your place in the
+// whole chapter. `stoppingDeliberately` distinguishes "we cancelled this
+// utterance ourselves" (restart/stop/navigate away) from "it actually
+// finished speaking" (browsers fire onend either way).
 
 function supportsSpeech() {
   return "speechSynthesis" in window;
 }
 
-function stopListening() {
-  if (supportsSpeech() && speaking) window.speechSynthesis.cancel();
-  speaking = false;
+function getSavedVoiceURI() {
+  try {
+    return localStorage.getItem(VOICE_KEY) || null;
+  } catch (e) {
+    return null;
+  }
 }
 
-function toggleListen(text) {
-  if (!supportsSpeech()) return;
+function saveVoiceURI(uri) {
+  try {
+    if (uri) localStorage.setItem(VOICE_KEY, uri);
+    else localStorage.removeItem(VOICE_KEY);
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+// Prefers a saved manual pick; otherwise a heuristic "best" voice — network
+// voices (not locally synthesized) tend to sound noticeably more natural
+// than a device's built-in default, so favor those when the browser
+// exposes any, falling back to a name that suggests better quality.
+function pickBestVoice(voices) {
+  const english = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith("en"));
+  const pool = english.length > 0 ? english : voices;
+  return (
+    pool.find((v) => !v.localService) ||
+    pool.find((v) => /Google|Microsoft|Natural|Enhanced|Premium/i.test(v.name)) ||
+    pool[0] ||
+    null
+  );
+}
+
+function getSelectedVoice() {
+  if (!supportsSpeech()) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length === 0) return null;
+  const savedURI = getSavedVoiceURI();
+  const saved = savedURI && voices.find((v) => v.voiceURI === savedURI);
+  return saved || pickBestVoice(voices);
+}
+
+function setupVoiceSelect(voices) {
+  const select = refs.content.querySelector("#bible-voice-select");
+  if (!select) return;
+  const current = getSelectedVoice();
+  select.innerHTML = "";
+  voices.forEach((v) => {
+    const opt = document.createElement("option");
+    opt.value = v.voiceURI;
+    opt.textContent = v.name;
+    select.appendChild(opt);
+  });
+  if (current) select.value = current.voiceURI;
+  select.addEventListener("change", () => saveVoiceURI(select.value));
+}
+
+function updateListenBtnLabel() {
   const btn = refs.content.querySelector("#bible-listen-btn");
-  if (speaking) {
-    stopListening();
-    if (btn) btn.textContent = "🔊 Listen";
+  if (!btn) return;
+  btn.textContent = speaking ? (fastForwardActive ? "⏩ 2x speed" : "⏹ Stop") : "🔊 Listen";
+}
+
+function stopListening() {
+  if (supportsSpeech() && speaking) {
+    stoppingDeliberately = true;
+    window.speechSynthesis.cancel();
+  }
+  speaking = false;
+  fastForwardActive = false;
+}
+
+function startListening(verses) {
+  stopListening();
+  speaking = true;
+  currentVerses = verses;
+  currentVerseIndex = 0;
+  speakCurrentVerse();
+  updateListenBtnLabel();
+}
+
+function speakCurrentVerse() {
+  if (!speaking) return;
+  if (currentVerseIndex >= currentVerses.length) {
+    speaking = false;
+    updateListenBtnLabel();
+    onChapterFinishedSpeaking();
     return;
   }
-  const utterance = new SpeechSynthesisUtterance(text);
+  const utterance = new SpeechSynthesisUtterance(currentVerses[currentVerseIndex]);
+  utterance.rate = fastForwardActive ? FAST_RATE : NORMAL_RATE;
+  const voice = getSelectedVoice();
+  if (voice) {
+    try {
+      utterance.voice = voice;
+    } catch (e) {
+      /* stale voice reference — fall back to the engine's default */
+    }
+  }
   utterance.onend = () => {
-    speaking = false;
-    if (btn) btn.textContent = "🔊 Listen";
+    if (stoppingDeliberately) {
+      stoppingDeliberately = false;
+      return;
+    }
+    if (!speaking) return;
+    currentVerseIndex++;
+    speakCurrentVerse();
   };
   utterance.onerror = () => {
-    speaking = false;
-    if (btn) btn.textContent = "🔊 Listen";
+    stoppingDeliberately = false;
   };
-  speaking = true;
-  if (btn) btn.textContent = "⏹ Stop";
   window.speechSynthesis.speak(utterance);
+}
+
+// Restarts just the current verse — used when toggling the long-press
+// speed boost on or off, so the rate change takes effect immediately
+// without losing more than a few words of context.
+function restartCurrentVerseAtRate() {
+  if (!speaking) return;
+  stoppingDeliberately = true;
+  window.speechSynthesis.cancel();
+  speakCurrentVerse();
+}
+
+// When a chapter finishes speaking on its own (not stopped manually) and
+// it was part of today's reading plan: mark it read and keep going
+// hands-free into the next reading, or stop once the day's last one ends.
+function onChapterFinishedSpeaking() {
+  if (!dailyContext) return;
+  markDailyReadingDone(dailyContext.dateKey, dailyContext.index);
+  if (dailyContext.index >= 2) return;
+
+  const readings = readingsForDate(new Date(`${dailyContext.dateKey}T00:00:00`));
+  if (!readings) return;
+  const nextIndex = dailyContext.index + 1;
+  const chapters = parseReadingLabel(readings[nextIndex]);
+  if (chapters.length === 0) return;
+
+  autoPlayNextChapter = true;
+  goTo(chapters[0].book, chapters[0].chapter, state.version, { dateKey: dailyContext.dateKey, index: nextIndex });
+}
+
+function setupListenButton(verses) {
+  const btn = refs.content.querySelector("#bible-listen-btn");
+  if (!btn) return;
+  updateListenBtnLabel();
+
+  btn.addEventListener("pointerdown", () => {
+    if (!speaking) return;
+    longPressTriggered = false;
+    longPressTimer = setTimeout(() => {
+      longPressTriggered = true;
+      fastForwardActive = true;
+      restartCurrentVerseAtRate();
+      updateListenBtnLabel();
+    }, LONG_PRESS_MS);
+  });
+
+  const endPress = () => {
+    clearTimeout(longPressTimer);
+    if (fastForwardActive) {
+      fastForwardActive = false;
+      restartCurrentVerseAtRate();
+      updateListenBtnLabel();
+    }
+  };
+  btn.addEventListener("pointerup", endPress);
+  btn.addEventListener("pointerleave", endPress);
+  btn.addEventListener("pointercancel", endPress);
+  btn.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  btn.addEventListener("click", () => {
+    if (longPressTriggered) {
+      longPressTriggered = false; // consume — this click just ended a long-press, not a tap
+      return;
+    }
+    if (speaking) {
+      stopListening();
+      updateListenBtnLabel();
+    } else {
+      startListening(verses);
+    }
+  });
 }
 
 // ---------- Quick "Q+" add-question (no Setup passcode needed) ----------
@@ -449,6 +669,30 @@ function saveVerseFromPicker() {
   closeAddMModal();
 }
 
+// ---------- Daily-reading footer (Mark as Read / Next Reading) ----------
+
+function markCurrentReadingRead() {
+  if (!dailyContext) return;
+  markDailyReadingDone(dailyContext.dateKey, dailyContext.index);
+  const statusEl = refs.content.querySelector("#bible-mark-read-status");
+  if (statusEl) {
+    statusEl.hidden = false;
+    setTimeout(() => {
+      statusEl.hidden = true;
+    }, 1800);
+  }
+}
+
+function goToNextReadingForDay() {
+  if (!dailyContext || dailyContext.index >= 2) return;
+  const readings = readingsForDate(new Date(`${dailyContext.dateKey}T00:00:00`));
+  if (!readings) return;
+  const nextIndex = dailyContext.index + 1;
+  const chapters = parseReadingLabel(readings[nextIndex]);
+  if (chapters.length === 0) return;
+  goTo(chapters[0].book, chapters[0].chapter, state.version, { dateKey: dailyContext.dateKey, index: nextIndex });
+}
+
 // ---------- Quick "jump to reference" search ----------
 
 function jumpToReference() {
@@ -468,10 +712,11 @@ function jumpToReference() {
   goTo(match.name, first.chapter, state.version);
 }
 
-export function goTo(book, chapter, version) {
+export function goTo(book, chapter, version, dailyCtx) {
   state.book = book;
   state.chapter = chapter;
   if (version) state.version = version;
+  dailyContext = dailyCtx || null;
   saveState();
   syncControls();
   loadChapter();
@@ -479,6 +724,20 @@ export function goTo(book, chapter, version) {
 
 export function mountBibleReader(container) {
   buildSkeleton(container);
+
+  // Bible is the app's landing section — open straight to today's first
+  // daily reading rather than resuming wherever a previous session left
+  // off (mount only ever runs once, at app load).
+  const today = new Date();
+  const readings = readingsForDate(today);
+  const firstReadingChapters = readings ? parseReadingLabel(readings[0]) : [];
+  if (firstReadingChapters.length > 0) {
+    state.book = firstReadingChapters[0].book;
+    state.chapter = firstReadingChapters[0].chapter;
+    dailyContext = { dateKey: dateKey(today), index: 0 };
+    saveState();
+  }
+
   syncControls();
   loadChapter();
 }

@@ -7,14 +7,15 @@ import { mountSettings } from "./settings.js";
 import { subscribeUsers } from "./users.js";
 import { getActiveUser, setActiveUser } from "./active-user.js";
 
-// "planner" (Reading Plan) is listed first, so it's both the top menu item
-// and the default landing section. "settings" gets a visual divider in the
-// menu (see renderSideMenu) since it's an admin-only area, distinct from
-// the family-facing sections above it.
+// "bible" is listed first, so it's both the top menu item and the default
+// landing section — it opens straight to today's first daily reading (see
+// bible-reader.js's mountBibleReader). "settings" gets a visual divider in
+// the menu (see renderSideMenu) since it's an admin-only area, distinct
+// from the family-facing sections above it.
 const SECTIONS = [
+  { id: "bible", label: "Bible", mount: mountBibleReader },
   { id: "planner", label: "Reading Plan", mount: mountPlanner },
   { id: "questions", label: "Questions", mount: mountQuestions },
-  { id: "bible", label: "Bible", mount: mountBibleReader },
   { id: "memorize", label: "Memorize", mount: mountMemorize },
   { id: "settings", label: "🔒 Setup", mount: mountSettings, divider: true },
 ];
@@ -168,7 +169,7 @@ function setupStatusBanner() {
 
 window.addEventListener("bible:navigate", (e) => {
   setActiveSection("bible");
-  goToBibleChapter(e.detail.book, e.detail.chapter, e.detail.version);
+  goToBibleChapter(e.detail.book, e.detail.chapter, e.detail.version, e.detail.dailyContext);
 });
 
 document.addEventListener("DOMContentLoaded", () => {
