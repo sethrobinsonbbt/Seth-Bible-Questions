@@ -10,6 +10,7 @@ import { subscribeUsers } from "./users.js";
 import { getActiveUser } from "./active-user.js";
 import { fetchVerseRange } from "./bible-api.js";
 import { getFamilyPasscode } from "./family.js";
+import { buildQuestionTypeEditor } from "./question-type-editor.js";
 
 let users = [];
 let allQuestions = [];
@@ -26,6 +27,7 @@ let history = []; // [{ userId, questionId }, ...], for ‹ Back / Next › brow
 let historyIndex = -1;
 let verseTextCache = {};
 let editingQuestionId = null;
+let editTypeEditor = null; // the buildQuestionTypeEditor() instance backing the edit modal, while it's open
 // Live state for whichever multiple-choice/order/select-all question is
 // currently on screen — keyed by question id so it survives incidental
 // re-renders (e.g. an unrelated Firestore update) but resets on a new pick.
@@ -576,14 +578,31 @@ function tryEditCurrentQuestion() {
 function openEditModal(pick) {
   editingQuestionId = pick.id;
   el("q-edit-text").value = pick.text || "";
-  el("q-edit-answer").value = pick.answer || "";
   el("q-edit-reference").value = pick.reference || "";
   el("q-edit-error").hidden = true;
+
+  editTypeEditor = buildQuestionTypeEditor(pick);
+  const typeWrap = el("q-edit-type-wrap");
+  typeWrap.innerHTML = "";
+  typeWrap.appendChild(editTypeEditor.el);
+
+  const answerInput = el("q-edit-answer");
+  answerInput.value = pick.answer || "";
+  // The plain "answer" field is classic-only — hide it for the other
+  // types, where the type-specific fields above are the real answer.
+  function syncAnswerVisibility() {
+    answerInput.hidden = editTypeEditor.typeSelect.value !== "classic";
+    answerInput.previousElementSibling.hidden = answerInput.hidden;
+  }
+  editTypeEditor.typeSelect.addEventListener("change", syncAnswerVisibility);
+  syncAnswerVisibility();
+
   el("q-edit-modal-backdrop").hidden = false;
 }
 
 function closeEditModal() {
   editingQuestionId = null;
+  editTypeEditor = null;
   el("q-edit-modal-backdrop").hidden = true;
 }
 
@@ -594,10 +613,21 @@ function saveEdit() {
     el("q-edit-error").hidden = false;
     return;
   }
+  const typeData = editTypeEditor.collect();
+  const typeErr = editTypeEditor.validate(typeData);
+  if (typeErr) {
+    el("q-edit-error").textContent = typeErr;
+    el("q-edit-error").hidden = false;
+    return;
+  }
   const answer = el("q-edit-answer").value.trim();
   const reference = el("q-edit-reference").value.trim();
-  const existing = allQuestions.find((q) => q.id === editingQuestionId);
-  updateQuestion(editingQuestionId, { ...existing, text, answer, reference });
+  updateQuestion(editingQuestionId, {
+    ...typeData,
+    text,
+    answer: typeData.type === "classic" ? answer : "",
+    reference,
+  });
   verseTextCache = {}; // reference may have changed
   closeEditModal();
 }

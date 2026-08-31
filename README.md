@@ -337,10 +337,11 @@ device, so it doesn't need to be reselected every visit.
   person, so two kids sharing an age group don't share a score (overall
   totals and review flags live in Setup, not on this card).
 - **✏️** (top-right of the card, next to the right/asked tally) lets you
-  fix a question's text/answer/reference right from here, gated behind
-  the same Setup passcode as the Question
-  Library (see **Setup**) — handy for a quick typo fix mid-quiz without
-  leaving the page.
+  fix a question right from here, gated behind the same Setup passcode as
+  the Question Library (see **Setup**) — the same full editor as the
+  Library's, so a Multiple Choice/Put in Order/Select All question's
+  choices/items/options (and its type) are editable too, not just text
+  and reference. Handy for a quick fix mid-quiz without leaving the page.
 - **Multiple Choice / Put in Order / Select All That Apply** questions
   (set up in the Question Library — see **Setup**) skip the Show
   Answer step entirely: tap a choice, tap the items back into order, or
@@ -740,11 +741,16 @@ matching anything.
   `type` (classic/multiple-choice/order/select-all) plus whichever
   type-specific fields go with it — see the doc comment at the top of the
   file.
-- `js/questions.js` — the kid-facing Questions quiz view (read-only).
-  Classic questions use the type-an-answer/Show Answer/self-graded flow;
-  the other three types render a tap-driven, self-grading UI into
-  `#random-interactive` instead (multiple-choice buttons, order-tap
-  chips, select-all checkboxes + Submit).
+- `js/questions.js` — the kid-facing Questions quiz view (read-only,
+  aside from the passcode-gated quick-edit modal). Classic questions use
+  the type-an-answer/Show Answer/self-graded flow; the other three types
+  render a tap-driven, self-grading UI into `#random-interactive` instead
+  (multiple-choice buttons, order-tap chips, select-all checkboxes +
+  Submit).
+- `js/question-type-editor.js` — the question type selector + type-
+  specific fields editor (choices/items/options, and which are correct),
+  shared by the Question Library's Add/Edit forms (`js/settings.js`) and
+  the Questions page's mid-quiz quick-edit modal (`js/questions.js`).
 - `js/question-bank-data.js` / `js/family-question-bank.js` — the two
   bundled question banks. Their one-time Setup import buttons have been
   removed now that both are imported; these files stay in the repo,
