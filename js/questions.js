@@ -19,6 +19,9 @@ let includedUserIds = null;
 let currentTurnUserId = null;
 let currentRandomId = null;
 let showingAnswer = false;
+// null = not graded yet this turn; true/false once Wrong/Correct is tapped
+// — grading is immediate, but advancing to the next turn waits for Next.
+let gradedCorrect = null;
 let history = []; // [{ userId, questionId }, ...], for ‹ Back / Next › browsing
 let historyIndex = -1;
 let verseTextCache = {};
@@ -214,7 +217,7 @@ function loadVerseTextFor(reference, forRandomId) {
     })
     .catch(() => {
       if (forRandomId !== currentRandomId) return;
-      verseTextEl.textContent = "Couldn't load verse text.";
+      verseTextEl.hidden = true;
     });
 }
 
@@ -277,6 +280,7 @@ function renderRandomCard() {
     el("random-answer").hidden = true;
     el("random-reveal-actions").hidden = true;
     el("random-grade-actions").hidden = true;
+    el("random-post-grade-actions").hidden = true;
     el("random-verse-text").hidden = true;
     renderInteractive(pick);
     return;
@@ -285,6 +289,10 @@ function renderRandomCard() {
 
   // Always requires tapping Show Answer first — Wrong/Correct only ever
   // replace it in the same spot once that's happened, never alongside it.
+  // Grading itself is instant (credited the moment Wrong/Correct is
+  // tapped), but advancing to the next turn waits for a separate Next tap
+  // — Wrong/Correct give way to Next in that same spot — so there's no
+  // rush to move on before you've actually looked at the answer.
   const revealed = showingAnswer;
   const hasAnswerContent = !!(pick.answer || pick.reference);
   el("random-answer").hidden = !revealed || !hasAnswerContent;
@@ -292,7 +300,8 @@ function renderRandomCard() {
     .filter(Boolean)
     .join(" — ");
   el("random-reveal-actions").hidden = revealed;
-  el("random-grade-actions").hidden = !revealed;
+  el("random-grade-actions").hidden = !revealed || gradedCorrect !== null;
+  el("random-post-grade-actions").hidden = !revealed || gradedCorrect === null;
 
   if (revealed && pick.reference) {
     loadVerseTextFor(pick.reference, pick.id);
@@ -329,15 +338,26 @@ function ensureInteractiveState(pick) {
   return interactiveState;
 }
 
-// Credits the answer, then pauses briefly so the tap feedback is visible
-// before moving on to the next question.
+// Credits the answer; advancing to the next question is a separate,
+// manual Next tap (see appendNextButton) so there's no rush to move on
+// before actually looking at the result.
 function finishInteractive(pick, wasCorrect) {
   creditAnswer(pick, wasCorrect);
-  setTimeout(() => {
-    if (currentRandomId !== pick.id) return; // moved on already
+}
+
+// Appended after the result message once a multiple-choice/order/select-all
+// question has been graded — the interactive-UI equivalent of the classic
+// flow's post-grade Next button.
+function appendNextButton(host) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn btn-primary btn-block";
+  btn.textContent = "Next ›";
+  btn.addEventListener("click", () => {
     interactiveState = null;
     nextRandomQuestion();
-  }, 1200);
+  });
+  host.appendChild(btn);
 }
 
 function renderInteractive(pick) {
@@ -375,6 +395,7 @@ function renderMultipleChoice(host, pick, state) {
     list.appendChild(btn);
   });
   host.appendChild(list);
+  if (state.answered) appendNextButton(host);
 }
 
 function renderOrder(host, pick, state) {
@@ -418,6 +439,7 @@ function renderOrder(host, pick, state) {
     resultEl.className = "interactive-result";
     resultEl.textContent = wasCorrect ? "✅ Correct order!" : `❌ Not quite — correct order: ${pick.items.join(" → ")}`;
     host.appendChild(resultEl);
+    appendNextButton(host);
   }
 }
 
@@ -466,6 +488,7 @@ function renderSelectAll(host, pick, state) {
     resultEl.className = "interactive-result";
     resultEl.textContent = wasCorrect() ? "✅ Correct!" : "❌ Not quite — correct ones are highlighted.";
     host.appendChild(resultEl);
+    appendNextButton(host);
   }
 }
 
@@ -478,6 +501,7 @@ function pushHistory(userId, questionId) {
   currentTurnUserId = userId;
   currentRandomId = questionId;
   showingAnswer = false;
+  gradedCorrect = null;
 }
 
 // Forces a fresh pick (used by "Next ›" / Correct / Wrong / finishing an
@@ -493,6 +517,7 @@ function nextRandomQuestion() {
     currentTurnUserId = entry.userId;
     currentRandomId = entry.questionId;
     showingAnswer = false;
+    gradedCorrect = null;
   } else {
     const nextUser = nextTurnUser(currentTurnUserId);
     if (!nextUser) return;
@@ -510,6 +535,7 @@ function previousQuestion() {
   currentTurnUserId = entry.userId;
   currentRandomId = entry.questionId;
   showingAnswer = false;
+  gradedCorrect = null;
   renderRandomCard();
 }
 
@@ -523,12 +549,16 @@ function creditAnswer(pick, wasCorrect) {
   recordAnswer(pick.id, currentTurnUserId, wasCorrect);
 }
 
+// Grades immediately (so progress is recorded right away) but doesn't
+// advance — that's a separate, manual Next tap (see mountQuestions), so
+// there's no rush to move on before actually looking at the answer.
 function answerCurrent(wasCorrect) {
   if (!currentRandomId || !currentTurnUserId) return;
   const pick = allQuestions.find((q) => q.id === currentRandomId);
   if (!pick) return;
   creditAnswer(pick, wasCorrect);
-  nextRandomQuestion();
+  gradedCorrect = wasCorrect;
+  renderRandomCard();
 }
 
 function tryEditCurrentQuestion() {
@@ -595,6 +625,7 @@ export function mountQuestions() {
   el("random-show-answer-btn").addEventListener("click", revealAnswer);
   el("random-correct-btn").addEventListener("click", () => answerCurrent(true));
   el("random-wrong-btn").addEventListener("click", () => answerCurrent(false));
+  el("random-next-after-grade-btn").addEventListener("click", nextRandomQuestion);
   el("random-edit-btn").addEventListener("click", tryEditCurrentQuestion);
   el("q-edit-cancel-btn").addEventListener("click", closeEditModal);
   el("q-edit-save-btn").addEventListener("click", saveEdit);

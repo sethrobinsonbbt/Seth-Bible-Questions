@@ -324,10 +324,14 @@ device, so it doesn't need to be reselected every visit.
   to get wrong come up more often (never exclusively — everything stays
   in the pool), and nothing repeats within their last 10 questions shown.
   Tap **Show Answer** to reveal the answer (and the cited verse's text,
-  if the question has a reference) — it's replaced, in the same spot, by
-  **✅ Correct** / **❌ Wrong** to score it and move to the next
-  person's turn (**‹ Back** / **Next ›** browse the history of turns
-  already taken, without scoring). Once a question's been asked at least
+  if the question has a reference — silently skipped if it can't be
+  fetched) — it's replaced, in the same spot, by **✅ Correct** /
+  **❌ Wrong**. Tapping one scores it immediately but doesn't move on by
+  itself — it's replaced, again in the same spot, by a plain **Next ›**,
+  so you can take as long as you want looking over the answer before
+  moving to the next person's turn (**‹ Back** / the nav row's own
+  **Next ›** browse the history of turns already taken, without
+  scoring). Once a question's been asked at least
   once, its right/asked tally (e.g. `12/18`) shows top-right of the card,
   so you can see at a glance how shaky it is — scores are tracked per
   person, so two kids sharing an age group don't share a score (overall
@@ -340,9 +344,10 @@ device, so it doesn't need to be reselected every visit.
 - **Multiple Choice / Put in Order / Select All That Apply** questions
   (set up in the Question Library — see **Setup**) skip the Show
   Answer step entirely: tap a choice, tap the items back into order, or
-  check the correct options and hit Submit, and it's graded right there
-  (right/wrong feedback shown briefly before moving on) — the same for
-  every family member regardless of whose turn it is.
+  check the correct options and hit Submit, and it's graded right there —
+  right/wrong feedback shows immediately, with its own **Next ›** button
+  to move on whenever you're ready, same as the classic flow. The same
+  for every family member regardless of whose turn it is.
 
 ### 🔒 Setup
 

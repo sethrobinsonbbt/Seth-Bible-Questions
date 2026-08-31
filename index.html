@@ -113,7 +113,11 @@
         <div class="random-label" id="random-label"><span id="random-person"></span>'s question</div>
         <div class="random-card-top-right">
           <span class="random-question-stat" id="random-question-stat" hidden></span>
-          <button id="random-edit-btn" class="random-edit-btn" aria-label="Edit question">✏️</button>
+          <button id="random-edit-btn" class="random-edit-btn" aria-label="Edit question">
+            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/>
+            </svg>
+          </button>
         </div>
       </div>
       <p class="random-text" id="random-text"></p>
@@ -130,6 +134,9 @@
       <div class="random-actions random-actions-score" id="random-grade-actions" hidden>
         <button id="random-wrong-btn" class="btn btn-danger">❌ Wrong</button>
         <button id="random-correct-btn" class="btn btn-success">✅ Correct</button>
+      </div>
+      <div class="random-actions" id="random-post-grade-actions" hidden>
+        <button id="random-next-after-grade-btn" class="btn btn-primary btn-block">Next ›</button>
       </div>
     </section>
 
