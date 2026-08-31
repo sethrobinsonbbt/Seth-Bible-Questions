@@ -2,6 +2,34 @@
 
 Not scheduled — just a running list of things worth doing later.
 
+## Two "Next" buttons after grading a question
+
+On the Questions page, the nav row's own **Next ›** (`#random-next-btn`
+in `index.html`) is always visible — it's meant for browsing ahead
+without scoring. But the more-recently-added post-grade **Next ›**
+(`#random-post-grade-actions` / `#random-next-after-grade-btn`, which
+replaces Wrong/Correct once a classic question is graded, and the
+equivalent button `appendNextButton()` adds after an interactive
+question is graded) shows up *at the same time* as that nav-row Next —
+so after answering, there are two "Next ›" buttons on screen at once,
+which is confusing.
+
+Idea: drop the newer post-grade Next button entirely and just let the
+already-visible nav-row Next serve double duty — once a question's been
+graded (`gradedCorrect !== null` in `js/questions.js`, or an interactive
+question's `state.answered`), tapping the nav-row's existing Next
+advances the same way `nextRandomQuestion()`/`appendNextButton()`
+already do. Removes a redundant element without losing any behavior —
+the "take as long as you want to review the answer before moving on"
+behavior stays exactly the same, there'd just be one visible way to do
+it instead of two.
+
+Touches: `index.html` (remove `#random-post-grade-actions` and the
+interactive types' appended Next buttons), `js/questions.js` (remove
+`appendNextButton()`, wire the classic post-grade state into hiding/
+showing nothing new — the nav-row Next is already wired to
+`nextRandomQuestion`).
+
 ## Friendlier family join codes
 
 Right now `createFamily()` (in `js/family.js`) generates a family's join
