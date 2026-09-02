@@ -1,6 +1,7 @@
 import { BOOKS, BIBLE_VERSIONS, resolveBookName } from "./bible-data.js";
 import { fetchChapter } from "./bible-api.js";
 import { fetchStrongsChapter } from "./strongs-data.js";
+import { fetchJcNote } from "./jc-notes-data.js";
 import { openStrongsPopup } from "./strongs-popup.js";
 import { addQuestion } from "./questions-data.js";
 import { buildAgeGroupSelect } from "./age-groups-data.js";
@@ -362,6 +363,7 @@ async function loadChapter() {
       </div>
       ${voiceRowHtml}
       ${verseHtml || '<p class="bible-status">No verses returned.</p>'}
+      <div id="bible-jc-notes" class="bible-jc-notes" hidden></div>
       ${dailyFooterHtml}
     `;
 
@@ -381,6 +383,8 @@ async function loadChapter() {
       const nextReadingBtn = refs.content.querySelector("#bible-next-reading-btn");
       if (nextReadingBtn) nextReadingBtn.addEventListener("click", goToNextReadingForDay);
     }
+
+    loadJcNotes(state.book, state.chapter, myRequest);
   } catch (err) {
     if (myRequest !== requestId) return;
     console.error(err);
@@ -394,6 +398,24 @@ async function loadChapter() {
     `;
     refs.content.querySelector("#bible-retry-btn").addEventListener("click", loadChapter);
   }
+}
+
+// Fetches and shows the "JC Notes" commentary for this book/chapter, once
+// it's back — a separate (per-book) fetch from the chapter text itself, so
+// it doesn't block the initial render. Silently leaves the section out if
+// there's no commentary for this chapter (common — coverage isn't
+// complete) or the fetch fails; no error shown either way.
+async function loadJcNotes(book, chapter, forRequest) {
+  const note = await fetchJcNote(book, chapter).catch(() => null);
+  if (forRequest !== requestId) return; // superseded by a newer chapter nav
+  const section = refs.content.querySelector("#bible-jc-notes");
+  if (!section || !note) return;
+  const paragraphsHtml = note
+    .split("\n\n")
+    .map((p) => `<p>${escapeHtml(p)}</p>`)
+    .join("");
+  section.innerHTML = `<h4 class="bible-jc-notes-heading">JC Notes</h4>${paragraphsHtml}`;
+  section.hidden = false;
 }
 
 function escapeHtml(str) {
