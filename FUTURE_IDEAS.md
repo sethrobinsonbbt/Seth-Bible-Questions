@@ -103,76 +103,23 @@ Requests" panel in Setup as a fallback (in case an email bounces or
 never arrives) is probably worth doing regardless of which path is
 chosen.
 
-## Point JC Notes at a different source folder — investigated, needs a decision
+## Point per-verse JC hyperlinks at a different source folder — done
 
-User-provided link:
-https://drive.google.com/drive/folders/1QgBHviIVrpLQAgyl_NLpcd_pKDZKRK6M?usp=share_link
-— wants this used as the source for JC Notes (the verse/chapter
-commentary hyperlinks) instead of the current one.
-
-**Investigated.** This folder is genuinely different from what's
-already integrated — but it's not a drop-in replacement, and needs a
-decision before any rebuild work starts.
-
-What's there: 76 `.txt` files (one per book, mostly — Song of Solomon
-is split per-chapter, 2 John/3 John are combined, Psalm 119 has some
-redundant extra slices alongside the full `Psalm.txt`). Structure,
-confirmed by reading `Genesis.txt` and `Philemon.txt` in full:
-
-```
-GENESIS
-======================================================================
-
-Chapter 1
---------------------------------------------------
-
- v.1
- — Peter Forbes [2009] (jan01)
- Both Mark 1:1 and John 1:1 echo the creation language...
-
- — Valerie Mello [2012] (jan01)
- "In the beginning God created the heaven and the earth."
- ...
-
- v.2-3
- — John Wilson [2004] (jan01)
- ...
-```
-
-This is a **multi-author, multi-year daily-reading-notes archive** —
-verse (or verse-range) labeled sections, each containing one or more
-independent commentary entries from different contributors across
-different years (the same verse can have entries from the same author
-in 2001, 2004, 2006, ... plus other authors), not a single continuous
-voice. There's also a `[General / Whole Chapter]` pseudo-label for
-commentary not tied to any verse.
-
-Two things worth deciding before building anything:
-
-1. **It carries an explicit copyright notice** — Philemon.txt's
-   trailing entries read `© 2026 DailyReadings.org.uk`. The current
-   `data/jc-notes/` content's provenance/licensing was presumably
-   already settled when it was first integrated; this new source's
-   terms haven't been checked, and it's bundled into a public
-   GitHub Pages site's static files (readable by anyone), not kept
-   server-side.
-2. **It's a different kind of feature, not just a bigger version of the
-   current one.** Today's JC Notes shows one paragraph per verse. This
-   source would mean showing *multiple* dated, attributed entries per
-   verse (sometimes many, across years/authors) — the UI (currently a
-   flat list of `<p>`s in `jc-notes-popup.js`) and the data shape
-   (`{ paragraphs, verseMap }`, one paragraph per verse) would both
-   need real redesign to show "verse N has 4 entries, from these
-   authors/years" sensibly, not just a bigger version of the existing
-   split-into-paragraphs pipeline.
-
-If given the go-ahead: raw file -> parse `Chapter N` sections -> within
-each, parse `v.N` / `v.N-M` / `[General / Whole Chapter]` labels ->
-within each label, split on `— Author [Year] (datecode)` attribution
-lines into individual entries -> new per-book JSON shape that keeps
-each entry's author/year rather than collapsing to one paragraph per
-verse. Full raw file listing and the Genesis/Philemon inspection are in
-this session's history if picked back up later.
+User cleared the copyright question (permission confirmed) and asked to
+build it out for the per-verse hyperlinks specifically, keeping the JC
+badge/chapter-reference link on the original source. Built as a fully
+separate pipeline rather than replacing anything: raw `.txt` files (76,
+one per book mostly — Song of Solomon split per-chapter, Psalm 119
+extras skipped as redundant with `Psalm.txt`, 2 John/3 John's merged,
+ambiguously-numbered-chapters file resolved by content — its internal
+"Chapter 1"/"Chapter 3" are those books' real chapter 1, "Chapter 2" was
+dropped as an unattributable artifact) parsed into `{ groups: [{verses,
+entries: [{author, year, text}]}], generalEntries }` per chapter, one
+JSON file per book under `data/jc-verse-notes/`. See `js/jc-verse-notes-data.js`,
+`openVerseCommentaryPopup` in `js/jc-notes-popup.js`, and
+`loadVerseCommentary`/`linkChapterReference` in `js/bible-reader.js`.
+A handful of source entries that were just "." or "-" (evidently
+incomplete submissions) were filtered out during parsing.
 
 ## Shorten "King James Version (KJV)" to "KJV" — done
 
