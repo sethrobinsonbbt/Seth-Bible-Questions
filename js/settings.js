@@ -43,6 +43,7 @@ import {
   dismissCodeRequest,
 } from "./family.js";
 import { QUESTION_TYPES, questionTypeLabel, buildQuestionTypeEditor } from "./question-type-editor.js";
+import { supportsSpeech, getEnglishVoices, getSelectedVoice, saveVoiceURI } from "./voice-picker.js";
 
 const UNLOCK_KEY = "bible-questions-settings-unlocked";
 
@@ -1629,6 +1630,14 @@ function buildMainView(container) {
       <button id="copy-join-link-btn" class="btn btn-small">📋 Copy Join Link</button>
     </div>
 
+    <div id="voice-panel" class="settings-panel" hidden>
+      <div class="list-toolbar">
+        <h2>🔊 Reading Voice</h2>
+      </div>
+      <p class="settings-fineprint">Used when a Bible chapter is read aloud (the 🔊 Listen button).</p>
+      <select id="voice-select" class="bible-select"></select>
+    </div>
+
     <div id="code-requests-panel" class="settings-panel" hidden>
       <div class="list-toolbar">
         <h2>📨 Code Requests</h2>
@@ -1696,6 +1705,10 @@ function buildMainView(container) {
   refs.familyNameEl = container.querySelector("#settings-family-name");
   refs.exportBtn = container.querySelector("#export-data-btn");
   refs.exportBtn.addEventListener("click", exportAllData);
+
+  refs.voicePanel = container.querySelector("#voice-panel");
+  refs.voiceSelect = container.querySelector("#voice-select");
+  refreshVoicePanel();
 
   const familyCodeEl = container.querySelector("#family-code-display");
   const familyCode = getFamilyId() || "";
@@ -1784,6 +1797,36 @@ function renderCodeRequests() {
   });
 }
 
+// Shows/populates the Voice panel once the browser has actually finished
+// loading its voice list — speechSynthesis.getVoices() commonly returns
+// empty (or an incomplete list) the first time it's called, especially on
+// Android Chrome; the full list only becomes available once the async
+// "voiceschanged" event fires (wired once in mountSettings), so this runs
+// both right after Setup's main view renders and again whenever that event
+// fires, re-querying getEnglishVoices() fresh each time.
+function refreshVoicePanel() {
+  const panel = refs.voicePanel;
+  const select = refs.voiceSelect;
+  if (!panel || !select) return;
+  if (!supportsSpeech()) {
+    panel.hidden = true;
+    return;
+  }
+  const voices = getEnglishVoices();
+  panel.hidden = voices.length <= 1;
+  if (voices.length <= 1) return;
+  const current = getSelectedVoice();
+  select.innerHTML = "";
+  voices.forEach((v) => {
+    const opt = document.createElement("option");
+    opt.value = v.voiceURI;
+    opt.textContent = v.name;
+    select.appendChild(opt);
+  });
+  if (current) select.value = current.voiceURI;
+  select.onchange = () => saveVoiceURI(select.value);
+}
+
 function renderNavCounts() {
   if (refs.familyCount) refs.familyCount.textContent = `${users.length} member${users.length === 1 ? "" : "s"}`;
   if (refs.libraryCount) refs.libraryCount.textContent = `${questions.length} question${questions.length === 1 ? "" : "s"}`;
@@ -1801,6 +1844,12 @@ export function mountSettings(container) {
     buildMainView(container);
   } else {
     buildLockScreen(container);
+  }
+
+  // The voice list itself typically finishes loading asynchronously,
+  // separately from any one render of the main view — see refreshVoicePanel.
+  if (supportsSpeech()) {
+    window.speechSynthesis.onvoiceschanged = refreshVoicePanel;
   }
 
   subscribeUsers((updated) => {

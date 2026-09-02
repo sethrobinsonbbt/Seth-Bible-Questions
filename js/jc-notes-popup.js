@@ -30,16 +30,21 @@ function ensureRefs() {
 // (optional — a verse number, as tapped from the reading text) scrolls
 // straight to and highlights that verse's own paragraph, when it has one;
 // omitted (or when that verse has no paragraph of its own), the popup
-// just opens at the top, same as opening it from the JC badge.
-export function openJcNotesPopup(title, note, targetVerse) {
+// just opens at the top, same as opening it from the JC badge. `onlyIndices`
+// (optional — a list of paragraph indices, as tapped from a linked chapter
+// reference) renders just those paragraphs instead of the whole chapter —
+// used for the general remarks that aren't tied to any one verse.
+export function openJcNotesPopup(title, note, targetVerse, onlyIndices) {
   ensureRefs();
   refs.title.textContent = title;
+  const indices = onlyIndices || note.paragraphs.map((_, i) => i);
   const targetIndex = targetVerse != null ? note.verseMap[String(targetVerse)] : undefined;
-  refs.body.innerHTML = note.paragraphs
-    .map((p, i) => `<p${i === targetIndex ? ' class="jc-notes-highlight"' : ""}>${escapeHtml(p)}</p>`)
+  refs.body.innerHTML = indices
+    .map((i) => `<p${i === targetIndex ? ' class="jc-notes-highlight"' : ""}>${escapeHtml(note.paragraphs[i])}</p>`)
     .join("");
   refs.backdrop.hidden = false;
-  const targetEl = targetIndex != null ? refs.body.children[targetIndex] : null;
+  const targetPos = targetIndex != null ? indices.indexOf(targetIndex) : -1;
+  const targetEl = targetPos >= 0 ? refs.body.children[targetPos] : null;
   if (targetEl) targetEl.scrollIntoView({ block: "start" });
   else refs.body.scrollTop = 0;
 }

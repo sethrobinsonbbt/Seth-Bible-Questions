@@ -577,17 +577,20 @@ Tap **🔊 Listen** above the chapter text to have the device read the
 chapter aloud, one verse at a time (using your browser's built-in
 text-to-speech — no API key, works offline); tap it again (now **⏹
 Stop**) to stop. It automatically stops when you navigate to another
-chapter. A **Voice** dropdown (English voices only, since the text is
-always KJV) appears whenever your device offers more than one — it may
-take a moment to show up on first load, since most browsers finish
-loading their voice list asynchronously rather than having it ready
-immediately (the app watches for that and reveals the dropdown as soon
-as it's actually available, instead of only checking once too early).
-The default pick favors a higher-quality network voice over a device's
-flat built-in one where available; your choice is remembered. **Press
-and hold** the Listen button to speed up — the longer you hold, the
-faster it goes, ramping 2× → 3× → 4×; release to drop back to normal
-speed. If the chapter is part of today's reading plan, letting it play through to
+chapter. Which voice reads it is picked in 🔒 Setup's **🔊 Reading
+Voice** panel — a dropdown of your device's English voices (novelty/
+sound-effect voices like "Bubbles" or "Zarvox", which some platforms
+ship alongside real ones and which don't actually speak words, are
+filtered out by name) appears there whenever more than one is
+available; it may take a moment to show up on first load, since most
+browsers finish loading their voice list asynchronously rather than
+having it ready immediately (the app watches for that and reveals the
+dropdown as soon as it's actually available). The default pick favors
+a higher-quality network voice over a device's flat built-in one where
+available; your choice is remembered and used everywhere Listen plays.
+**Press and hold** the Listen button to speed up — the longer you
+hold, the faster it goes, ramping 2× → 3× → 4×; release to drop back
+to normal speed. If the chapter is part of today's reading plan, letting it play through to
 the end automatically marks that reading done and moves on to the day's
 next reading, hands-free — until the day's last reading finishes, when
 it stops.
@@ -791,11 +794,12 @@ matching anything.
 - `js/family-gate.js` — the one-time "Create a Family" / "Join a Family"
   screen shown before the app mounts on a device with no family picked
   yet, plus its "Forgot your code?" mini-form.
-- `js/settings.js` — the passcode-gated Setup landing page and its four
+- `js/settings.js` — the passcode-gated Setup landing page (Family Code,
+  the 🔊 Reading Voice panel, Code Requests, Backup) and its four
   subpages (Family Members + stats/reset, Question Library, Memory
   Verses categories, About), each with bulk CSV import/export (Excel/
   Sheets-friendly, with a downloadable template; also still accepts a
-  pasted JSON array) where noted above, plus Backup.
+  pasted JSON array) where noted above.
 - `js/bible-data.js` — the 66-book/chapter-count table, the list of
   available translations, and `resolveBookName` (common abbreviations —
   "Ex", "1Cor", "Ps", etc. — to canonical book name) used by the Bible
@@ -817,9 +821,18 @@ matching anything.
   numbers at their own paragraph) — see the Bible section above for how
   it's sourced/deduplicated.
 - `js/jc-notes-popup.js` — the bottom-sheet popup that shows a chapter's
-  JC Notes (opened from the JC badge, or from a linked verse number, in
-  which case it scrolls to and highlights that verse's paragraph).
-- `js/bible-reader.js` — the Bible reading section.
+  JC Notes: opened from the JC badge (whole chapter), from a linked verse
+  number (scrolls to and highlights that verse's paragraph), or from a
+  linked chapter reference in the heading (shows just the paragraph(s)
+  not tied to any verse — general remarks on the chapter as a whole).
+- `js/voice-picker.js` — the shared "reading voice" logic (English-only,
+  novelty/sound-effect voices filtered by name, saved pick, heuristic
+  best-voice fallback) used by both the Bible reader's Listen feature and
+  Setup's Voice panel, so they agree on the same pick.
+- `js/bible-reader.js` — the Bible reading section. The chapter heading's
+  reference text (e.g. "2 Kings 7") becomes a link, same styling as a
+  linked verse number, whenever that chapter's JC Notes have at least one
+  paragraph not covered by `verseMap`.
 - `js/planner.js` — the Reading Plan section (daily reading card + custom reading plans).
 - `js/default-reading-plan.js` — the 365-day default reading plan data
   and its passage-label parser (used to jump to a reading in the Bible

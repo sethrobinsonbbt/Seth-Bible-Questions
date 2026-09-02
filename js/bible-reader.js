@@ -4,6 +4,7 @@ import { fetchStrongsChapter } from "./strongs-data.js";
 import { fetchJcNote } from "./jc-notes-data.js";
 import { openStrongsPopup } from "./strongs-popup.js";
 import { openJcNotesPopup } from "./jc-notes-popup.js";
+import { supportsSpeech, getSelectedVoice } from "./voice-picker.js";
 import { addQuestion } from "./questions-data.js";
 import { buildAgeGroupSelect } from "./age-groups-data.js";
 import {
@@ -38,7 +39,6 @@ const NORMAL_RATE = 1;
 const FAST_RATES = [2, 3, 4];
 const LONG_PRESS_MS = 350;
 const RAMP_STEP_MS = 700;
-const VOICE_KEY = "bible-questions-voice-uri";
 let pickerVerses = []; // verses of the chapter currently loaded in the M+ modal
 // Set when the chapter on screen is (part of) a tracked daily reading —
 // { dateKey, index } where index is 0/1/2 for that day's 1st/2nd/3rd
@@ -343,20 +343,6 @@ async function loadChapter() {
     const listenBtn = supportsSpeech()
       ? `<button id="bible-listen-btn" class="btn btn-small listen-btn">🔊 Listen</button>`
       : "";
-    // Always render the row (hidden by default) rather than deciding once
-    // from getEnglishVoices() here — most browsers (notably Android
-    // Chrome) return an empty/partial voice list on this first synchronous
-    // call and only finish loading asynchronously; refreshVoiceUI (called
-    // below, and again whenever "voiceschanged" fires) is what actually
-    // reveals it once real voices are available.
-    const voiceRowHtml = supportsSpeech()
-      ? `
-          <div class="bible-voice-row" id="bible-voice-row" hidden>
-            <label for="bible-voice-select">Voice</label>
-            <select id="bible-voice-select" class="bible-select"></select>
-          </div>
-        `
-      : "";
 
     const dailyFooterHtml = dailyContext
       ? `
@@ -373,10 +359,9 @@ async function loadChapter() {
 
     refs.content.innerHTML = `
       <div class="bible-chapter-heading-row">
-        <h3 class="bible-chapter-heading">${escapeHtml(data.reference)} — ${escapeHtml(data.translationName)}</h3>
+        <h3 class="bible-chapter-heading"><span id="bible-chapter-ref">${escapeHtml(data.reference)}</span> — KJV</h3>
         ${listenBtn}
       </div>
-      ${voiceRowHtml}
       ${verseHtml || '<p class="bible-status">No verses returned.</p>'}
       ${dailyFooterHtml}
     `;
@@ -384,7 +369,6 @@ async function loadChapter() {
     if (supportsSpeech()) {
       const verseTexts = data.verses.map((v) => v.text);
       setupListenButton(verseTexts);
-      refreshVoiceUI();
       if (autoPlayNextChapter) {
         autoPlayNextChapter = false;
         startListening(verseTexts);
@@ -430,6 +414,7 @@ async function loadJcNotes(book, chapter, forRequest) {
   refs.jcNotesBtn.hidden = false;
   refs.jcNotesBtn.onclick = () => openJcNotesPopup(`${book} ${chapter}`, note);
   linkVerseNumbers(book, chapter, note);
+  linkChapterReference(book, chapter, note);
 }
 
 // Upgrades a verse's plain <sup> into a tappable link for every verse this
@@ -450,6 +435,32 @@ function linkVerseNumbers(book, chapter, note) {
         open();
       }
     });
+  });
+}
+
+// Upgrades the chapter reference in the heading (e.g. "2 Kings 7") into a
+// tappable link when this chapter's JC Notes have at least one paragraph
+// that isn't tied to any specific verse (its index never appears as a
+// note.verseMap value) — general remarks on the chapter as a whole, only
+// otherwise reachable via the full-chapter JC badge. Left plain when every
+// paragraph already has its own verse link, or there's only one paragraph
+// total (nothing left to single out).
+function linkChapterReference(book, chapter, note) {
+  const assignedIndices = new Set(Object.values(note.verseMap));
+  const unassignedIndices = note.paragraphs.map((_, i) => i).filter((i) => !assignedIndices.has(i));
+  if (unassignedIndices.length === 0) return;
+  const refEl = refs.content.querySelector("#bible-chapter-ref");
+  if (!refEl) return;
+  refEl.classList.add("bible-chapter-ref-linked");
+  refEl.setAttribute("role", "button");
+  refEl.setAttribute("tabindex", "0");
+  const open = () => openJcNotesPopup(`${book} ${chapter}`, note, undefined, unassignedIndices);
+  refEl.addEventListener("click", open);
+  refEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      open();
+    }
   });
 }
 
@@ -484,82 +495,6 @@ function renderVerseSegmentsHtml(segments) {
 // whole chapter. `stoppingDeliberately` distinguishes "we cancelled this
 // utterance ourselves" (restart/stop/navigate away) from "it actually
 // finished speaking" (browsers fire onend either way).
-
-function supportsSpeech() {
-  return "speechSynthesis" in window;
-}
-
-// Only English voices are offered — this app is KJV-only, so a voice
-// speaking in another language isn't useful here.
-function getEnglishVoices() {
-  if (!supportsSpeech()) return [];
-  return window.speechSynthesis.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith("en"));
-}
-
-function getSavedVoiceURI() {
-  try {
-    return localStorage.getItem(VOICE_KEY) || null;
-  } catch (e) {
-    return null;
-  }
-}
-
-function saveVoiceURI(uri) {
-  try {
-    if (uri) localStorage.setItem(VOICE_KEY, uri);
-    else localStorage.removeItem(VOICE_KEY);
-  } catch (e) {
-    /* ignore */
-  }
-}
-
-// Prefers a saved manual pick; otherwise a heuristic "best" voice — network
-// voices (not locally synthesized) tend to sound noticeably more natural
-// than a device's built-in default, so favor those when the browser
-// exposes any, falling back to a name that suggests better quality.
-function pickBestVoice(voices) {
-  return (
-    voices.find((v) => !v.localService) ||
-    voices.find((v) => /Google|Microsoft|Natural|Enhanced|Premium/i.test(v.name)) ||
-    voices[0] ||
-    null
-  );
-}
-
-function getSelectedVoice() {
-  const voices = getEnglishVoices();
-  if (voices.length === 0) return null;
-  const savedURI = getSavedVoiceURI();
-  const saved = savedURI && voices.find((v) => v.voiceURI === savedURI);
-  return saved || pickBestVoice(voices);
-}
-
-// Shows/populates the Voice row for the currently-loaded chapter, once
-// the browser has actually finished loading its voice list.
-// speechSynthesis.getVoices() commonly returns empty (or an incomplete
-// list) the first time it's called, especially on Android Chrome — the
-// full list only becomes available once the async "voiceschanged" event
-// fires, so this runs both right after a chapter renders and again
-// whenever that event fires (see mountBibleReader), re-querying
-// getEnglishVoices() fresh each time rather than trusting a stale count.
-function refreshVoiceUI() {
-  const row = refs.content.querySelector("#bible-voice-row");
-  const select = refs.content.querySelector("#bible-voice-select");
-  if (!row || !select) return;
-  const voices = getEnglishVoices();
-  row.hidden = voices.length <= 1;
-  if (voices.length <= 1) return;
-  const current = getSelectedVoice();
-  select.innerHTML = "";
-  voices.forEach((v) => {
-    const opt = document.createElement("option");
-    opt.value = v.voiceURI;
-    opt.textContent = v.name;
-    select.appendChild(opt);
-  });
-  if (current) select.value = current.voiceURI;
-  select.onchange = () => saveVoiceURI(select.value);
-}
 
 function updateListenBtnLabel() {
   const btn = refs.content.querySelector("#bible-listen-btn");
@@ -964,12 +899,6 @@ export function goTo(book, chapter, version, dailyCtx) {
 
 export function mountBibleReader(container) {
   buildSkeleton(container);
-
-  // The voice list itself typically finishes loading asynchronously,
-  // separately from any one chapter render — see refreshVoiceUI.
-  if (supportsSpeech()) {
-    window.speechSynthesis.onvoiceschanged = refreshVoiceUI;
-  }
 
   // Bible is the app's landing section — open straight to today's first
   // daily reading rather than resuming wherever a previous session left
