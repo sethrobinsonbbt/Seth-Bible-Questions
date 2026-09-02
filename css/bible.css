@@ -370,29 +370,54 @@
   margin-right: 0.15rem;
 }
 
-.bible-jc-notes {
+.bible-jc-notes-trigger-row {
   margin-top: 1.2rem;
-  padding: 0.9rem 1rem;
-  background: var(--bg);
+}
+
+.jc-notes-popup-backdrop {
+  z-index: 80;
+}
+
+.jc-notes-modal {
+  background: var(--card-bg);
+  width: calc(100% - 1.5rem);
+  max-width: 720px;
+  height: 50vh;
+  margin: 0 0 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 16px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.25);
 }
 
-.bible-jc-notes-heading {
-  margin: 0 0 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+.jc-notes-modal-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
 }
 
-.bible-jc-notes p {
+.jc-notes-modal-topbar h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.jc-notes-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.jc-notes-modal-body p {
   margin: 0 0 0.7rem;
   line-height: 1.5;
 }
 
-.bible-jc-notes p:last-child {
+.jc-notes-modal-body p:last-child {
   margin-bottom: 0;
 }
 

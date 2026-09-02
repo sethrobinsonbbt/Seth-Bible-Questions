@@ -534,11 +534,13 @@ open), and the dictionary/occurrence-index files live directly in
 `data/strongs/`.
 
 **JC Notes:** below the reading text (and above the "Mark as Read"
-footer, on a tracked daily reading) is a commentary box for that
-chapter, when one exists — pulled from a year's worth of daily Bible
-reading notes. Not every chapter has one (the source material simply
-didn't cover every chapter), in which case the box just isn't there —
-no "no notes for this chapter" placeholder. Like Strong's numbers, this
+footer, on a tracked daily reading) a **📝 JC Notes** button appears
+when this chapter has commentary — pulled from a year's worth of daily
+Bible reading notes. Tapping it opens the commentary in a popup over
+the bottom half of the screen (tap outside it, or the ✕, to close).
+Not every chapter has one (the source material simply didn't cover
+every chapter), in which case the button just isn't there — no
+"no notes for this chapter" placeholder. Like Strong's numbers, this
 is bundled data (`data/jc-notes/`, one file per book, fetched — and
 cached — only for books you open) rather than anything fetched live.
 The source was a year's daily commentary in which the same chapter can
@@ -797,6 +799,8 @@ matching anything.
 - `js/jc-notes-data.js` — loads the bundled JC Notes commentary
   (`data/jc-notes/*.json`, one file per book, chapter number -> text) —
   see the Bible section above for how it's sourced/deduplicated.
+- `js/jc-notes-popup.js` — the bottom-sheet popup that shows a chapter's
+  JC Notes (opened from the button below the reading text).
 - `js/bible-reader.js` — the Bible reading section.
 - `js/planner.js` — the Reading Plan section (daily reading card + custom reading plans).
 - `js/default-reading-plan.js` — the 365-day default reading plan data

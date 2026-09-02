@@ -3,6 +3,7 @@ import { fetchChapter } from "./bible-api.js";
 import { fetchStrongsChapter } from "./strongs-data.js";
 import { fetchJcNote } from "./jc-notes-data.js";
 import { openStrongsPopup } from "./strongs-popup.js";
+import { openJcNotesPopup } from "./jc-notes-popup.js";
 import { addQuestion } from "./questions-data.js";
 import { buildAgeGroupSelect } from "./age-groups-data.js";
 import {
@@ -363,7 +364,9 @@ async function loadChapter() {
       </div>
       ${voiceRowHtml}
       ${verseHtml || '<p class="bible-status">No verses returned.</p>'}
-      <div id="bible-jc-notes" class="bible-jc-notes" hidden></div>
+      <div id="bible-jc-notes-trigger-row" class="bible-jc-notes-trigger-row" hidden>
+        <button id="bible-jc-notes-btn" class="btn btn-small">📝 JC Notes</button>
+      </div>
       ${dailyFooterHtml}
     `;
 
@@ -400,22 +403,21 @@ async function loadChapter() {
   }
 }
 
-// Fetches and shows the "JC Notes" commentary for this book/chapter, once
-// it's back — a separate (per-book) fetch from the chapter text itself, so
-// it doesn't block the initial render. Silently leaves the section out if
+// Fetches this book/chapter's "JC Notes" commentary, once it's back — a
+// separate (per-book) fetch from the chapter text itself, so it doesn't
+// block the initial render. Silently leaves the trigger button out if
 // there's no commentary for this chapter (common — coverage isn't
-// complete) or the fetch fails; no error shown either way.
+// complete) or the fetch fails; no error shown either way. Tapping the
+// button (once shown) opens it in a bottom-sheet popup — see
+// jc-notes-popup.js.
 async function loadJcNotes(book, chapter, forRequest) {
   const note = await fetchJcNote(book, chapter).catch(() => null);
   if (forRequest !== requestId) return; // superseded by a newer chapter nav
-  const section = refs.content.querySelector("#bible-jc-notes");
-  if (!section || !note) return;
-  const paragraphsHtml = note
-    .split("\n\n")
-    .map((p) => `<p>${escapeHtml(p)}</p>`)
-    .join("");
-  section.innerHTML = `<h4 class="bible-jc-notes-heading">JC Notes</h4>${paragraphsHtml}`;
-  section.hidden = false;
+  const row = refs.content.querySelector("#bible-jc-notes-trigger-row");
+  const btn = refs.content.querySelector("#bible-jc-notes-btn");
+  if (!row || !btn || !note) return;
+  row.hidden = false;
+  btn.addEventListener("click", () => openJcNotesPopup(`${book} ${chapter}`, note));
 }
 
 function escapeHtml(str) {
