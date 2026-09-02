@@ -102,3 +102,102 @@ assuming it's a small add-on. Keeping the existing manual "Code
 Requests" panel in Setup as a fallback (in case an email bounces or
 never arrives) is probably worth doing regardless of which path is
 chosen.
+
+## Move the Voice picker to Setup, and filter out novelty "voices"
+
+The **Voice** dropdown (`#bible-voice-row` in `js/bible-reader.js`,
+populated by `refreshVoiceUI()`) currently lives inline above the
+chapter text, right next to **🔊 Listen**. Move it into 🔒 Setup
+instead — a one-time "pick your reading voice" preference doesn't need
+to take up space on every chapter view; it already persists across
+chapters/sessions via `localStorage` (`VOICE_KEY` /
+`bible-questions-voice-uri`), so Setup just needs its own small panel
+with the same `<select>`, wired to the same `getSelectedVoice`/
+`saveVoiceURI` functions (may be worth exporting them from
+bible-reader.js, or moving the voice-picking logic into its own small
+module both files import — similar to how `question-type-editor.js`
+got split out).
+
+Separately: some devices' voice lists include novelty/sound-effect
+entries that don't actually speak words — e.g. "Bubbles", "Bells" (this
+is a known thing on Apple platforms in particular — Siri/iOS ships
+several joke voices like "Albert", "Bad News", "Bahh", "Boing",
+"Bubbles", "Cellos", "Good News", "Jester", "Organ", "Trinoids",
+"Whisper", "Wobble", "Zarvox" — the exact list has changed across OS
+versions). The Web Speech API gives no programmatic way to detect
+"this is a novelty voice" — no flag for it — so this needs a curated
+name-based exclusion list in `getEnglishVoices()` (in
+`js/bible-reader.js`), filtering out any voice whose name matches a
+known novelty entry. Worth checking what the user's own phone actually
+lists before finalizing the exclusion list, since it may not match the
+classic Apple set exactly (Android/Chrome voices are named
+differently).
+
+## Point JC Notes at a different source folder
+
+User-provided link:
+https://drive.google.com/drive/folders/1QgBHviIVrpLQAgyl_NLpcd_pKDZKRK6M?usp=share_link
+— wants this used as the source for JC Notes (the verse/chapter
+commentary hyperlinks) instead of the current one.
+
+Not yet investigated. Important: the *last* time a Google Drive folder
+link was handed over for this feature, it turned out to be the exact
+same "Comments on the Daily Readings" PDFs already extracted and
+bundled as `data/jc-notes/` — not new content at all. So the first
+step here has to be actually listing this folder's contents and
+comparing them against what's already integrated (the
+`mcp__Google_Drive__search_files` / `read_file_content` tools worked
+fine for this last time — see the session history) — confirm it's
+genuinely different/better material before doing any rebuild work.
+If it does turn out to be different, the existing pipeline (raw
+extraction -> dedupe by (book, chapter), keep the longest duplicate ->
+clean_text() strips PDF-extraction artifacts -> split into paragraphs
+on "V.N -" markers -> verseMap built from each paragraph's own leading
+marker -> one JSON file per book under `data/jc-notes/`) is a
+reasonable template to reuse or adapt, but the source's actual
+structure (verse-organized? chapter-organized? some other format
+entirely?) needs to be inspected first, same as the note on the
+original connection-details doc said.
+
+## Shorten "King James Version (KJV)" to "KJV"
+
+The chapter heading in `js/bible-reader.js`'s `loadChapter()` currently
+reads e.g. "Genesis 1 — King James Version (KJV)" (`data.reference` +
+`data.translationName`, where `translationName` is
+`"King James Version (KJV)"` from `strongs-data.js`'s
+`fetchStrongsChapter` / the `bible-api.js` fallback). Since this app
+only ever offers the one translation (see README's Bible section), the
+long name doesn't need to keep announcing itself in full on every
+chapter — just display `"KJV"` in the heading. Simplest: shorten it at
+the display site in `loadChapter()` rather than changing what
+`translationName` itself contains everywhere (other code may still
+want the full name, e.g. if a second translation is ever added later).
+
+## Hyperlink the chapter reference too, for commentary not tied to any verse
+
+Following on from the per-verse JC Notes links: some chapters' JC Notes
+have a leading paragraph (or others) that aren't about any specific
+verse — general remarks on the chapter as a whole (e.g. Genesis 1's
+"Genesis 1 to 4 constitute the foundation of all Scriptural
+revelation..." intro paragraph, before the "V.1 –" one starts). Right
+now those are only reachable by opening the whole chapter's notes from
+the JC badge.
+
+Idea: when a chapter has JC Notes AND at least one paragraph isn't
+covered by any entry in `note.verseMap` (i.e. its index never appears
+as a `verseMap` value), make the chapter reference text itself (e.g.
+"2 Kings 7", in the `<h3 class="bible-chapter-heading">` built in
+`loadChapter()`) a link too — styled the same teal/underlined way as a
+linked verse number. Tapping it would open the JC Notes popup showing
+*only* those unassigned paragraphs (not the full chapter), the same
+way tapping a verse number scrolls to just its own paragraph.
+
+Touches:
+- `js/bible-reader.js` — compute the "has unassigned paragraphs" check
+  in `loadJcNotes()` (paragraph indices 0..paragraphs.length-1 minus
+  the set of values in `verseMap`), and link the reference text in the
+  heading when that set is non-empty.
+- `js/jc-notes-popup.js`'s `openJcNotesPopup()` — needs a way to render
+  only a subset of paragraphs (by index list) instead of always the
+  full array; the verse-number-tap path keeps showing everything with
+  one paragraph highlighted, same as today.
