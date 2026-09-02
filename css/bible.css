@@ -307,9 +307,7 @@
 .jc-notes-btn {
   background: linear-gradient(135deg, #0d9488, #0f766e);
   box-shadow: 0 3px 10px rgba(15,118,110,0.4);
-  width: 2.25rem;
-  height: 2.25rem;
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   font-family: inherit;
 }
 
