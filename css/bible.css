@@ -304,6 +304,19 @@
   box-shadow: 0 3px 10px rgba(180,83,9,0.4);
 }
 
+.jc-notes-btn {
+  background: linear-gradient(135deg, #0d9488, #0f766e);
+  box-shadow: 0 3px 10px rgba(15,118,110,0.4);
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+}
+
+.jc-notes-btn[hidden] {
+  display: none;
+}
+
 .bible-content {
   background: var(--card-bg);
   border: 1px solid var(--border);
@@ -368,10 +381,6 @@
   color: var(--text-muted);
   font-weight: 700;
   margin-right: 0.15rem;
-}
-
-.bible-jc-notes-trigger-row {
-  margin-top: 1.2rem;
 }
 
 .jc-notes-popup-backdrop {

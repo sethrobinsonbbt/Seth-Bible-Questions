@@ -473,8 +473,9 @@ Reading Plan page), a footer appears below the text:
 - **Next Reading →** jumps straight to the day's next passage (hidden
   once you're on the day's third/last one).
 
-The **Q⁺** and **M⁺** badges (see below) float at the top-right of the
-chapter text and stay put as you scroll, so they're always reachable.
+The **Q⁺**, **M⁺**, and (when this chapter has one) **JC** badges (see
+below) float at the top-right of the chapter text and stay put as you
+scroll, so they're always reachable.
 
 Just one translation is offered: the **King James Version**, public
 domain. Its text is bundled with the app itself (see **Strong's
@@ -533,20 +534,6 @@ file per book, fetched — and then cached — only for books you actually
 open), and the dictionary/occurrence-index files live directly in
 `data/strongs/`.
 
-**JC Notes:** below the reading text (and above the "Mark as Read"
-footer, on a tracked daily reading) a **📝 JC Notes** button appears
-when this chapter has commentary — pulled from a year's worth of daily
-Bible reading notes. Tapping it opens the commentary in a popup over
-the bottom half of the screen (tap outside it, or the ✕, to close).
-Not every chapter has one (the source material simply didn't cover
-every chapter), in which case the button just isn't there — no
-"no notes for this chapter" placeholder. Like Strong's numbers, this
-is bundled data (`data/jc-notes/`, one file per book, fetched — and
-cached — only for books you open) rather than anything fetched live.
-The source was a year's daily commentary in which the same chapter can
-come up more than once (different reading passes through the same
-book); where that happened, the longest of the versions was kept.
-
 The little **Q⁺** badge is a quick way to jot down a question inspired by
 whatever you're currently reading, without needing the Setup passcode.
 Same fields as Setup's question form
@@ -562,17 +549,34 @@ Verse**. It tracks progress under whoever's picked in the header's
 selected yet). It shares the exact same verse-picker as Memorize's own
 **+ Add Verse** (see below).
 
+Below those, a small teal **JC** badge appears when this chapter has
+commentary — pulled from a year's worth of daily Bible reading notes.
+Tapping it opens the commentary in a popup over the bottom half of the
+screen (tap outside it, or the ✕, to close). Not every chapter has one
+(the source material simply didn't cover every chapter), in which case
+the badge just isn't there — no "no notes for this chapter"
+placeholder. Like Strong's numbers, this is bundled data
+(`data/jc-notes/`, one file per book, fetched — and cached — only for
+books you open) rather than anything fetched live. The source was a
+year's daily commentary in which the same chapter can come up more
+than once (different reading passes through the same book); where that
+happened, the longest of the versions was kept.
+
 Tap **🔊 Listen** above the chapter text to have the device read the
 chapter aloud, one verse at a time (using your browser's built-in
 text-to-speech — no API key, works offline); tap it again (now **⏹
 Stop**) to stop. It automatically stops when you navigate to another
 chapter. A **Voice** dropdown (English voices only, since the text is
-always KJV) appears whenever your device offers more than one — the
-default pick favors a higher-quality network voice over a device's flat
-built-in one where available; your choice is remembered. **Press and
-hold** the Listen button to speed up — the longer you hold, the faster
-it goes, ramping 2× → 3× → 4×; release to drop back to normal speed. If
-the chapter is part of today's reading plan, letting it play through to
+always KJV) appears whenever your device offers more than one — it may
+take a moment to show up on first load, since most browsers finish
+loading their voice list asynchronously rather than having it ready
+immediately (the app watches for that and reveals the dropdown as soon
+as it's actually available, instead of only checking once too early).
+The default pick favors a higher-quality network voice over a device's
+flat built-in one where available; your choice is remembered. **Press
+and hold** the Listen button to speed up — the longer you hold, the
+faster it goes, ramping 2× → 3× → 4×; release to drop back to normal
+speed. If the chapter is part of today's reading plan, letting it play through to
 the end automatically marks that reading done and moves on to the day's
 next reading, hands-free — until the day's last reading finishes, when
 it stops.
@@ -800,7 +804,7 @@ matching anything.
   (`data/jc-notes/*.json`, one file per book, chapter number -> text) —
   see the Bible section above for how it's sourced/deduplicated.
 - `js/jc-notes-popup.js` — the bottom-sheet popup that shows a chapter's
-  JC Notes (opened from the button below the reading text).
+  JC Notes (opened from the JC badge in the Q⁺/M⁺ button stack).
 - `js/bible-reader.js` — the Bible reading section.
 - `js/planner.js` — the Reading Plan section (daily reading card + custom reading plans).
 - `js/default-reading-plan.js` — the 365-day default reading plan data

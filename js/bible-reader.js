@@ -92,6 +92,7 @@ function buildSkeleton(container) {
     <div class="bible-plus-group">
       <button id="bible-addq-btn" class="q-plus-btn" aria-label="Add a question">Q<sup>+</sup></button>
       <button id="bible-addm-btn" class="q-plus-btn m-plus-btn" aria-label="Add a memory verse">M<sup>+</sup></button>
+      <button id="bible-jc-notes-btn" class="q-plus-btn jc-notes-btn" aria-label="JC Notes for this chapter" hidden>JC</button>
     </div>
     <div id="bible-content" class="bible-content"></div>
 
@@ -155,6 +156,7 @@ function buildSkeleton(container) {
   refs.prevBtn = container.querySelector("#bible-prev-btn");
   refs.nextBtn = container.querySelector("#bible-next-btn");
   refs.content = container.querySelector("#bible-content");
+  refs.jcNotesBtn = container.querySelector("#bible-jc-notes-btn");
   refs.addqBtn = container.querySelector("#bible-addq-btn");
   refs.addqModalBackdrop = container.querySelector("#bible-addq-modal-backdrop");
   refs.addqText = container.querySelector("#bible-addq-text");
@@ -316,6 +318,9 @@ async function loadChapter() {
   const myRequest = ++requestId;
   stopListening();
   refs.content.innerHTML = `<p class="bible-status">Loading ${state.book} ${state.chapter}…</p>`;
+  // Hide immediately rather than leaving the previous chapter's button (and
+  // its stale click handler) up during the fetch below.
+  refs.jcNotesBtn.hidden = true;
 
   try {
     // The bundled Strong's-tagged KJV text (see strongs-data.js) is this
@@ -330,19 +335,23 @@ async function loadChapter() {
       .map((v) => `<p class="bible-verse"><sup>${v.verse}</sup> ${v.segments ? renderVerseSegmentsHtml(v.segments) : escapeHtml(v.text)}</p>`)
       .join("");
 
-    const voices = getEnglishVoices();
     const listenBtn = supportsSpeech()
       ? `<button id="bible-listen-btn" class="btn btn-small listen-btn">🔊 Listen</button>`
       : "";
-    const voiceRowHtml =
-      supportsSpeech() && voices.length > 1
-        ? `
-          <div class="bible-voice-row">
+    // Always render the row (hidden by default) rather than deciding once
+    // from getEnglishVoices() here — most browsers (notably Android
+    // Chrome) return an empty/partial voice list on this first synchronous
+    // call and only finish loading asynchronously; refreshVoiceUI (called
+    // below, and again whenever "voiceschanged" fires) is what actually
+    // reveals it once real voices are available.
+    const voiceRowHtml = supportsSpeech()
+      ? `
+          <div class="bible-voice-row" id="bible-voice-row" hidden>
             <label for="bible-voice-select">Voice</label>
             <select id="bible-voice-select" class="bible-select"></select>
           </div>
         `
-        : "";
+      : "";
 
     const dailyFooterHtml = dailyContext
       ? `
@@ -364,16 +373,13 @@ async function loadChapter() {
       </div>
       ${voiceRowHtml}
       ${verseHtml || '<p class="bible-status">No verses returned.</p>'}
-      <div id="bible-jc-notes-trigger-row" class="bible-jc-notes-trigger-row" hidden>
-        <button id="bible-jc-notes-btn" class="btn btn-small">📝 JC Notes</button>
-      </div>
       ${dailyFooterHtml}
     `;
 
     if (supportsSpeech()) {
       const verseTexts = data.verses.map((v) => v.text);
       setupListenButton(verseTexts);
-      setupVoiceSelect(voices);
+      refreshVoiceUI();
       if (autoPlayNextChapter) {
         autoPlayNextChapter = false;
         startListening(verseTexts);
@@ -405,19 +411,17 @@ async function loadChapter() {
 
 // Fetches this book/chapter's "JC Notes" commentary, once it's back — a
 // separate (per-book) fetch from the chapter text itself, so it doesn't
-// block the initial render. Silently leaves the trigger button out if
-// there's no commentary for this chapter (common — coverage isn't
-// complete) or the fetch fails; no error shown either way. Tapping the
-// button (once shown) opens it in a bottom-sheet popup — see
-// jc-notes-popup.js.
+// block the initial render. Silently leaves the "JC" badge (in the fixed
+// Q+/M+ button stack — see buildSkeleton) hidden if there's no commentary
+// for this chapter (common — coverage isn't complete) or the fetch fails;
+// no error shown either way. Tapping it (once shown) opens the notes in a
+// bottom-sheet popup — see jc-notes-popup.js.
 async function loadJcNotes(book, chapter, forRequest) {
   const note = await fetchJcNote(book, chapter).catch(() => null);
   if (forRequest !== requestId) return; // superseded by a newer chapter nav
-  const row = refs.content.querySelector("#bible-jc-notes-trigger-row");
-  const btn = refs.content.querySelector("#bible-jc-notes-btn");
-  if (!row || !btn || !note) return;
-  row.hidden = false;
-  btn.addEventListener("click", () => openJcNotesPopup(`${book} ${chapter}`, note));
+  if (!note) return; // already hidden at the top of loadChapter
+  refs.jcNotesBtn.hidden = false;
+  refs.jcNotesBtn.onclick = () => openJcNotesPopup(`${book} ${chapter}`, note);
 }
 
 function escapeHtml(str) {
@@ -501,9 +505,21 @@ function getSelectedVoice() {
   return saved || pickBestVoice(voices);
 }
 
-function setupVoiceSelect(voices) {
+// Shows/populates the Voice row for the currently-loaded chapter, once
+// the browser has actually finished loading its voice list.
+// speechSynthesis.getVoices() commonly returns empty (or an incomplete
+// list) the first time it's called, especially on Android Chrome — the
+// full list only becomes available once the async "voiceschanged" event
+// fires, so this runs both right after a chapter renders and again
+// whenever that event fires (see mountBibleReader), re-querying
+// getEnglishVoices() fresh each time rather than trusting a stale count.
+function refreshVoiceUI() {
+  const row = refs.content.querySelector("#bible-voice-row");
   const select = refs.content.querySelector("#bible-voice-select");
-  if (!select) return;
+  if (!row || !select) return;
+  const voices = getEnglishVoices();
+  row.hidden = voices.length <= 1;
+  if (voices.length <= 1) return;
   const current = getSelectedVoice();
   select.innerHTML = "";
   voices.forEach((v) => {
@@ -513,7 +529,7 @@ function setupVoiceSelect(voices) {
     select.appendChild(opt);
   });
   if (current) select.value = current.voiceURI;
-  select.addEventListener("change", () => saveVoiceURI(select.value));
+  select.onchange = () => saveVoiceURI(select.value);
 }
 
 function updateListenBtnLabel() {
@@ -919,6 +935,12 @@ export function goTo(book, chapter, version, dailyCtx) {
 
 export function mountBibleReader(container) {
   buildSkeleton(container);
+
+  // The voice list itself typically finishes loading asynchronously,
+  // separately from any one chapter render — see refreshVoiceUI.
+  if (supportsSpeech()) {
+    window.speechSynthesis.onvoiceschanged = refreshVoiceUI;
+  }
 
   // Bible is the app's landing section — open straight to today's first
   // daily reading rather than resuming wherever a previous session left
