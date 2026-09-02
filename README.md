@@ -596,7 +596,9 @@ filtered out by name) appears there whenever more than one is
 available; it may take a moment to show up on first load, since most
 browsers finish loading their voice list asynchronously rather than
 having it ready immediately (the app watches for that and reveals the
-dropdown as soon as it's actually available). The default pick favors
+dropdown as soon as it's actually available). Picking a voice plays a
+quick spoken sample of it ("In the beginning God created the heaven
+and the earth.") so you can hear it before committing to it. The default pick favors
 a higher-quality network voice over a device's flat built-in one where
 available; your choice is remembered and used everywhere Listen plays.
 **Press and hold** the Listen button to speed up — the longer you

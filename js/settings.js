@@ -1634,7 +1634,7 @@ function buildMainView(container) {
       <div class="list-toolbar">
         <h2>🔊 Reading Voice</h2>
       </div>
-      <p class="settings-fineprint">Used when a Bible chapter is read aloud (the 🔊 Listen button).</p>
+      <p class="settings-fineprint">Used when a Bible chapter is read aloud (the 🔊 Listen button). Picking a voice plays a quick sample of it.</p>
       <select id="voice-select" class="bible-select"></select>
     </div>
 
@@ -1797,6 +1797,17 @@ function renderCodeRequests() {
   });
 }
 
+// Read aloud on picking a new voice, so you can hear it before committing
+// to it for actual chapter reading.
+const VOICE_SAMPLE_TEXT = "In the beginning God created the heaven and the earth.";
+
+function speakVoiceSample(voice) {
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(VOICE_SAMPLE_TEXT);
+  utterance.voice = voice;
+  window.speechSynthesis.speak(utterance);
+}
+
 // Shows/populates the Voice panel once the browser has actually finished
 // loading its voice list — speechSynthesis.getVoices() commonly returns
 // empty (or an incomplete list) the first time it's called, especially on
@@ -1824,7 +1835,11 @@ function refreshVoicePanel() {
     select.appendChild(opt);
   });
   if (current) select.value = current.voiceURI;
-  select.onchange = () => saveVoiceURI(select.value);
+  select.onchange = () => {
+    saveVoiceURI(select.value);
+    const voice = voices.find((v) => v.voiceURI === select.value);
+    if (voice) speakVoiceSample(voice);
+  };
 }
 
 function renderNavCounts() {
