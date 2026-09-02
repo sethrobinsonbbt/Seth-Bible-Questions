@@ -1,5 +1,7 @@
-// The "JC Notes" bottom-sheet popup: opened by tapping the JC Notes button
-// below a chapter's reading text (see bible-reader.js). Markup lives in
+// The JC Notes bottom-sheet popup — shared by two independent commentary
+// sources, both driven from bible-reader.js: the JC badge/chapter-reference
+// link (openJcNotesPopup, jc-notes-data.js) and per-verse hyperlinks
+// (openVerseCommentaryPopup, jc-verse-notes-data.js). Markup lives in
 // index.html (#jc-notes-popup-backdrop), mirroring strongs-popup.js's
 // lazy-refs pattern.
 let refs = null;
@@ -47,6 +49,29 @@ export function openJcNotesPopup(title, note, targetVerse, onlyIndices) {
   const targetEl = targetPos >= 0 ? refs.body.children[targetPos] : null;
   if (targetEl) targetEl.scrollIntoView({ block: "start" });
   else refs.body.scrollTop = 0;
+}
+
+// Renders the *other* commentary source (js/jc-verse-notes-data.js) in the
+// same bottom sheet: a list of independent, attributed entries for one
+// verse — potentially many, from different authors and years — rather
+// than the single paragraph `openJcNotesPopup` shows. `entries` is
+// `[{ author, year, text }, ...]`, already combined across every group
+// that covers the tapped verse (see bible-reader.js).
+export function openVerseCommentaryPopup(title, entries) {
+  ensureRefs();
+  refs.title.textContent = title;
+  refs.body.innerHTML = entries
+    .map(
+      (e) => `
+        <div class="verse-commentary-entry">
+          <p class="verse-commentary-attribution">${escapeHtml(e.author)}${e.year ? ` · ${e.year}` : ""}</p>
+          <p class="verse-commentary-text">${escapeHtml(e.text).replace(/\n/g, "<br>")}</p>
+        </div>
+      `
+    )
+    .join("");
+  refs.backdrop.hidden = false;
+  refs.body.scrollTop = 0;
 }
 
 export function closeJcNotesPopup() {

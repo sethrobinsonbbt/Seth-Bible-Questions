@@ -431,6 +431,30 @@
   border-radius: 0 8px 8px 0;
 }
 
+.verse-commentary-entry {
+  margin: 0 0 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.verse-commentary-entry:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.verse-commentary-attribution {
+  margin: 0 0 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0d9488;
+}
+
+.verse-commentary-text {
+  margin: 0;
+  line-height: 1.5;
+}
+
 .bible-daily-actions {
   margin-top: 1.2rem;
   padding-top: 1rem;

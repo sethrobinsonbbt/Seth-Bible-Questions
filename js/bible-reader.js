@@ -2,8 +2,9 @@ import { BOOKS, BIBLE_VERSIONS, resolveBookName } from "./bible-data.js";
 import { fetchChapter } from "./bible-api.js";
 import { fetchStrongsChapter } from "./strongs-data.js";
 import { fetchJcNote } from "./jc-notes-data.js";
+import { fetchJcVerseNotes } from "./jc-verse-notes-data.js";
 import { openStrongsPopup } from "./strongs-popup.js";
-import { openJcNotesPopup } from "./jc-notes-popup.js";
+import { openJcNotesPopup, openVerseCommentaryPopup } from "./jc-notes-popup.js";
 import { supportsSpeech, getSelectedVoice } from "./voice-picker.js";
 import { addQuestion } from "./questions-data.js";
 import { buildAgeGroupSelect } from "./age-groups-data.js";
@@ -383,6 +384,7 @@ async function loadChapter() {
     }
 
     loadJcNotes(state.book, state.chapter, myRequest);
+    loadVerseCommentary(state.book, state.chapter, myRequest);
   } catch (err) {
     if (myRequest !== requestId) return;
     console.error(err);
@@ -401,33 +403,49 @@ async function loadChapter() {
 // Fetches this book/chapter's "JC Notes" commentary, once it's back — a
 // separate (per-book) fetch from the chapter text itself, so it doesn't
 // block the initial render. Silently leaves the "JC" badge (in the fixed
-// Q+/M+ button stack — see buildSkeleton) hidden, and every verse number
-// unlinked, if there's no commentary for this chapter (common — coverage
+// Q+/M+ button stack — see buildSkeleton) and the chapter reference link
+// alone, if there's no commentary for this chapter (common — coverage
 // isn't complete) or the fetch fails; no error shown either way. Tapping
-// the badge (once shown) opens the notes in a bottom-sheet popup at the
-// top; tapping a linked verse number opens the same popup scrolled
-// straight to that verse's own paragraph — see jc-notes-popup.js.
+// the badge opens the notes in a bottom-sheet popup at the top — see
+// jc-notes-popup.js. Verse-number links are a separate, independent
+// source — see loadVerseCommentary.
 async function loadJcNotes(book, chapter, forRequest) {
   const note = await fetchJcNote(book, chapter).catch(() => null);
   if (forRequest !== requestId) return; // superseded by a newer chapter nav
   if (!note) return; // already hidden at the top of loadChapter
   refs.jcNotesBtn.hidden = false;
   refs.jcNotesBtn.onclick = () => openJcNotesPopup(`${book} ${chapter}`, note);
-  linkVerseNumbers(book, chapter, note);
   linkChapterReference(book, chapter, note);
 }
 
-// Upgrades a verse's plain <sup> into a tappable link for every verse this
-// chapter's JC Notes covers with its own paragraph (per note.verseMap) —
-// the rest are left as plain, non-interactive superscripts.
-function linkVerseNumbers(book, chapter, note) {
-  Object.keys(note.verseMap).forEach((verseNum) => {
+// Fetches this book/chapter's per-verse commentary (js/jc-verse-notes-data.js
+// — a different, multi-author/multi-year source from the JC badge's own
+// commentary above) and upgrades each covered verse's plain <sup> into a
+// tappable link. A verse can be covered by more than one group (e.g. once
+// alone as "v.1" and again as part of "v.1,2" elsewhere in the source) —
+// tapping it opens every entry from every group that covers it, combined,
+// in one popup (see jc-notes-popup.js's openVerseCommentaryPopup). Leaves
+// every verse number unlinked if there's no data for this chapter.
+async function loadVerseCommentary(book, chapter, forRequest) {
+  const data = await fetchJcVerseNotes(book, chapter).catch(() => null);
+  if (forRequest !== requestId) return; // superseded by a newer chapter nav
+  if (!data) return;
+
+  const entriesByVerse = new Map(); // verse number -> combined entries, in source order
+  data.groups.forEach((group) => {
+    group.verses.forEach((verseNum) => {
+      if (!entriesByVerse.has(verseNum)) entriesByVerse.set(verseNum, []);
+      entriesByVerse.get(verseNum).push(...group.entries);
+    });
+  });
+
+  entriesByVerse.forEach((entries, verseNum) => {
     const sup = refs.content.querySelector(`sup[data-verse="${verseNum}"]`);
     if (!sup) return;
     sup.classList.add("bible-verse-linked");
     sup.setAttribute("role", "button");
     sup.setAttribute("tabindex", "0");
-    const open = () => openJcNotesPopup(`${book} ${chapter}`, note, Number(verseNum));
+    const open = () => openVerseCommentaryPopup(`${book} ${chapter}:${verseNum}`, entries);
     sup.addEventListener("click", open);
     sup.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
