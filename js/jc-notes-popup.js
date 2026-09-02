@@ -25,17 +25,23 @@ function ensureRefs() {
   return refs;
 }
 
-// `noteText` is the raw commentary text (paragraphs separated by "\n\n",
-// as stored in data/jc-notes/) — this module owns escaping/rendering it.
-export function openJcNotesPopup(title, noteText) {
+// `note` is { paragraphs, verseMap } as returned by jc-notes-data.js's
+// fetchJcNote — this module owns escaping/rendering it. `targetVerse`
+// (optional — a verse number, as tapped from the reading text) scrolls
+// straight to and highlights that verse's own paragraph, when it has one;
+// omitted (or when that verse has no paragraph of its own), the popup
+// just opens at the top, same as opening it from the JC badge.
+export function openJcNotesPopup(title, note, targetVerse) {
   ensureRefs();
   refs.title.textContent = title;
-  refs.body.innerHTML = noteText
-    .split("\n\n")
-    .map((p) => `<p>${escapeHtml(p)}</p>`)
+  const targetIndex = targetVerse != null ? note.verseMap[String(targetVerse)] : undefined;
+  refs.body.innerHTML = note.paragraphs
+    .map((p, i) => `<p${i === targetIndex ? ' class="jc-notes-highlight"' : ""}>${escapeHtml(p)}</p>`)
     .join("");
-  refs.body.scrollTop = 0;
   refs.backdrop.hidden = false;
+  const targetEl = targetIndex != null ? refs.body.children[targetIndex] : null;
+  if (targetEl) targetEl.scrollIntoView({ block: "start" });
+  else refs.body.scrollTop = 0;
 }
 
 export function closeJcNotesPopup() {

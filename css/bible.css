@@ -381,6 +381,14 @@
   margin-right: 0.15rem;
 }
 
+.bible-verse sup.bible-verse-linked {
+  color: #0d9488;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}
+
 .jc-notes-popup-backdrop {
   z-index: 80;
 }
@@ -426,6 +434,14 @@
 
 .jc-notes-modal-body p:last-child {
   margin-bottom: 0;
+}
+
+.jc-notes-modal-body p.jc-notes-highlight {
+  margin: 0 -0.6rem 0.7rem;
+  padding: 0.5rem 0.6rem;
+  background: rgba(13,148,136,0.12);
+  border-left: 3px solid #0d9488;
+  border-radius: 0 8px 8px 0;
 }
 
 .bible-daily-actions {

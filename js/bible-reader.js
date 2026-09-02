@@ -332,7 +332,12 @@ async function loadChapter() {
     if (myRequest !== requestId) return; // a newer request superseded this one
 
     const verseHtml = data.verses
-      .map((v) => `<p class="bible-verse"><sup>${v.verse}</sup> ${v.segments ? renderVerseSegmentsHtml(v.segments) : escapeHtml(v.text)}</p>`)
+      .map(
+        (v) =>
+          `<p class="bible-verse"><sup data-verse="${v.verse}">${v.verse}</sup> ${
+            v.segments ? renderVerseSegmentsHtml(v.segments) : escapeHtml(v.text)
+          }</p>`
+      )
       .join("");
 
     const listenBtn = supportsSpeech()
@@ -412,16 +417,40 @@ async function loadChapter() {
 // Fetches this book/chapter's "JC Notes" commentary, once it's back — a
 // separate (per-book) fetch from the chapter text itself, so it doesn't
 // block the initial render. Silently leaves the "JC" badge (in the fixed
-// Q+/M+ button stack — see buildSkeleton) hidden if there's no commentary
-// for this chapter (common — coverage isn't complete) or the fetch fails;
-// no error shown either way. Tapping it (once shown) opens the notes in a
-// bottom-sheet popup — see jc-notes-popup.js.
+// Q+/M+ button stack — see buildSkeleton) hidden, and every verse number
+// unlinked, if there's no commentary for this chapter (common — coverage
+// isn't complete) or the fetch fails; no error shown either way. Tapping
+// the badge (once shown) opens the notes in a bottom-sheet popup at the
+// top; tapping a linked verse number opens the same popup scrolled
+// straight to that verse's own paragraph — see jc-notes-popup.js.
 async function loadJcNotes(book, chapter, forRequest) {
   const note = await fetchJcNote(book, chapter).catch(() => null);
   if (forRequest !== requestId) return; // superseded by a newer chapter nav
   if (!note) return; // already hidden at the top of loadChapter
   refs.jcNotesBtn.hidden = false;
   refs.jcNotesBtn.onclick = () => openJcNotesPopup(`${book} ${chapter}`, note);
+  linkVerseNumbers(book, chapter, note);
+}
+
+// Upgrades a verse's plain <sup> into a tappable link for every verse this
+// chapter's JC Notes covers with its own paragraph (per note.verseMap) —
+// the rest are left as plain, non-interactive superscripts.
+function linkVerseNumbers(book, chapter, note) {
+  Object.keys(note.verseMap).forEach((verseNum) => {
+    const sup = refs.content.querySelector(`sup[data-verse="${verseNum}"]`);
+    if (!sup) return;
+    sup.classList.add("bible-verse-linked");
+    sup.setAttribute("role", "button");
+    sup.setAttribute("tabindex", "0");
+    const open = () => openJcNotesPopup(`${book} ${chapter}`, note, Number(verseNum));
+    sup.addEventListener("click", open);
+    sup.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        open();
+      }
+    });
+  });
 }
 
 function escapeHtml(str) {

@@ -552,15 +552,26 @@ selected yet). It shares the exact same verse-picker as Memorize's own
 Below those, a small teal **JC** badge appears when this chapter has
 commentary — pulled from a year's worth of daily Bible reading notes.
 Tapping it opens the commentary in a popup over the bottom half of the
-screen (tap outside it, or the ✕, to close). Not every chapter has one
-(the source material simply didn't cover every chapter), in which case
-the badge just isn't there — no "no notes for this chapter"
-placeholder. Like Strong's numbers, this is bundled data
-(`data/jc-notes/`, one file per book, fetched — and cached — only for
-books you open) rather than anything fetched live. The source was a
-year's daily commentary in which the same chapter can come up more
-than once (different reading passes through the same book); where that
-happened, the longest of the versions was kept.
+screen (tap outside it, or the ✕, to close), scrolled to the top. Not
+every chapter has one (the source material simply didn't cover every
+chapter), in which case the badge just isn't there — no "no notes for
+this chapter" placeholder.
+
+Individual verse numbers are tappable too, in whichever color the JC
+badge uses, wherever the commentary discusses that verse specifically
+(most of the source material is itself organized this way — "V.1 –
+...", "V.26-28 – ..." per paragraph): tapping one jumps straight to and
+highlights that paragraph in the popup instead of opening at the top.
+A verse number stays plain, non-interactive text when nothing in the
+commentary calls it out on its own.
+
+Like Strong's numbers, this is bundled data (`data/jc-notes/`, one
+file per book, fetched — and cached — only for books you open) rather
+than anything fetched live. The source was a year's daily commentary
+in which the same chapter can come up more than once (different
+reading passes through the same book); where that happened, the
+longest of the versions was kept, then split into paragraphs and
+matched back to the verse(s) each one covers.
 
 Tap **🔊 Listen** above the chapter text to have the device read the
 chapter aloud, one verse at a time (using your browser's built-in
@@ -801,10 +812,13 @@ matching anything.
 - `js/strongs-popup.js` — the long-press word-lookup popup (Meaning /
   Occurrences tabs, cross-reference links, verse preview + jump).
 - `js/jc-notes-data.js` — loads the bundled JC Notes commentary
-  (`data/jc-notes/*.json`, one file per book, chapter number -> text) —
-  see the Bible section above for how it's sourced/deduplicated.
+  (`data/jc-notes/*.json`, one file per book; each chapter is
+  `{ paragraphs, verseMap }`, with `verseMap` pointing individual verse
+  numbers at their own paragraph) — see the Bible section above for how
+  it's sourced/deduplicated.
 - `js/jc-notes-popup.js` — the bottom-sheet popup that shows a chapter's
-  JC Notes (opened from the JC badge in the Q⁺/M⁺ button stack).
+  JC Notes (opened from the JC badge, or from a linked verse number, in
+  which case it scrolls to and highlights that verse's paragraph).
 - `js/bible-reader.js` — the Bible reading section.
 - `js/planner.js` — the Reading Plan section (daily reading card + custom reading plans).
 - `js/default-reading-plan.js` — the 365-day default reading plan data
