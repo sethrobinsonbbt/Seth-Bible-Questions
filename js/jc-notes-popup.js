@@ -1,9 +1,11 @@
 // The JC Notes bottom-sheet popup — shared by two independent commentary
-// sources, both driven from bible-reader.js: the JC badge/chapter-reference
-// link (openJcNotesPopup, jc-notes-data.js) and per-verse hyperlinks
-// (openVerseCommentaryPopup, jc-verse-notes-data.js). Markup lives in
-// index.html (#jc-notes-popup-backdrop), mirroring strongs-popup.js's
-// lazy-refs pattern.
+// sources, both driven from bible-reader.js: the JC badge (openJcNotesPopup,
+// jc-notes-data.js — the whole chapter), per-verse hyperlinks
+// (openVerseCommentaryPopup, jc-verse-notes-data.js), and a linked chapter
+// reference (openGeneralNotesPopup — whichever source has remarks on the
+// chapter as a whole rather than any one verse, from either or both
+// sources). Markup lives in index.html (#jc-notes-popup-backdrop),
+// mirroring strongs-popup.js's lazy-refs pattern.
 let refs = null;
 
 function escapeHtml(str) {
@@ -28,39 +30,25 @@ function ensureRefs() {
 }
 
 // `note` is { paragraphs, verseMap } as returned by jc-notes-data.js's
-// fetchJcNote — this module owns escaping/rendering it. `targetVerse`
-// (optional — a verse number, as tapped from the reading text) scrolls
-// straight to and highlights that verse's own paragraph, when it has one;
-// omitted (or when that verse has no paragraph of its own), the popup
-// just opens at the top, same as opening it from the JC badge. `onlyIndices`
-// (optional — a list of paragraph indices, as tapped from a linked chapter
-// reference) renders just those paragraphs instead of the whole chapter —
-// used for the general remarks that aren't tied to any one verse.
-export function openJcNotesPopup(title, note, targetVerse, onlyIndices) {
+// fetchJcNote — this module owns escaping/rendering it. Always shows every
+// paragraph, top to bottom — this is only ever opened from the JC badge
+// (the whole chapter); a linked chapter reference's general-only remarks
+// go through openGeneralNotesPopup instead, and per-verse links through
+// openVerseCommentaryPopup.
+export function openJcNotesPopup(title, note) {
   ensureRefs();
   refs.title.textContent = title;
-  const indices = onlyIndices || note.paragraphs.map((_, i) => i);
-  const targetIndex = targetVerse != null ? note.verseMap[String(targetVerse)] : undefined;
-  refs.body.innerHTML = indices
-    .map((i) => `<p${i === targetIndex ? ' class="jc-notes-highlight"' : ""}>${escapeHtml(note.paragraphs[i])}</p>`)
-    .join("");
+  refs.body.innerHTML = note.paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
   refs.backdrop.hidden = false;
-  const targetPos = targetIndex != null ? indices.indexOf(targetIndex) : -1;
-  const targetEl = targetPos >= 0 ? refs.body.children[targetPos] : null;
-  if (targetEl) targetEl.scrollIntoView({ block: "start" });
-  else refs.body.scrollTop = 0;
+  refs.body.scrollTop = 0;
 }
 
-// Renders the *other* commentary source (js/jc-verse-notes-data.js) in the
-// same bottom sheet: a list of independent, attributed entries for one
-// verse — potentially many, from different authors and years — rather
-// than the single paragraph `openJcNotesPopup` shows. `entries` is
-// `[{ author, year, text }, ...]`, already combined across every group
-// that covers the tapped verse (see bible-reader.js).
-export function openVerseCommentaryPopup(title, entries) {
-  ensureRefs();
-  refs.title.textContent = title;
-  refs.body.innerHTML = entries
+// Shared by openVerseCommentaryPopup and openGeneralNotesPopup: a list of
+// independent, attributed entries — potentially many, from different
+// authors and years — from js/jc-verse-notes-data.js. `entries` is
+// `[{ author, year, text }, ...]`.
+function entriesHtml(entries) {
+  return entries
     .map(
       (e) => `
         <div class="verse-commentary-entry">
@@ -70,6 +58,30 @@ export function openVerseCommentaryPopup(title, entries) {
       `
     )
     .join("");
+}
+
+// Renders the *other* commentary source (js/jc-verse-notes-data.js) in the
+// same bottom sheet — see entriesHtml — for one verse's combined entries
+// across every group that covers it (see bible-reader.js).
+export function openVerseCommentaryPopup(title, entries) {
+  ensureRefs();
+  refs.title.textContent = title;
+  refs.body.innerHTML = entriesHtml(entries);
+  refs.backdrop.hidden = false;
+  refs.body.scrollTop = 0;
+}
+
+// Opened from a linked chapter reference in the heading (e.g. "2 Kings 7")
+// — everything either commentary source has for the chapter as a whole,
+// rather than any one verse: `paragraphs` (plain strings — jc-notes-data.js's
+// unassigned paragraphs, if any) rendered first, then `entries` (attributed,
+// jc-verse-notes-data.js's generalEntries, if any) below. Either can be
+// empty; the chapter reference is only linked at all when at least one of
+// them has something (see bible-reader.js).
+export function openGeneralNotesPopup(title, paragraphs, entries) {
+  ensureRefs();
+  refs.title.textContent = title;
+  refs.body.innerHTML = paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("") + entriesHtml(entries);
   refs.backdrop.hidden = false;
   refs.body.scrollTop = 0;
 }

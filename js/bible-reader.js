@@ -4,7 +4,7 @@ import { fetchStrongsChapter } from "./strongs-data.js";
 import { fetchJcNote } from "./jc-notes-data.js";
 import { fetchJcVerseNotes } from "./jc-verse-notes-data.js";
 import { openStrongsPopup } from "./strongs-popup.js";
-import { openJcNotesPopup, openVerseCommentaryPopup } from "./jc-notes-popup.js";
+import { openJcNotesPopup, openVerseCommentaryPopup, openGeneralNotesPopup } from "./jc-notes-popup.js";
 import { supportsSpeech, getSelectedVoice } from "./voice-picker.js";
 import { addQuestion } from "./questions-data.js";
 import { buildAgeGroupSelect } from "./age-groups-data.js";
@@ -47,6 +47,17 @@ let pickerVerses = []; // verses of the chapter currently loaded in the M+ modal
 // any deliberate "go somewhere else" navigation (book picker, jump-to
 // search) but preserved across Previous/Next chapter paging.
 let dailyContext = null;
+
+// The chapter-reference link (in the heading) combines general, no-verse-
+// attached remarks from *both* commentary sources — jc-notes-data.js's
+// unassigned paragraphs and jc-verse-notes-data.js's generalEntries — which
+// arrive from two independent, differently-timed fetches (loadJcNotes and
+// loadVerseCommentary). Each stores what it found here and calls
+// refreshChapterReferenceLink, so the link reflects whichever source(s)
+// have resolved so far regardless of which finishes first; reset at the
+// top of loadChapter for each new chapter.
+let chapterRefParagraphs = [];
+let chapterRefEntries = [];
 
 function loadState() {
   try {
@@ -322,6 +333,8 @@ async function loadChapter() {
   // Hide immediately rather than leaving the previous chapter's button (and
   // its stale click handler) up during the fetch below.
   refs.jcNotesBtn.hidden = true;
+  chapterRefParagraphs = [];
+  chapterRefEntries = [];
 
   try {
     // The bundled Strong's-tagged KJV text (see strongs-data.js) is this
@@ -425,7 +438,10 @@ async function loadJcNotes(book, chapter, forRequest) {
   if (!note) return; // already hidden at the top of loadChapter
   refs.jcNotesBtn.hidden = false;
   refs.jcNotesBtn.onclick = () => openJcNotesPopup(`${book} ${chapter}`, note);
-  linkChapterReference(book, chapter, note);
+
+  const assignedIndices = new Set(Object.values(note.verseMap));
+  chapterRefParagraphs = note.paragraphs.filter((_, i) => !assignedIndices.has(i));
+  refreshChapterReferenceLink(book, chapter);
 }
 
 // Fetches this book/chapter's per-verse commentary (js/jc-verse-notes-data.js
@@ -440,6 +456,9 @@ async function loadVerseCommentary(book, chapter, forRequest) {
   const data = await fetchJcVerseNotes(book, chapter).catch(() => null);
   if (forRequest !== requestId) return; // superseded by a newer chapter nav
   if (!data) return;
+
+  chapterRefEntries = data.generalEntries;
+  refreshChapterReferenceLink(book, chapter);
 
   const entriesByVerse = new Map(); // verse number -> combined entries, in source order
   data.groups.forEach((group) => {
@@ -467,29 +486,33 @@ async function loadVerseCommentary(book, chapter, forRequest) {
 }
 
 // Upgrades the chapter reference in the heading (e.g. "2 Kings 7") into a
-// tappable link when this chapter's JC Notes have at least one paragraph
-// that isn't tied to any specific verse (its index never appears as a
-// note.verseMap value) — general remarks on the chapter as a whole, only
-// otherwise reachable via the full-chapter JC badge. Left plain when every
-// paragraph already has its own verse link, or there's only one paragraph
-// total (nothing left to single out).
-function linkChapterReference(book, chapter, note) {
-  const assignedIndices = new Set(Object.values(note.verseMap));
-  const unassignedIndices = note.paragraphs.map((_, i) => i).filter((i) => !assignedIndices.has(i));
-  if (unassignedIndices.length === 0) return;
+// tappable link once either commentary source has turned up general
+// remarks on the chapter as a whole — jc-notes-data.js's paragraphs that
+// aren't tied to any specific verse, and/or jc-verse-notes-data.js's own
+// separate generalEntries (that source's per-verse groups don't cover
+// everything either — a lot of its commentary is chapter-level, not
+// verse-level, and was otherwise being silently dropped). Called by both
+// loadJcNotes and loadVerseCommentary as each resolves — chapterRefParagraphs/
+// chapterRefEntries hold whatever's been found so far, so this re-runs
+// safely regardless of which source finishes first, and links (or leaves
+// plain) based on their combined total each time.
+function refreshChapterReferenceLink(book, chapter) {
   const refEl = refs.content.querySelector("#bible-chapter-ref");
   if (!refEl) return;
+  if (chapterRefParagraphs.length === 0 && chapterRefEntries.length === 0) return;
   refEl.classList.add("bible-chapter-ref-linked");
   refEl.setAttribute("role", "button");
   refEl.setAttribute("tabindex", "0");
-  const open = () => openJcNotesPopup(`${book} ${chapter}`, note, undefined, unassignedIndices);
-  refEl.addEventListener("click", open);
-  refEl.addEventListener("keydown", (e) => {
+  const open = () => openGeneralNotesPopup(`${book} ${chapter}`, chapterRefParagraphs, chapterRefEntries);
+  // Assignment (not addEventListener) so a second call — the other source
+  // resolving later — replaces rather than stacks the handler.
+  refEl.onclick = open;
+  refEl.onkeydown = (e) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       open();
     }
-  });
+  };
 }
 
 function escapeHtml(str) {

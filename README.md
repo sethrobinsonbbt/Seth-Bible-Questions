@@ -560,18 +560,13 @@ Tapping it opens the commentary in a popup over the bottom half of the
 screen (tap outside it, or the ✕, to close), scrolled to the top. Not
 every chapter has one (the source material simply didn't cover every
 chapter), in which case the badge just isn't there — no "no notes for
-this chapter" placeholder. When that chapter's commentary includes
-remarks on the chapter as a whole rather than any one verse, the
-chapter reference itself in the heading (e.g. "2 Kings 7") becomes a
-link too, in the same teal — tapping it opens the same popup showing
-just those general remarks. Like Strong's numbers, this is bundled
-data (`data/jc-notes/`, one file per book, fetched — and cached —
-only for books you open) rather than anything fetched live. The
-source was a year's daily commentary in which the same chapter can
-come up more than once (different reading passes through the same
-book); where that happened, the longest of the versions was kept,
-then split into paragraphs and matched back to the verse(s) each one
-covers.
+this chapter" placeholder. Like Strong's numbers, this is bundled data
+(`data/jc-notes/`, one file per book, fetched — and cached — only for
+books you open) rather than anything fetched live. The source was a
+year's daily commentary in which the same chapter can come up more
+than once (different reading passes through the same book); where that
+happened, the longest of the versions was kept, then split into
+paragraphs and matched back to the verse(s) each one covers.
 
 Individual verse numbers are tappable too, in the same teal —
 independently of the JC badge, from a second, separate commentary
@@ -588,6 +583,20 @@ same way), built by parsing that archive's own per-verse "v.1",
 attribution line; a couple of source books (2 John and 3 John, merged
 together in the original material under ambiguous, non-standard
 chapter numbering) were dropped rather than guessed at.
+
+Between them, a fair amount of commentary from *both* sources isn't
+tied to any one verse at all — the JC badge's own source sometimes
+opens a chapter with an unlabeled intro paragraph, and the per-verse
+source's own archive separately carries general, chapter-level entries
+under its own `[General / Whole Chapter]` heading (this was easy to
+miss and mostly got dropped at first, since neither the JC badge nor
+any per-verse link surfaced it). Whenever either source has anything
+like that, the chapter reference itself in the heading (e.g.
+"2 Kings 7") becomes a link too, in the same teal: tapping it opens a
+popup with the JC badge's own general paragraph(s) first (if any),
+followed by every attributed general entry from the per-verse source
+(if any) — everything about the chapter as a whole, from both sources,
+in one place.
 
 Tap **🔊 Listen** above the chapter text to have the device read the
 chapter aloud, one verse at a time (using your browser's built-in
@@ -837,29 +846,35 @@ matching anything.
   (`data/jc-notes/*.json`, one file per book; each chapter is
   `{ paragraphs, verseMap }`, with `verseMap` pointing individual verse
   numbers at their own paragraph) — see the Bible section above for how
-  it's sourced/deduplicated. Backs the JC badge and the linked chapter
+  it's sourced/deduplicated. Backs the JC badge (whole chapter) and
+  contributes its own unassigned paragraphs to the linked chapter
   reference; no longer drives verse-number links (see
   `jc-verse-notes-data.js` below).
 - `js/jc-verse-notes-data.js` — loads the second, independent commentary
-  source used only for per-verse hyperlinks (`data/jc-verse-notes/*.json`,
-  one file per book; each chapter is `{ groups, generalEntries }`, where
-  each group is `{ verses: [...], entries: [{author, year, text}, ...] }`
-  — a verse's full commentary is every group that lists it). See the
-  Bible section above for provenance; `generalEntries` isn't used by the
-  reader yet.
-- `js/jc-notes-popup.js` — the bottom-sheet popup shared by both
-  commentary sources: `openJcNotesPopup` (JC badge — whole chapter; or a
-  linked chapter reference — just the paragraph(s) with no verse of
-  their own) and `openVerseCommentaryPopup` (a linked verse number —
-  every attributed entry for that verse, from `jc-verse-notes-data.js`).
+  source (`data/jc-verse-notes/*.json`, one file per book; each chapter
+  is `{ groups, generalEntries }`, where each group is `{ verses: [...],
+  entries: [{author, year, text}, ...] }` — a verse's full commentary is
+  every group that lists it). Backs per-verse hyperlinks (from `groups`)
+  and contributes its own `generalEntries` to the linked chapter
+  reference. See the Bible section above for provenance.
+- `js/jc-notes-popup.js` — the bottom-sheet popup shared by all three:
+  `openJcNotesPopup` (JC badge — the whole chapter), `openVerseCommentaryPopup`
+  (a linked verse number — every attributed entry for it, from
+  `jc-verse-notes-data.js`), and `openGeneralNotesPopup` (a linked
+  chapter reference — `jc-notes-data.js`'s unassigned paragraphs
+  followed by `jc-verse-notes-data.js`'s `generalEntries`, whichever of
+  the two has anything).
 - `js/voice-picker.js` — the shared "reading voice" logic (English-only,
   novelty/sound-effect voices filtered by name, saved pick, heuristic
   best-voice fallback) used by both the Bible reader's Listen feature and
   Setup's Voice panel, so they agree on the same pick.
 - `js/bible-reader.js` — the Bible reading section. The chapter heading's
   reference text (e.g. "2 Kings 7") becomes a link, same styling as a
-  linked verse number, whenever that chapter's JC Notes have at least one
-  paragraph not covered by `verseMap`.
+  linked verse number, once `refreshChapterReferenceLink` sees that
+  either commentary source has general content for the chapter (called
+  by both `loadJcNotes` and `loadVerseCommentary` as each of their two
+  independent fetches resolves, so it reflects whichever has arrived so
+  far regardless of order).
 - `js/planner.js` — the Reading Plan section (daily reading card + custom reading plans).
 - `js/default-reading-plan.js` — the 365-day default reading plan data
   and its passage-label parser (used to jump to a reading in the Bible
