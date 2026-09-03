@@ -458,8 +458,13 @@ not just "Exodus 3:14") — or pick a book and chapter from the dropdowns
 and use the **‹ / ›** buttons either side of them to move chapter by
 chapter. Everything is deliberately kept to two compact rows (the search
 box, then book/chapter/navigation together) so there's more room left
-for the text itself, especially on a phone. Chapters you've read are
-cached on your device, so they still load without a connection.
+for the text itself, especially on a phone. **‹ Previous Chapter** /
+**Next Chapter ›** buttons repeat at the bottom of every chapter too
+(daily reading or not), so reading straight through doesn't mean
+scrolling back up each time — both just wrap into the next/previous
+book at a book's boundary, same as the top ‹ / › pair. Chapters you've
+read are cached on your device, so they still load without a
+connection.
 
 Whenever the chapter on screen is part of a tracked daily reading (either
 because you just landed here, or you tapped **Read** on one from the

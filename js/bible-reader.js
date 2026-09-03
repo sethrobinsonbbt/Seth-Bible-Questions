@@ -350,13 +350,21 @@ async function loadChapter() {
         <div class="bible-daily-actions">
           <button id="bible-mark-read-btn" class="btn btn-primary">✓ Mark as Read</button>
           <p id="bible-mark-read-status" class="bible-mark-read-status" hidden>Marked! ✅</p>
-          <div class="bible-daily-actions-row">
-            <button id="bible-next-chapter-btn" class="btn btn-small">Next Chapter →</button>
-            ${dailyContext.index < 2 ? `<button id="bible-next-reading-btn" class="btn btn-small">Next Reading →</button>` : ""}
-          </div>
+          ${dailyContext.index < 2 ? `<div class="bible-daily-actions-row"><button id="bible-next-reading-btn" class="btn btn-small">Next Reading →</button></div>` : ""}
         </div>
       `
       : "";
+
+    // Always shown, daily reading or not — mirrors the icon-only ‹/› pair
+    // in the top nav row (same step() wraps to the next/previous book at a
+    // book's boundary; there's simply nowhere left to go at Genesis 1 or
+    // Revelation 22, same as those icon buttons already silently allow).
+    const bottomNavHtml = `
+      <div class="bible-bottom-nav">
+        <button id="bible-bottom-prev-btn" class="btn btn-small">‹ Previous Chapter</button>
+        <button id="bible-bottom-next-btn" class="btn btn-small">Next Chapter ›</button>
+      </div>
+    `;
 
     refs.content.innerHTML = `
       <div class="bible-chapter-heading-row">
@@ -365,6 +373,7 @@ async function loadChapter() {
       </div>
       ${verseHtml || '<p class="bible-status">No verses returned.</p>'}
       ${dailyFooterHtml}
+      ${bottomNavHtml}
     `;
 
     if (supportsSpeech()) {
@@ -378,10 +387,11 @@ async function loadChapter() {
 
     if (dailyContext) {
       refs.content.querySelector("#bible-mark-read-btn").addEventListener("click", markCurrentReadingRead);
-      refs.content.querySelector("#bible-next-chapter-btn").addEventListener("click", () => step(1));
       const nextReadingBtn = refs.content.querySelector("#bible-next-reading-btn");
       if (nextReadingBtn) nextReadingBtn.addEventListener("click", goToNextReadingForDay);
     }
+    refs.content.querySelector("#bible-bottom-prev-btn").addEventListener("click", () => step(-1));
+    refs.content.querySelector("#bible-bottom-next-btn").addEventListener("click", () => step(1));
 
     loadJcNotes(state.book, state.chapter, myRequest);
     loadVerseCommentary(state.book, state.chapter, myRequest);
