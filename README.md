@@ -126,14 +126,6 @@ your project can't spray junk data into some collection name you never
 created, and one family's data isn't reachable at all without that
 family's code.
 
-**If you're upgrading a site that had data from before family codes
-existed:** keep the *old* rules in place (see git history, or ask) until
-you've run **Setup → ⚠️ One-Time Migration → Migrate Old Data** to copy
-that data into a family — only then paste the rules above and publish.
-Once published, the old top-level collections stop being reachable by the
-app (they're simply orphaned, not deleted — you can clean them up from the
-Firebase console whenever, or leave them).
-
 **How much protection is this really?** Anonymous auth means *anyone* who
 has (or guesses) a family's code becomes an authorized reader/writer of
 that family's data the moment the page runs — same as a Google Doc's

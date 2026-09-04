@@ -130,9 +130,9 @@ export async function createFamily(db, name, passcode) {
 
 // Every subcollection that actually lives under families/{familyId}/... —
 // kept in sync with each data module's own scopedCollection(db, "...")
-// calls. Used only by changeFamilyCode below to copy a family's data
-// forward onto its new code.
-const SCOPED_COLLECTION_NAMES = [
+// calls. Used by changeFamilyCode below to copy a family's data forward
+// onto its new code, and by settings.js's Backup export.
+export const SCOPED_COLLECTION_NAMES = [
   "users",
   "questions",
   "memoryVerses",

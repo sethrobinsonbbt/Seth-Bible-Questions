@@ -42,6 +42,7 @@ import {
   subscribeCodeRequests,
   dismissCodeRequest,
   changeFamilyCode,
+  SCOPED_COLLECTION_NAMES,
 } from "./family.js";
 import { QUESTION_TYPES, questionTypeLabel, buildQuestionTypeEditor } from "./question-type-editor.js";
 import { supportsSpeech, getEnglishVoices, getSelectedVoice, saveVoiceURI } from "./voice-picker.js";
@@ -1505,19 +1506,6 @@ function buildAboutView(container) {
 
 // ---------- Data export ----------
 
-// The 7 collections that used to live at the top level, before every
-// family got its own families/{familyId}/... subcollection tree. Shared
-// by the backup export and the one-time migration below.
-const LEGACY_COLLECTION_NAMES = [
-  "users",
-  "questions",
-  "memoryVerses",
-  "verseCategories",
-  "readingPlans",
-  "dailyReadingProgress",
-  "appState",
-];
-
 async function exportAllData() {
   const btn = refs.exportBtn;
   const originalText = btn.textContent;
@@ -1525,9 +1513,8 @@ async function exportAllData() {
   btn.disabled = true;
   try {
     const db = await ready;
-    const collectionNames = LEGACY_COLLECTION_NAMES;
     const data = {};
-    for (const name of collectionNames) {
+    for (const name of SCOPED_COLLECTION_NAMES) {
       const snapshot = await scopedCollection(db, name).get();
       data[name] = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     }
@@ -1544,67 +1531,6 @@ async function exportAllData() {
     console.error(err);
     alert("Couldn't export data — check your internet connection and try again.");
   } finally {
-    btn.textContent = originalText;
-    btn.disabled = false;
-  }
-}
-
-// ---------- One-time migration (old top-level collections -> this family) ----------
-// TEMPORARY: only relevant for a device that had data from before multi-family
-// support existed. Copies every doc from the old top-level collections into
-// this family's own subcollections, preserving doc ids. Doesn't touch or
-// delete the old collections — they become unreachable once the Firestore
-// rules are cut over to the family-scoped version (see README), which is a
-// separate, deliberate step in the Firebase console.
-const MIGRATION_DONE_KEY = "bible-questions-migrated-legacy-data";
-
-function legacyMigrationDone() {
-  try {
-    return localStorage.getItem(MIGRATION_DONE_KEY) === "true";
-  } catch (e) {
-    return false;
-  }
-}
-
-function setLegacyMigrationDone() {
-  try {
-    localStorage.setItem(MIGRATION_DONE_KEY, "true");
-  } catch (e) {
-    /* ignore */
-  }
-}
-
-async function migrateLegacyData(container) {
-  const btn = refs.migrateBtn;
-  if (!confirm("Copy this device's old (pre-multi-family) data into this family? Only do this once, on the one device/family that had the original data.")) {
-    return;
-  }
-  const originalText = btn.textContent;
-  btn.textContent = "Migrating…";
-  btn.disabled = true;
-  try {
-    const db = await ready;
-    const counts = {};
-    for (const name of LEGACY_COLLECTION_NAMES) {
-      const snapshot = await db.collection(name).get();
-      const docs = snapshot.docs;
-      counts[name] = docs.length;
-      // Firestore batches cap at 500 writes; chunk generously under that.
-      for (let i = 0; i < docs.length; i += 400) {
-        const batch = db.batch();
-        docs.slice(i, i + 400).forEach((doc) => {
-          batch.set(scopedCollection(db, name).doc(doc.id), doc.data());
-        });
-        await batch.commit();
-      }
-    }
-    setLegacyMigrationDone();
-    const summary = LEGACY_COLLECTION_NAMES.map((name) => `${name}: ${counts[name]}`).join(", ");
-    alert(`Migrated: ${summary}. The old data is untouched — it'll stop being reachable once you update the Firestore rules (see README).`);
-    buildMainView(container);
-  } catch (err) {
-    console.error(err);
-    alert("Couldn't migrate — check your internet connection and try again.");
     btn.textContent = originalText;
     btn.disabled = false;
   }
@@ -1679,18 +1605,6 @@ function buildMainView(container) {
       <p class="settings-fineprint">Download everything — family members, questions, memory verses, reading plans and progress — as one JSON file.</p>
       <button id="export-data-btn" class="btn">⬇️ Export All Data</button>
     </div>
-
-    ${
-      legacyMigrationDone()
-        ? ""
-        : `<div class="settings-panel">
-      <div class="list-toolbar">
-        <h2>⚠️ One-Time Migration</h2>
-      </div>
-      <p class="settings-fineprint">If this device has data from before family codes existed, copy it into this family. Only do this once, on the one device that had the original data.</p>
-      <button id="migrate-legacy-btn" class="btn">Migrate Old Data</button>
-    </div>`
-    }
 
     <div class="settings-panel">
       <div class="list-toolbar">
@@ -1786,12 +1700,6 @@ function buildMainView(container) {
       window.location.reload();
     }
   });
-
-  const migrateBtn = container.querySelector("#migrate-legacy-btn");
-  if (migrateBtn) {
-    refs.migrateBtn = migrateBtn;
-    migrateBtn.addEventListener("click", () => migrateLegacyData(container));
-  }
 
   refs.codeRequestsPanel = container.querySelector("#code-requests-panel");
   refs.codeRequestsList = container.querySelector("#code-requests-list");
