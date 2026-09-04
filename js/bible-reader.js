@@ -361,9 +361,11 @@ async function loadChapter() {
     const dailyFooterHtml = dailyContext
       ? `
         <div class="bible-daily-actions">
-          <button id="bible-mark-read-btn" class="btn btn-primary">✓ Mark as Read</button>
+          <div class="bible-daily-actions-row">
+            <button id="bible-mark-read-btn" class="btn btn-primary">✓ Mark as Read</button>
+            ${dailyContext.index < 2 ? `<button id="bible-next-reading-btn" class="btn btn-small">Next Reading →</button>` : ""}
+          </div>
           <p id="bible-mark-read-status" class="bible-mark-read-status" hidden>Marked! ✅</p>
-          ${dailyContext.index < 2 ? `<div class="bible-daily-actions-row"><button id="bible-next-reading-btn" class="btn btn-small">Next Reading →</button></div>` : ""}
         </div>
       `
       : "";
