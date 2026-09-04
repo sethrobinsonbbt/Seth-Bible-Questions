@@ -138,8 +138,10 @@ Firebase console whenever, or leave them).
 has (or guesses) a family's code becomes an authorized reader/writer of
 that family's data the moment the page runs — same as a Google Doc's
 "anyone with the link" sharing, not a real per-person login. That's a real
-gap, not just theoretical, even though guessing an 8-character random code
-is astronomically unlikely. It costs nothing (see "How much is this going
+gap, not just theoretical, even though guessing a family's code (an
+adjective, a noun, and 4 digits, from tens of millions of combinations —
+see "Multi-family support" below) is astronomically unlikely. It costs
+nothing (see "How much is this going
 to cost me?" below) but it's worth understanding what it does and doesn't
 protect against:
 
@@ -189,11 +191,17 @@ Firebase project, fully isolated from each other:
 
 - **First visit, any device:** a full-screen gate (`js/family-gate.js`)
   asks to either **Create a Family** (pick a name and a Setup passcode —
-  this generates a random ~8-character family code) or **Join a Family**
-  (enter an existing code, or open a link like
-  `https://yourdomain.com/?family=AB3XQK9P` which fills the code in
-  automatically). The code is stored on that device (`localStorage`) so
-  this only happens once per device.
+  this generates a family code like `SUNNYTIGER4823`: an adjective, a
+  noun, and 4 digits, picked from curated word lists in `js/family.js`
+  and collision-checked against existing families — easier to remember,
+  say aloud, or type on a phone than a fully random string) or **Join a
+  Family** (enter an existing code, or open a link like
+  `https://yourdomain.com/?family=SUNNYTIGER4823` which fills the code in
+  automatically — matching is case-insensitive and ignores punctuation,
+  so `sunny-tiger-4823` works too). The code is stored on that device
+  (`localStorage`) so this only happens once per device. Families created
+  before this scheme keep their original ~8-random-character code — it
+  isn't retroactively changed.
 - Every family's data — family members, questions, memory verses, reading
   plans, everything — lives under `families/{familyId}/...` in the same
   Firestore project (see `js/family.js`), completely separate from every

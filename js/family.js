@@ -12,10 +12,48 @@ import { ready } from "./firebase.js";
 
 const FAMILY_ID_KEY = "bible-questions-family-id";
 
-// Characters chosen to avoid visual ambiguity (no 0/O, 1/I/L) since
-// families share this code out loud or by text message.
-const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-const CODE_LENGTH = 8;
+// A family's join code is an adjective + a noun + 4 digits (e.g.
+// "SUNNYTIGER4823") rather than fully random characters — easier to
+// remember, say over the phone, and type on a phone keyboard than the
+// old scheme's random string. Displayed and matched in all-caps, same as
+// before, so normalizeCode() below needs no changes; only newly created
+// families get a code in this format — existing ones keep whatever they
+// already have.
+//
+// Digits are chosen from the same restricted set as the old scheme (no
+// 0/1, to avoid 0/O and 1/I confusion) since this is still read/typed by
+// hand; the word lists are kept to short, common, easy-to-spell words for
+// the same reason.
+const CODE_DIGITS = "23456789";
+const CODE_DIGIT_COUNT = 4;
+
+const CODE_ADJECTIVES = [
+  "Happy", "Sunny", "Brave", "Calm", "Bright", "Bold", "Swift", "Quiet",
+  "Gentle", "Jolly", "Merry", "Lucky", "Mighty", "Noble", "Proud", "Quick",
+  "Sharp", "Silly", "Smart", "Sturdy", "Trusty", "Vivid", "Warm", "Wild",
+  "Wise", "Witty", "Zesty", "Cheerful", "Cozy", "Crisp", "Daring", "Eager",
+  "Fancy", "Fearless", "Fresh", "Friendly", "Funky", "Glowing", "Golden",
+  "Grand", "Great", "Handy", "Honest", "Humble", "Jazzy", "Keen", "Kind",
+  "Lively", "Loyal", "Magic", "Mellow", "Nifty", "Peaceful", "Peppy",
+  "Playful", "Plucky", "Radiant", "Ready", "Rosy", "Royal", "Rugged",
+  "Sassy", "Scenic", "Serene", "Shiny", "Silent", "Sleek", "Snappy",
+  "Solid", "Sparkly", "Speedy", "Spry", "Steady", "Stellar", "Sunlit",
+  "Sweet", "Thrifty", "Tidy", "Tough", "Trim", "Vibrant", "Zippy",
+];
+
+const CODE_NOUNS = [
+  "Tiger", "Eagle", "River", "Falcon", "Otter", "Panda", "Robin", "Comet",
+  "Meadow", "Harbor", "Canyon", "Cedar", "Willow", "Maple", "Aspen",
+  "Breeze", "Cloud", "Ember", "Forest", "Garden", "Glacier", "Grove",
+  "Horizon", "Island", "Jungle", "Lagoon", "Lantern", "Meteor", "Mountain",
+  "Oasis", "Orchard", "Pebble", "Prairie", "Rainbow", "Ridge", "Ripple",
+  "Sparrow", "Summit", "Sunrise", "Sunset", "Thunder", "Trail", "Valley",
+  "Voyage", "Wave", "Wren", "Beaver", "Dolphin", "Fox", "Heron", "Lynx",
+  "Moose", "Osprey", "Puma", "Raccoon", "Salmon", "Stag", "Swan", "Turtle",
+  "Whale", "Badger", "Bison", "Cardinal", "Crane", "Deer", "Dove", "Hawk",
+  "Ibis", "Koala", "Lark", "Lion", "Owl", "Panther", "Phoenix", "Quail",
+  "Rabbit", "Squirrel", "Wolf", "Zebra",
+];
 
 let familyInfo = null;
 const listeners = new Set();
@@ -49,11 +87,13 @@ export function normalizeCode(raw) {
 }
 
 function randomCode() {
-  let code = "";
-  for (let i = 0; i < CODE_LENGTH; i++) {
-    code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  const adjective = CODE_ADJECTIVES[Math.floor(Math.random() * CODE_ADJECTIVES.length)];
+  const noun = CODE_NOUNS[Math.floor(Math.random() * CODE_NOUNS.length)];
+  let digits = "";
+  for (let i = 0; i < CODE_DIGIT_COUNT; i++) {
+    digits += CODE_DIGITS[Math.floor(Math.random() * CODE_DIGITS.length)];
   }
-  return code;
+  return (adjective + noun + digits).toUpperCase();
 }
 
 // Returns a scoped CollectionReference for `name` under the current
