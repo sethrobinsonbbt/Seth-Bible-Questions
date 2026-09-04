@@ -2,6 +2,36 @@
 
 Not scheduled — just a running list of things worth doing later.
 
+## Audit the rest of data/jc-notes/ for the same "swallowed second reading" bug
+
+Found and fixed for 2 Corinthians this session: its original PDF source
+extraction only recognized single-chapter day-headers (e.g. "Job 6"),
+not combined-reading headers like "2 Corinthians 1 and 2" — so on any
+day with two readings, the second reading's header wasn't recognized as
+a new section and its content got silently glued onto the end of
+whatever the first reading was that day. 2 Corinthians was missing 10
+of its 13 chapters this way; each was traced by hand back to whichever
+other book/chapter it had been glued onto (see git history for the
+"Recover 2 Corinthians' missing chapters" commit for the full list and
+method) and split back out.
+
+This is a systemic bug in whatever tool produced `commentary_data.json`
+(recoverable via `git show 87da636:commentary_data.json` — the original
+raw extraction, ~1400 day-records), not something specific to
+2 Corinthians — any other book that was a "second reading" alongside an
+OT/Psalm chapter on some day is a candidate for the same problem, and
+there's no reliable textual signature to auto-detect every instance
+(a broad regex for "<full book name> <chapter>[ and/to <chapter>]"
+embedded mid-paragraph catches real cases but also many false positives
+— ordinary cross-references like "see comments on Luke 21" or "this
+connects to Psalm 51" use the same shape). Worth a fuller, patient
+pass through the ~1400 raw records checking data/jc-notes/ coverage
+against each book's real chapter count (any book/chapter combination
+that's unexpectedly thin or entirely missing, the way 2 Corinthians
+1-2/6-13 were, is worth tracing the same way this fix did) — the
+`data/jc-notes/*.json` output for a book with real gaps is a much more
+reliable signal than trying to pattern-match the raw text directly.
+
 ## Two "Next" buttons after grading a question
 
 On the Questions page, the nav row's own **Next ›** (`#random-next-btn`
