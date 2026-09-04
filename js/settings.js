@@ -1744,9 +1744,19 @@ function renderCodeRequests() {
 const VOICE_SAMPLE_TEXT = "In the beginning God created the heaven and the earth.";
 
 function speakVoiceSample(voice) {
-  window.speechSynthesis.cancel();
+  // Some browsers (Chrome in particular) silently drop an utterance queued
+  // right after cancel() in the same tick — only cancel when something's
+  // actually speaking, same guard bible-reader.js's own Listen feature
+  // already uses around its identical cancel()-then-speak() sequence.
+  if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(VOICE_SAMPLE_TEXT);
-  utterance.voice = voice;
+  try {
+    utterance.voice = voice;
+  } catch (e) {
+    // Stale voice reference (the engine's own list moved on since this one
+    // was fetched) — fall back to the engine's default rather than not
+    // speaking at all, same as bible-reader.js's Listen feature does.
+  }
   window.speechSynthesis.speak(utterance);
 }
 
