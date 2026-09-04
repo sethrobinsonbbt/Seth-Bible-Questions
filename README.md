@@ -207,12 +207,22 @@ Firebase project, fully isolated from each other:
   Firestore project (see `js/family.js`), completely separate from every
   other family's.
 - The family's **name** shows (read-only) at the top of **Setup**, along
-  with the family's own **code** and a **📋 Copy Join Link** button (copies
-  a link that auto-fills the code for whoever opens it) — this is the only
-  place to find the code again after creating a family, so it's worth a
-  glance if you're about to add someone new. There's also a **Switch
-  Family** button further down Setup for moving a device to a different
-  family's code (you'll need a code to get back in).
+  with the family's own **code**, a **📋 Copy Join Link** button (copies
+  a link that auto-fills the code for whoever opens it), and a
+  **✏️ Change Code** button — this panel is the only place to find the
+  code again after creating a family, so it's worth a glance if you're
+  about to add someone new. Change Code moves the family onto a brand
+  new code someone picks themselves (`js/family.js`'s `changeFamilyCode`)
+  rather than one generated at creation — it copies every one of the
+  family's documents (members, questions, memory verses, everything)
+  onto the new code, switches this device over, and leaves the old code's
+  data in place untouched (not deleted) in case anything went wrong.
+  Every *other* device sharing the family keeps using the old code until
+  someone shares the new one with them and they use **Join a Family**
+  again — same as changing a Wi-Fi password, there's no way around
+  updating each device by hand. There's also a **Switch Family** button
+  further down Setup for moving a device to a *different* family's code
+  (you'll need a code to get back in).
 - There's no cross-family anything — no shared question bank, no way to
   see another family exists. The starter question banks
   (`js/question-bank-data.js`, `js/family-question-bank.js`) are bundled

@@ -41,6 +41,7 @@ import {
   scopedCollection,
   subscribeCodeRequests,
   dismissCodeRequest,
+  changeFamilyCode,
 } from "./family.js";
 import { QUESTION_TYPES, questionTypeLabel, buildQuestionTypeEditor } from "./question-type-editor.js";
 import { supportsSpeech, getEnglishVoices, getSelectedVoice, saveVoiceURI } from "./voice-picker.js";
@@ -1628,6 +1629,7 @@ function buildMainView(container) {
       automatically.</p>
       <p id="family-code-display" class="family-code-display"></p>
       <button id="copy-join-link-btn" class="btn btn-small">📋 Copy Join Link</button>
+      <button id="change-family-code-btn" class="btn btn-small">✏️ Change Code</button>
     </div>
 
     <div id="voice-panel" class="settings-panel" hidden>
@@ -1728,6 +1730,38 @@ function buildMainView(container) {
     setTimeout(() => {
       btn.textContent = originalText;
     }, 1500);
+  });
+
+  container.querySelector("#change-family-code-btn").addEventListener("click", async (e) => {
+    const raw = prompt("New family code (e.g. an adjective + noun + digits):");
+    if (!raw || !raw.trim()) return;
+    if (
+      !confirm(
+        `Change this family's code to "${raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, "")}"? Every other device will need this new code to keep working — share it with them right after. The old code stops working here, though nothing is deleted.`
+      )
+    ) {
+      return;
+    }
+    const btn = e.currentTarget;
+    const originalText = btn.textContent;
+    btn.textContent = "Changing…";
+    btn.disabled = true;
+    try {
+      const db = await ready;
+      const result = await changeFamilyCode(db, raw);
+      if (!result.ok) {
+        alert(result.error);
+        return;
+      }
+      alert(`Done! This family's code is now ${result.newCode}. Share it with the rest of the family so they can update their own devices.`);
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("Couldn't change the code — check your internet connection and try again.");
+    } finally {
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }
   });
 
   container.querySelector("#settings-lock-btn").addEventListener("click", () => {

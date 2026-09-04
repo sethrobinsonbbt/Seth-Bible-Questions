@@ -128,6 +128,67 @@ export async function createFamily(db, name, passcode) {
   return id;
 }
 
+// Every subcollection that actually lives under families/{familyId}/... —
+// kept in sync with each data module's own scopedCollection(db, "...")
+// calls. Used only by changeFamilyCode below to copy a family's data
+// forward onto its new code.
+const SCOPED_COLLECTION_NAMES = [
+  "users",
+  "questions",
+  "memoryVerses",
+  "verseCategories",
+  "readingPlans",
+  "dailyReadingProgress",
+  "appState",
+];
+
+// Moves the current family onto a new join code someone picked themselves
+// (rather than createFamily's random one) — e.g. switching to something
+// more memorable. Copies the family doc (name/passcode) and every document
+// in every subcollection onto families/{newCode}, then switches this
+// device over. The OLD family and its data are left in place, untouched —
+// same "copy forward, don't delete" precedent as settings.js's legacy-data
+// migration — since deleting a Firestore subcollection recursively isn't a
+// single client-side call, and there's no harm in an orphaned old family
+// hanging around. Every OTHER device sharing this family keeps using the
+// old code until someone manually updates them with the new one — that's
+// an unavoidable consequence of changing a shared secret, same as changing
+// a WiFi password. Does not reload the page — callers should do that.
+export async function changeFamilyCode(db, newCodeRaw) {
+  const newCode = normalizeCode(newCodeRaw);
+  if (!newCode) return { ok: false, error: "Enter a new code." };
+  const oldId = getFamilyId();
+  if (!oldId) return { ok: false, error: "No current family to change." };
+  if (newCode === oldId) return { ok: false, error: "That's already this family's code." };
+
+  const newDocRef = db.collection("families").doc(newCode);
+  const alreadyTaken = await newDocRef.get();
+  if (alreadyTaken.exists) {
+    return { ok: false, error: "That code is already taken by another family — try a different one." };
+  }
+
+  const oldDocRef = db.collection("families").doc(oldId);
+  const oldDoc = await oldDocRef.get();
+  if (!oldDoc.exists) return { ok: false, error: "Couldn't find this family's current data." };
+
+  await newDocRef.set(oldDoc.data());
+
+  for (const name of SCOPED_COLLECTION_NAMES) {
+    const docs = (await oldDocRef.collection(name).get()).docs;
+    // Firestore batches cap at 500 writes; chunk generously under that.
+    for (let i = 0; i < docs.length; i += 400) {
+      const batch = db.batch();
+      docs.slice(i, i + 400).forEach((doc) => {
+        batch.set(newDocRef.collection(name).doc(doc.id), doc.data());
+      });
+      await batch.commit();
+    }
+  }
+
+  setFamilyId(newCode);
+  return { ok: true, newCode };
+}
+
 // Verifies a code matches an existing family before joining.
 export async function joinFamily(db, rawCode) {
   const id = normalizeCode(rawCode);
