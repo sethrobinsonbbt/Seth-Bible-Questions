@@ -549,6 +549,13 @@ file per book, fetched — and then cached — only for books you actually
 open), and the dictionary/occurrence-index files live directly in
 `data/strongs/`.
 
+The source data's OSIS-XML conversion left some junk behind — KJV
+translators' marginal notes (e.g. "Heb. by the hand of") glued onto the
+end of verse text, and raw XML tags leaked into a handful of spots like
+Psalm superscriptions and the Psalm 119 Hebrew-acrostic labels. Both are
+cleaned out of `data/strongs/kjv-text/*.json` directly, so verse text
+should only ever contain actual verse text.
+
 The little **Q⁺** badge is a quick way to jot down a question inspired by
 whatever you're currently reading, without needing the Setup passcode.
 Same fields as Setup's question form
