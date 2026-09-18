@@ -10,8 +10,9 @@ device, driving whose score gets tracked wherever progress applies
   Reading Plan passage. Read the King James Version, any book and
   chapter, with Previous/Next navigation, a "Jump to…" reference box,
   and a text-to-speech "Listen" button. When the chapter on screen is
-  part of today's reading, a footer offers **✓ Mark as Read**, **Next
-  Chapter**, and **Next Reading** (jumps to the day's next passage).
+  part of today's reading, a footer offers **✓ Mark as Read** and a
+  **Next: *Book Chapter* →** button naming exactly where it's headed,
+  correctly stepping through multi-chapter readings one chapter at a time.
   **Press and hold any word** to look up its underlying Hebrew/Greek
   Strong's number — meaning, and every other place that word occurs in
   the KJV (see below).
@@ -483,10 +484,11 @@ Reading Plan page), a footer appears below the text:
 - **✓ Mark as Read** checks off that reading in the Reading Plan's
   streak tracking, without leaving the page (requires a User picked up
   top, same as checking it off from the Reading Plan page itself).
-- **Next Chapter →** moves forward one chapter (same as the ← Previous /
-  Next → row above, just handy without scrolling back up).
-- **Next Reading →** jumps straight to the day's next passage (hidden
-  once you're on the day's third/last one).
+- **Next: *Book Chapter* →** names exactly where it's headed and jumps
+  there. When a reading spans more than one chapter (e.g. "2 Kings 24,
+  25"), this steps through those chapters first before moving on to the
+  day's next passage; it's hidden only once there's truly nothing left
+  (the day's last reading's last chapter).
 
 The **Q⁺**, **M⁺**, and (when this chapter has one) **JC** badges (see
 below) float at the top-right of the chapter text and stay put as you

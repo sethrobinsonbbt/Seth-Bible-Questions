@@ -358,12 +358,19 @@ async function loadChapter() {
       ? `<button id="bible-listen-btn" class="btn btn-small listen-btn">🔊 Listen</button>`
       : "";
 
+    const nextDailyTarget = dailyContext ? nextDailyStep() : null;
     const dailyFooterHtml = dailyContext
       ? `
         <div class="bible-daily-actions">
           <div class="bible-daily-actions-row">
             <button id="bible-mark-read-btn" class="btn btn-primary">✓ Mark as Read</button>
-            ${dailyContext.index < 2 ? `<button id="bible-next-reading-btn" class="btn btn-small">Next Reading →</button>` : ""}
+            ${
+              nextDailyTarget
+                ? `<button id="bible-next-reading-btn" class="btn btn-small">Next: ${escapeHtml(
+                    nextDailyTarget.book
+                  )} ${nextDailyTarget.chapter} →</button>`
+                : ""
+            }
           </div>
           <p id="bible-mark-read-status" class="bible-mark-read-status" hidden>Marked! ✅</p>
         </div>
@@ -711,22 +718,56 @@ function restartCurrentVerseAtRate() {
   speakCurrentVerse();
 }
 
+// Given the current dailyContext, figures out where "next" should go —
+// stepping to the next chapter within the current reading first (a reading
+// like "2 Kings 24, 25" spans two chapters under one index), and only
+// moving on to the next reading's first chapter once the current one is
+// exhausted. Returns null once the day's last reading's last chapter is
+// reached. `finishesReading` tells callers whether this step completes the
+// current reading (so it's the right moment to mark it done).
+function nextDailyStep() {
+  if (!dailyContext) return null;
+  const readings = readingsForDate(new Date(`${dailyContext.dateKey}T00:00:00`));
+  if (!readings) return null;
+  const chapterOffset = dailyContext.chapterOffset || 0;
+  const currentChapters = parseReadingLabel(readings[dailyContext.index]);
+  const nextChapterOffset = chapterOffset + 1;
+  if (nextChapterOffset < currentChapters.length) {
+    const target = currentChapters[nextChapterOffset];
+    return {
+      book: target.book,
+      chapter: target.chapter,
+      dailyCtx: { dateKey: dailyContext.dateKey, index: dailyContext.index, chapterOffset: nextChapterOffset },
+      finishesReading: false,
+    };
+  }
+  if (dailyContext.index >= 2) return null;
+  const nextIndex = dailyContext.index + 1;
+  const chapters = parseReadingLabel(readings[nextIndex]);
+  if (chapters.length === 0) return null;
+  return {
+    book: chapters[0].book,
+    chapter: chapters[0].chapter,
+    dailyCtx: { dateKey: dailyContext.dateKey, index: nextIndex, chapterOffset: 0 },
+    finishesReading: true,
+  };
+}
+
 // When a chapter finishes speaking on its own (not stopped manually) and
 // it was part of today's reading plan: mark it read and keep going
 // hands-free into the next reading, or stop once the day's last one ends.
 function onChapterFinishedSpeaking() {
   if (!dailyContext) return;
-  markDailyReadingDone(dailyContext.dateKey, dailyContext.index, getActiveUser());
-  if (dailyContext.index >= 2) return;
-
-  const readings = readingsForDate(new Date(`${dailyContext.dateKey}T00:00:00`));
-  if (!readings) return;
-  const nextIndex = dailyContext.index + 1;
-  const chapters = parseReadingLabel(readings[nextIndex]);
-  if (chapters.length === 0) return;
-
+  const next = nextDailyStep();
+  if (!next) {
+    markDailyReadingDone(dailyContext.dateKey, dailyContext.index, getActiveUser());
+    return;
+  }
+  if (next.finishesReading) {
+    markDailyReadingDone(dailyContext.dateKey, dailyContext.index, getActiveUser());
+  }
   autoPlayNextChapter = true;
-  goTo(chapters[0].book, chapters[0].chapter, state.version, { dateKey: dailyContext.dateKey, index: nextIndex });
+  goTo(next.book, next.chapter, state.version, next.dailyCtx);
 }
 
 function setupListenButton(verses) {
@@ -911,13 +952,9 @@ function markCurrentReadingRead() {
 }
 
 function goToNextReadingForDay() {
-  if (!dailyContext || dailyContext.index >= 2) return;
-  const readings = readingsForDate(new Date(`${dailyContext.dateKey}T00:00:00`));
-  if (!readings) return;
-  const nextIndex = dailyContext.index + 1;
-  const chapters = parseReadingLabel(readings[nextIndex]);
-  if (chapters.length === 0) return;
-  goTo(chapters[0].book, chapters[0].chapter, state.version, { dateKey: dailyContext.dateKey, index: nextIndex });
+  const next = nextDailyStep();
+  if (!next) return;
+  goTo(next.book, next.chapter, state.version, next.dailyCtx);
 }
 
 // ---------- Quick "jump to reference" search ----------
@@ -962,7 +999,7 @@ export function mountBibleReader(container) {
   if (firstReadingChapters.length > 0) {
     state.book = firstReadingChapters[0].book;
     state.chapter = firstReadingChapters[0].chapter;
-    dailyContext = { dateKey: dateKey(today), index: 0 };
+    dailyContext = { dateKey: dateKey(today), index: 0, chapterOffset: 0 };
     saveState();
   }
 
