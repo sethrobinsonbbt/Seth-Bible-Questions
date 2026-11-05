@@ -5,7 +5,8 @@
 // family members both live in the password-protected Setup section;
 // editing a question's text is also available right here via a
 // passcode-gated Edit button, for quick fixes mid-quiz.
-import { subscribeQuestions, recordAnswer, updateQuestion } from "./questions-data.js";
+import { subscribeQuestions, recordAnswer, updateQuestion, addQuestion } from "./questions-data.js";
+import { buildAgeGroupSelect } from "./age-groups-data.js";
 import { subscribeUsers } from "./users.js";
 import { getActiveUser } from "./active-user.js";
 import { fetchVerseRange } from "./bible-api.js";
@@ -28,6 +29,8 @@ let historyIndex = -1;
 let verseTextCache = {};
 let editingQuestionId = null;
 let editTypeEditor = null; // the buildQuestionTypeEditor() instance backing the edit modal, while it's open
+let addTypeEditor = null; // same, for the "+ Add" modal opened from the "Questions for:" row
+let addAssignSelect = null;
 // Live state for whichever multiple-choice/order/select-all question is
 // currently on screen — keyed by question id so it survives incidental
 // re-renders (e.g. an unrelated Firestore update) but resets on a new pick.
@@ -192,6 +195,86 @@ function renderQuizForRow() {
     });
     row.appendChild(chip);
   });
+
+  // "+ Add" at the end of the row: quick add-question without a trip to
+  // Setup (no passcode, same as the Bible page's Q+ button).
+  const addChip = document.createElement("button");
+  addChip.type = "button";
+  addChip.className = "chip chip-add";
+  addChip.textContent = "＋ Add";
+  addChip.setAttribute("aria-label", "Add a question");
+  addChip.addEventListener("click", openAddModal);
+  row.appendChild(addChip);
+}
+
+// Default age group for a new question: the first age group of whoever's
+// turn it is, else of the first toggled-on person, else Unassigned.
+function defaultAgeGroupForAdd() {
+  const turnUser = users.find((u) => u.id === currentTurnUserId);
+  const candidates = [turnUser, ...(includedUserIds ? includedUsersSorted() : [])].filter(Boolean);
+  for (const u of candidates) {
+    if (u.ageGroups && u.ageGroups.length > 0) return u.ageGroups[0];
+  }
+  return "";
+}
+
+function openAddModal() {
+  el("q-add-text").value = "";
+  el("q-add-reference").value = "";
+  el("q-add-error").hidden = true;
+
+  addTypeEditor = buildQuestionTypeEditor(null);
+  const typeWrap = el("q-add-type-wrap");
+  typeWrap.innerHTML = "";
+  typeWrap.appendChild(addTypeEditor.el);
+
+  addAssignSelect = buildAgeGroupSelect(defaultAgeGroupForAdd());
+  const assignWrap = el("q-add-assign-wrap");
+  assignWrap.innerHTML = "";
+  assignWrap.appendChild(addAssignSelect);
+
+  const answerInput = el("q-add-answer");
+  answerInput.value = "";
+  function syncAnswerVisibility() {
+    answerInput.hidden = addTypeEditor.typeSelect.value !== "classic";
+    answerInput.previousElementSibling.hidden = answerInput.hidden;
+  }
+  addTypeEditor.typeSelect.addEventListener("change", syncAnswerVisibility);
+  syncAnswerVisibility();
+
+  el("q-add-modal-backdrop").hidden = false;
+  el("q-add-text").focus();
+}
+
+function closeAddModal() {
+  addTypeEditor = null;
+  addAssignSelect = null;
+  el("q-add-modal-backdrop").hidden = true;
+}
+
+function showAddError(msg) {
+  el("q-add-error").textContent = msg;
+  el("q-add-error").hidden = false;
+}
+
+function saveAdd() {
+  const text = el("q-add-text").value.trim();
+  if (!text) return showAddError("Give the question some text.");
+  const typeData = addTypeEditor.collect();
+  const typeErr = addTypeEditor.validate(typeData);
+  if (typeErr) return showAddError(typeErr);
+  const answer = el("q-add-answer").value.trim();
+  if (typeData.type === "classic" && !answer) {
+    return showAddError("An answer is required (reference is optional).");
+  }
+  addQuestion({
+    ...typeData,
+    text,
+    answer: typeData.type === "classic" ? answer : "",
+    reference: el("q-add-reference").value.trim(),
+    assignedTo: addAssignSelect.value || null,
+  });
+  closeAddModal();
 }
 
 // Fetches and shows the cited verse's text for the currently-revealed
@@ -659,6 +742,11 @@ export function mountQuestions() {
   el("random-edit-btn").addEventListener("click", tryEditCurrentQuestion);
   el("q-edit-cancel-btn").addEventListener("click", closeEditModal);
   el("q-edit-save-btn").addEventListener("click", saveEdit);
+  el("q-add-cancel-btn").addEventListener("click", closeAddModal);
+  el("q-add-save-btn").addEventListener("click", saveAdd);
+  el("q-add-modal-backdrop").addEventListener("click", (e) => {
+    if (e.target === el("q-add-modal-backdrop")) closeAddModal();
+  });
   el("q-edit-modal-backdrop").addEventListener("click", (e) => {
     if (e.target === el("q-edit-modal-backdrop")) closeEditModal();
   });

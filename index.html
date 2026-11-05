@@ -142,6 +142,27 @@
 
     <p id="empty-state" class="empty-state" hidden>No questions assigned to this person's age group(s) yet.</p>
 
+    <div id="q-add-modal-backdrop" class="modal-backdrop" hidden>
+      <div class="modal">
+        <h3>Add Question</h3>
+        <label for="q-add-text">Question</label>
+        <textarea id="q-add-text" rows="3"></textarea>
+        <label>Type</label>
+        <div id="q-add-type-wrap"></div>
+        <label for="q-add-answer">Answer</label>
+        <input id="q-add-answer" type="text" placeholder="e.g. Noah" />
+        <label for="q-add-reference">Reference (optional)</label>
+        <input id="q-add-reference" type="text" placeholder="e.g. Genesis 6:14" />
+        <label>Age group</label>
+        <div id="q-add-assign-wrap"></div>
+        <p id="q-add-error" class="form-error" hidden></p>
+        <div class="modal-actions">
+          <button id="q-add-cancel-btn" class="btn">Cancel</button>
+          <button id="q-add-save-btn" class="btn btn-primary">Add</button>
+        </div>
+      </div>
+    </div>
+
     <div id="q-edit-modal-backdrop" class="modal-backdrop" hidden>
       <div class="modal">
         <h3>Edit Question</h3>
