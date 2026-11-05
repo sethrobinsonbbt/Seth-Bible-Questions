@@ -140,6 +140,7 @@ export const SCOPED_COLLECTION_NAMES = [
   "readingPlans",
   "dailyReadingProgress",
   "appState",
+  "prayerLists",
 ];
 
 // Moves the current family onto a new join code someone picked themselves

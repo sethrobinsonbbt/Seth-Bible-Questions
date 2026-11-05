@@ -1,6 +1,6 @@
 # Bible Questions
 
-A tiny family Bible app with five sections, reached from the ☰ menu (tap
+A tiny family Bible app with six sections, reached from the ☰ menu (tap
 the icon at the top-left). A **User** dropdown in the header (next to 🌓)
 picks the active family member — set it once and it's remembered on that
 device, driving whose score gets tracked wherever progress applies
@@ -48,6 +48,18 @@ device, driving whose score gets tracked wherever progress applies
   offers **Next Verse →** — same new-first/weighted-toward-poor-scores
   logic as Questions. Tracks whoever's picked in the header's **User**
   dropdown.
+- **Prayer List** — each family member's own prayer lists (whoever's
+  picked in the header's **User** dropdown): people to pray for, things
+  you're thankful for, goals, or anything else. Each list is scheduled
+  into any of the **Morning / Afternoon / Evening** prayers on chosen days
+  of the week (every day, Mon–Fri, weekends, or any mix), with **how many
+  each prayer** (e.g. 3 people) or "all of them, every time". The top of
+  the page shows today's prayer for the selected time (it opens on the
+  current one) with a checkbox per item. The same items stay up — day
+  after day if need be — until every one is checked off; then that prayer
+  shows **Done ✓** and the next scheduled prayer picks up with the next
+  items on the list, wrapping back to the top at the end. Unchecking an
+  item in a finished prayer reopens it, in case of a mis-tap.
 - **🔒 Setup** — set off by a divider at the bottom of the ☰ menu, since
   it's an admin area rather than something a family member needs
   day-to-day. Passcode-gated (see below). A landing page links to four

@@ -1,0 +1,181 @@
+/* Prayer List section (js/prayer.js) */
+
+.prayer-slot-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
+}
+
+.prayer-slot-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  border: none;
+  border-radius: 10px;
+  padding: 0.55rem 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: var(--btn-bg);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.prayer-slot-tab.active {
+  background: var(--indigo);
+  color: white;
+}
+
+.prayer-today-empty {
+  padding: 1.2rem 0;
+}
+
+.prayer-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.prayer-card.finished {
+  border-color: var(--success-text);
+  background: var(--success-bg);
+}
+
+.prayer-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.prayer-card-title {
+  font-weight: 700;
+}
+
+.prayer-card-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.prayer-card.finished .prayer-card-status {
+  color: var(--success-text);
+}
+
+.prayer-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.prayer-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.45rem 0;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.prayer-item input {
+  width: 1.3rem;
+  height: 1.3rem;
+  flex: 0 0 auto;
+  accent-color: var(--indigo);
+}
+
+.prayer-item input:checked + span {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.prayer-card.finished .prayer-item input {
+  accent-color: var(--success-text);
+}
+
+.prayer-card-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: var(--success-text);
+}
+
+.prayer-lists-toolbar {
+  margin-top: 1.6rem;
+}
+
+.prayer-lists {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.prayer-list-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+}
+
+.prayer-list-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.prayer-list-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.prayer-list-sched {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.prayer-per-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.prayer-per-row input[type="number"] {
+  width: 5rem;
+}
+
+.prayer-per-row input[type="number"]:disabled {
+  opacity: 0.45;
+}
+
+.modal label.prayer-inline-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.prayer-chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.prayer-day-presets {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
+
+.prayer-delete-btn {
+  margin-right: auto;
+}
