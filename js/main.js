@@ -3,6 +3,7 @@ import { mountQuestions } from "./questions.js";
 import { mountBibleReader, goTo as goToBibleChapter } from "./bible-reader.js";
 import { mountPlanner } from "./planner.js";
 import { mountMemorize } from "./memorize.js";
+import { mountPrayer } from "./prayer.js";
 import { mountSettings } from "./settings.js";
 import { subscribeUsers } from "./users.js";
 import { getActiveUser, setActiveUser } from "./active-user.js";
@@ -18,6 +19,7 @@ const SECTIONS = [
   { id: "planner", label: "Reading Plan", mount: mountPlanner },
   { id: "questions", label: "Questions", mount: mountQuestions },
   { id: "memorize", label: "Memorize", mount: mountMemorize },
+  { id: "prayer", label: "Prayer List", mount: mountPrayer },
   { id: "settings", label: "🔒 Setup", mount: mountSettings, divider: true },
 ];
 
