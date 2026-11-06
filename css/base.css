@@ -517,6 +517,13 @@ body {
   white-space: nowrap;
 }
 
+.chip.chip-add {
+  background: transparent;
+  border: 1.5px dashed var(--indigo);
+  color: var(--indigo);
+  padding: calc(0.45rem - 1.5px) calc(0.9rem - 1.5px);
+}
+
 .chip.active {
   background: var(--indigo);
   color: white;
