@@ -37,11 +37,13 @@ export const SLOTS = [
 ];
 
 // `tab` is the short tab label; `item`/`note` label the add-item form.
+// `itemEg`/`noteEg` are placeholder examples in the add form's boxes.
+// `perPrayer` is the default "how many each prayer" for a new list.
 export const KINDS = [
-  { id: "people", label: "People", tab: "People", icon: "🙏", item: "Name", note: "What to pray for about them (optional)" },
-  { id: "thankful", label: "Thankful For", tab: "Thankful", icon: "💛", item: "What you're thankful for", note: "Details (optional)" },
-  { id: "goals", label: "Goals", tab: "Goals", icon: "🎯", item: "Goal", note: "Details (optional)" },
-  { id: "custom", label: "Other", tab: "Other", icon: "📝", item: "What to pray for", note: "Details (optional)" },
+  { id: "people", label: "People", tab: "People", icon: "🙏", item: "Name", note: "What to pray about for them", itemEg: "Name — e.g. Sister Judy", noteEg: "What to pray about — e.g. Physical well-being and dementia", perPrayer: 3 },
+  { id: "thankful", label: "Thankful For", tab: "Thankful", icon: "💛", item: "Something you're thankful for", note: "Details", itemEg: "Thankful for — e.g. Our church family", noteEg: "Details (optional)", perPrayer: 0 },
+  { id: "goals", label: "Goals", tab: "Goals", icon: "🎯", item: "Goal", note: "Details", itemEg: "Goal — e.g. Read the Bible every day", noteEg: "Details (optional)", perPrayer: 0 },
+  { id: "custom", label: "Other", tab: "Other", icon: "📝", item: "Something to pray about", note: "Details", itemEg: "e.g. Our nation's leaders", noteEg: "What to pray about (optional)", perPrayer: 0 },
 ];
 
 export const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -169,7 +171,7 @@ export function addPrayerList(data) {
     ownerId: data.ownerId,
     name: data.name,
     kind: data.kind || "custom",
-    items: [],
+    items: (data.items || []).map((it) => ({ id: newItemId(), name: it.name, note: it.note || "" })),
     slots: data.slots || [],
     days: data.days || [],
     perPrayer: data.perPrayer || 0,
