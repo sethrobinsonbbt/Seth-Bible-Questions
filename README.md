@@ -50,13 +50,13 @@ device, driving whose score gets tracked wherever progress applies
   dropdown.
 - **Prayer List** — each family member's own prayer lists (whoever's
   picked in the header's **User** dropdown). Under **What to Pray About**
-  is a grid of tabs: **👥 People** plus eight prayer categories — **🙌
-  Praise & Worship**, **💛 Thanksgiving**, **🌱 Forgiveness & Spiritual
-  Growth**, **🏠 Family & Relationships**, **⛪ Ecclesia & Others**, **🧭
-  Guidance & Daily Life**, **🛡️ Trials & Strength** and **👑 God's Kingdom
-  & Purpose** — each category showing an example prayer prompt and
-  scripture references (the old 🎯 Goals / 📝 Other tabs still appear for
-  anyone with a list there). Each tab has a Name / "what to pray about" /
+  is a grid of tabs: **👥 People** (family, friends and ecclesia —
+  everyone to pray for by name) plus six prayer categories — **🙌 Praise
+  & Worship**, **💛 Thanksgiving**, **🌱 Forgiveness & Spiritual Growth**,
+  **🧭 Guidance & Daily Life**, **🛡️ Trials & Strength** and **👑 God's
+  Kingdom & Purpose** — each showing an example prayer prompt and
+  scripture references. (Older tabs — 🏠 Family, ⛪ Ecclesia, 🎯 Goals,
+  📝 Other — still appear for anyone with a list there.) Each tab has a Name / "what to pray about" /
   **Add** form
   (e.g. *Sister Judy* — *Physical well-being and dementia*). The tab
   shows the list and "3 per prayer"; its **✏️ Edit** window is where items
