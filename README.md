@@ -62,7 +62,11 @@ device, driving whose score gets tracked wherever progress applies
   The same people stay up — day after day if need be — until each one is
   checked off; then the next prayer moves on to the next names on the
   list, wrapping back to the top at the end. Unchecking an item in a
-  finished prayer reopens it, in case of a mis-tap. A short quote about
+  finished prayer reopens it, in case of a mis-tap. Under Start Praying, a
+  **Quick add** box takes one-off things for the next prayer (e.g. *Sam's
+  surgery tomorrow*): they show in a **📌 Just This Once** card at the top
+  of the next prayer, whatever the time, and are cleared once checked off
+  and that prayer is closed. A short quote about
   prayer sits at the bottom of the page and the end of each prayer — one
   per day, with **Another ›** for more — from `js/prayer-quotes.js`
   (currently placeholder KJV verses about prayer).
