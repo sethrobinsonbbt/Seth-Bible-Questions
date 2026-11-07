@@ -363,3 +363,52 @@ export function clearCheckedQuickItems(list) {
   const items = normalizeItems(list).filter((it) => !checked.includes(it.id));
   collection().doc(list.id).update({ items, checked: [], done: {} });
 }
+
+// ---------- Hidden reflections (family-wide) ----------
+//
+// appState/prayerReflections = { hidden: [reflectionId, ...] } — ids from
+// prayer-quotes.js that anyone in the family has marked "Hide". They're
+// skipped for everyone; restoring brings them all back.
+
+let hiddenReflections = [];
+const hiddenListeners = new Set();
+
+function reflectionsDoc() {
+  return scopedCollection(db, "appState").doc("prayerReflections");
+}
+
+export function subscribeHiddenReflections(callback) {
+  hiddenListeners.add(callback);
+  callback(hiddenReflections);
+  return () => hiddenListeners.delete(callback);
+}
+
+export function hideReflection(id) {
+  if (!db) return;
+  reflectionsDoc().set({ hidden: firebase.firestore.FieldValue.arrayUnion(id) }, { merge: true });
+}
+
+export function unhideReflection(id) {
+  if (!db) return;
+  reflectionsDoc().set({ hidden: firebase.firestore.FieldValue.arrayRemove(id) }, { merge: true });
+}
+
+export function unhideAllReflections() {
+  if (!db) return;
+  reflectionsDoc().set({ hidden: [] }, { merge: true });
+}
+
+if (getFamilyId()) {
+  ready
+    .then((firestoreDb) => {
+      db = firestoreDb;
+      reflectionsDoc().onSnapshot(
+        (doc) => {
+          hiddenReflections = (doc.exists && doc.data().hidden) || [];
+          hiddenListeners.forEach((cb) => cb(hiddenReflections));
+        },
+        (err) => console.error(err)
+      );
+    })
+    .catch((err) => console.error(err));
+}

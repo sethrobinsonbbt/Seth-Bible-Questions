@@ -76,7 +76,9 @@ device, driving whose score gets tracked wherever progress applies
   and that prayer is closed. **Reflections on Prayer** — 150 short
   adapted reflections, each with its topic and source — sit at the bottom
   of the page and the end of each prayer: a random one each time the page
-  opens, then swipe left/right (or tap ‹ ›) to browse. They live in
+  opens, then swipe left/right (or tap ‹ ›) to browse. **Hide** skips one
+  for the whole family (with Undo, and "N hidden · Restore" to bring them
+  back); hidden ids are kept in `appState/prayerReflections`. They live in
   `js/prayer-quotes.js`, generated from the family's spreadsheet.
 - **🔒 Setup** — set off by a divider at the bottom of the ☰ menu, since
   it's an admin area rather than something a family member needs

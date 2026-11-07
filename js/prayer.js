@@ -31,6 +31,10 @@ import {
   addQuickItem,
   toggleQuickItem,
   clearCheckedQuickItems,
+  subscribeHiddenReflections,
+  hideReflection,
+  unhideReflection,
+  unhideAllReflections,
 } from "./prayer-data.js";
 import { subscribeUsers } from "./users.js";
 import { subscribeActiveUser, setActiveUser } from "./active-user.js";
@@ -51,9 +55,14 @@ let editingList = null; // list whose ✏️ Edit window is open, or null when c
 let creatingKind = null; // kind of the list being created
 let praying = false; // true while the Start Prayer view is open
 let openTodayAddFor = null; // list id whose "+ Add" form is open in the prayer view
-// Which reflection is showing: a random one per page load, then swipe or
-// ‹ › to move through the rest in order (wrapping around).
-let quoteIndex = Math.floor(Math.random() * Math.max(PRAYER_QUOTES.length, 1));
+// Which reflection is showing (by id): a random one per page load, then
+// swipe or ‹ › to move through the rest in order (wrapping around),
+// skipping any the family has hidden.
+let quoteId = PRAYER_QUOTES.length ? PRAYER_QUOTES[Math.floor(Math.random() * PRAYER_QUOTES.length)].id : null;
+let hiddenQuoteIds = [];
+let justHiddenId = null; // offers "Undo" right after hiding one
+let expandedLists = new Set(); // list ids showing all their items in the tab (otherwise the first few)
+const COLLAPSED_ITEM_COUNT = 5;
 let editingItem = null; // { listId, itemId } being edited inline under My Prayer Lists
 // Typed-but-unsent text in each add/edit form, keyed by form, so a re-render
 // (e.g. another device's update arriving) doesn't wipe what's being typed.
@@ -111,10 +120,12 @@ function make(tag, className, text) {
 // `key` identifies the form for drafts/focus. `initial` pre-fills it (edit).
 // onSubmit({name, note}) is called with trimmed values; the form clears
 // itself and keeps focus in the name box for adding several in a row.
-function buildItemForm({ key, kind, initial, submitLabel, onSubmit, onCancel }) {
+// `compact`: a one-line note box and the Add button beside the name box
+// (the What to Pray About tabs); otherwise a two-line note and buttons below.
+function buildItemForm({ key, kind, initial, submitLabel, onSubmit, onCancel, compact }) {
   const info = kindInfo(kind);
   const draft = drafts[key] || initial || { name: "", note: "" };
-  const form = make("form", "prayer-item-form");
+  const form = make("form", "prayer-item-form" + (compact ? " compact" : ""));
   form.dataset.key = key;
 
   const name = make("input", "prayer-item-form-name");
@@ -122,8 +133,9 @@ function buildItemForm({ key, kind, initial, submitLabel, onSubmit, onCancel }) 
   name.placeholder = info.itemEg;
   name.setAttribute("aria-label", info.item);
   name.value = draft.name || "";
-  const note = make("textarea", "prayer-item-form-note");
-  note.rows = 2;
+  const note = make(compact ? "input" : "textarea", "prayer-item-form-note");
+  if (compact) note.type = "text";
+  else note.rows = 2;
   note.placeholder = info.noteEg;
   note.setAttribute("aria-label", info.note);
   note.value = draft.note || "";
@@ -169,7 +181,13 @@ function buildItemForm({ key, kind, initial, submitLabel, onSubmit, onCancel }) 
     name.focus();
   });
 
-  form.append(name, note, err, actions);
+  if (compact) {
+    const top = make("div", "prayer-item-form-row");
+    top.append(name, submit);
+    form.append(top, note, err);
+  } else {
+    form.append(name, note, err, actions);
+  }
   return form;
 }
 
@@ -184,8 +202,9 @@ function renderItemText(item) {
 function renderPrompt(info, withTopics) {
   if (!info.prompt) return null;
   const box = make("div", "prayer-prompt");
-  box.appendChild(make("p", "prayer-prompt-text", `💡 ${info.prompt}`));
-  if (info.scripture) box.appendChild(make("p", "prayer-prompt-scripture", info.scripture));
+  const line = make("p", "prayer-prompt-text", `💡 ${info.prompt} `);
+  if (info.scripture) line.appendChild(make("span", "prayer-prompt-scripture", info.scripture));
+  box.appendChild(line);
   if (withTopics && info.topics) box.appendChild(make("p", "prayer-prompt-topics", `Ideas: ${info.topics.replace(/; /g, " · ")}`));
   return box;
 }
@@ -375,42 +394,120 @@ function closePrayer() {
 
 // ---------- Quotes ----------
 
-function showQuote(step) {
-  const n = PRAYER_QUOTES.length;
-  quoteIndex = (((quoteIndex + step) % n) + n) % n;
+function visibleQuotes() {
+  return PRAYER_QUOTES.filter((q) => !hiddenQuoteIds.includes(q.id));
+}
+
+// Position of the current reflection among the visible ones. If it's been
+// hidden, the next visible one after it in the full list takes its place.
+function currentQuotePos(list) {
+  const pos = list.findIndex((q) => q.id === quoteId);
+  if (pos >= 0) return pos;
+  const fullPos = PRAYER_QUOTES.findIndex((q) => q.id === quoteId);
+  const after = list.findIndex((q) => PRAYER_QUOTES.indexOf(q) > fullPos);
+  return after >= 0 ? after : 0;
+}
+
+function rerenderQuotes(step) {
   ["prayer-home-quote", "prayer-view-quote"].forEach((id) => {
     if (el(id) && !el(id).closest("[hidden]")) renderQuote(id, step);
   });
 }
 
-// One reflection with its topic and source, ‹ › buttons and a counter;
-// swiping left/right on it moves to the next/previous one.
+function showQuote(step) {
+  const list = visibleQuotes();
+  if (list.length === 0) return;
+  const pos = currentQuotePos(list);
+  quoteId = list[(((pos + step) % list.length) + list.length) % list.length].id;
+  justHiddenId = null;
+  rerenderQuotes(step);
+}
+
+function hideCurrentQuote() {
+  if (!confirm("Hide this reflection? It'll be skipped for everyone in the family. (You can bring it back.)")) return;
+  const id = quoteId;
+  justHiddenId = id;
+  hiddenQuoteIds = [...hiddenQuoteIds, id]; // show the change right away; the saved list follows
+  hideReflection(id);
+  rerenderQuotes(1);
+}
+
+function undoHide() {
+  if (justHiddenId == null) return;
+  const id = justHiddenId;
+  justHiddenId = null;
+  hiddenQuoteIds = hiddenQuoteIds.filter((x) => x !== id);
+  quoteId = id;
+  unhideReflection(id);
+  rerenderQuotes(0);
+}
+
+function restoreAllQuotes() {
+  if (!confirm(`Bring back all ${hiddenQuoteIds.length} hidden reflection${hiddenQuoteIds.length === 1 ? "" : "s"}?`)) return;
+  hiddenQuoteIds = [];
+  justHiddenId = null;
+  unhideAllReflections();
+  rerenderQuotes(0);
+}
+
+// One reflection with its topic and source, ‹ › buttons, a counter and a
+// Hide link; swiping left/right on it moves to the next/previous one.
 function renderQuote(hostId, step) {
   const host = el(hostId);
   host.innerHTML = "";
+  const list = visibleQuotes();
+  const hiddenCount = PRAYER_QUOTES.length - list.length;
   host.hidden = PRAYER_QUOTES.length === 0;
   if (host.hidden) return;
-  const q = PRAYER_QUOTES[quoteIndex];
 
-  const body = make("div", "prayer-quote-body" + (step > 0 ? " from-right" : step < 0 ? " from-left" : ""));
-  if (q.topic) body.appendChild(make("div", "prayer-quote-topic", q.topic));
-  body.appendChild(make("blockquote", "prayer-quote-text", q.text));
-  if (q.source) body.appendChild(make("div", "prayer-quote-source", q.source));
-  host.appendChild(body);
+  if (list.length === 0) {
+    host.appendChild(make("p", "prayer-card-note-muted", "All the reflections are hidden."));
+  } else {
+    const pos = currentQuotePos(list);
+    const q = list[pos];
+    quoteId = q.id;
+    const body = make("div", "prayer-quote-body" + (step > 0 ? " from-right" : step < 0 ? " from-left" : ""));
+    if (q.topic) body.appendChild(make("div", "prayer-quote-topic", q.topic));
+    body.appendChild(make("blockquote", "prayer-quote-text", q.text));
+    if (q.source) body.appendChild(make("div", "prayer-quote-source", q.source));
+    host.appendChild(body);
 
-  if (PRAYER_QUOTES.length > 1) {
     const nav = make("div", "prayer-quote-nav");
     const prev = make("button", "prayer-quote-arrow", "‹");
     prev.type = "button";
     prev.setAttribute("aria-label", "Previous reflection");
     prev.addEventListener("click", () => showQuote(-1));
-    const count = make("span", "prayer-quote-count", `${quoteIndex + 1} / ${PRAYER_QUOTES.length}`);
+    const count = make("span", "prayer-quote-count", `${pos + 1} / ${list.length}`);
+    const hide = make("button", "prayer-quote-hide", "Hide");
+    hide.type = "button";
+    hide.setAttribute("aria-label", "Hide this reflection for the family");
+    hide.addEventListener("click", hideCurrentQuote);
     const next = make("button", "prayer-quote-arrow", "›");
     next.type = "button";
     next.setAttribute("aria-label", "Next reflection");
     next.addEventListener("click", () => showQuote(1));
-    nav.append(prev, count, next);
+    const mid = make("span", "prayer-quote-mid");
+    mid.append(count, hide);
+    nav.append(prev, mid, next);
     host.appendChild(nav);
+  }
+
+  if (justHiddenId != null || hiddenCount > 0) {
+    const foot = make("div", "prayer-quote-hidden-row");
+    if (justHiddenId != null) {
+      foot.appendChild(make("span", "", "Hidden."));
+      const undo = make("button", "prayer-quote-link", "Undo");
+      undo.type = "button";
+      undo.addEventListener("click", undoHide);
+      foot.appendChild(undo);
+    } else {
+      foot.appendChild(make("span", "", `${hiddenCount} hidden`));
+      const restore = make("button", "prayer-quote-link", "Restore");
+      restore.type = "button";
+      restore.addEventListener("click", restoreAllQuotes);
+      foot.appendChild(restore);
+    }
+    host.appendChild(foot);
   }
 }
 
@@ -523,7 +620,7 @@ function renderManage() {
   // No list for this tab yet: the add form is right there anyway — the
   // first Add quietly creates the list with a default schedule.
   if (lists.length === 0) {
-    const card = make("div", "prayer-manage-card");
+    const card = make("div", "prayer-manage-card compact");
     card.appendChild(make("div", "prayer-list-name", `${info.icon} ${info.label}`));
     const prompt = renderPrompt(info, true);
     if (prompt) card.appendChild(prompt);
@@ -541,6 +638,7 @@ function renderManage() {
       buildItemForm({
         key: `new:${selectedKind}`,
         kind: selectedKind,
+        compact: true,
         onSubmit: (vals) => {
           focusAfterRender = "manage:new";
           addPrayerList({
@@ -560,34 +658,54 @@ function renderManage() {
   }
 
   lists.forEach((list) => {
-    const card = make("div", "prayer-manage-card");
+    const info = kindInfo(list.kind);
+    const card = make("div", "prayer-manage-card compact");
     const head = make("div", "prayer-manage-head");
-    const titleWrap = make("div", "prayer-list-info");
     const items = normalizeItems(list);
-    titleWrap.appendChild(make("div", "prayer-list-name", `${kindInfo(list.kind).icon} ${list.name} (${items.length})`));
-    titleWrap.appendChild(make("div", "prayer-list-sched", scheduleSummary(list)));
-    const editBtn = make("button", "btn btn-small", "✏️ Edit");
+    const title = make("div", "prayer-list-name", `${info.icon} ${list.name} `);
+    title.appendChild(make("span", "prayer-list-sched", `· ${items.length} · ${scheduleSummary(list)}`));
+    const editBtn = make("button", "prayer-icon-btn", "✏️");
     editBtn.type = "button";
+    editBtn.title = "Edit names and schedule";
     editBtn.setAttribute("aria-label", `Edit ${list.name}: names and schedule`);
     editBtn.addEventListener("click", () => openModal(list));
-    head.append(titleWrap, editBtn);
+    head.append(title, editBtn);
     card.appendChild(head);
-    const prompt = renderPrompt(kindInfo(list.kind), false);
+    const prompt = renderPrompt(info, false);
     if (prompt) card.appendChild(prompt);
 
-    // Read-only here; changing or removing items happens in ✏️ Edit.
-    const ul = make("ul", "prayer-manage-items");
-    items.forEach((item) => {
-      const li = make("li", "prayer-manage-item");
-      li.appendChild(renderItemText(item));
+    // Read-only here (changing or removing happens in ✏️ Edit), one line
+    // each, and only the first few until "Show all".
+    const expanded = expandedLists.has(list.id);
+    const shown = expanded ? items : items.slice(0, COLLAPSED_ITEM_COUNT);
+    const ul = make("ul", "prayer-compact-items");
+    shown.forEach((item) => {
+      const li = make("li", "prayer-compact-item");
+      li.appendChild(make("span", "prayer-compact-name", item.name));
+      if (item.note) li.appendChild(make("span", "prayer-compact-note", ` — ${item.note}`));
       ul.appendChild(li);
     });
     card.appendChild(ul);
+    if (items.length > COLLAPSED_ITEM_COUNT) {
+      const more = make(
+        "button",
+        "prayer-card-add-btn prayer-show-more",
+        expanded ? "Show less" : `Show all ${items.length}`
+      );
+      more.type = "button";
+      more.addEventListener("click", () => {
+        if (expanded) expandedLists.delete(list.id);
+        else expandedLists.add(list.id);
+        render();
+      });
+      card.appendChild(more);
+    }
 
     card.appendChild(
       buildItemForm({
         key: `manage:${list.id}`,
         kind: list.kind,
+        compact: true,
         onSubmit: (vals) => addItem(list, vals),
       })
     );
@@ -909,6 +1027,10 @@ export function mountPrayer(container) {
     openTodayAddFor = null;
     editingItem = null;
     render();
+  });
+  subscribeHiddenReflections((ids) => {
+    hiddenQuoteIds = [...ids];
+    rerenderQuotes(0);
   });
   subscribePrayerLists((updated) => {
     allLists = updated;
