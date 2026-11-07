@@ -51,7 +51,9 @@ let editingList = null; // list whose ✏️ Edit window is open, or null when c
 let creatingKind = null; // kind of the list being created
 let praying = false; // true while the Start Prayer view is open
 let openTodayAddFor = null; // list id whose "+ Add" form is open in the prayer view
-let quoteOffset = 0; // how many times "Another" has been tapped today
+// Which reflection is showing: a random one per page load, then swipe or
+// ‹ › to move through the rest in order (wrapping around).
+let quoteIndex = Math.floor(Math.random() * Math.max(PRAYER_QUOTES.length, 1));
 let editingItem = null; // { listId, itemId } being edited inline under My Prayer Lists
 // Typed-but-unsent text in each add/edit form, keyed by form, so a re-render
 // (e.g. another device's update arriving) doesn't wipe what's being typed.
@@ -178,6 +180,16 @@ function renderItemText(item) {
   return wrap;
 }
 
+// The category's example prompt and scripture references, if it has them.
+function renderPrompt(info, withTopics) {
+  if (!info.prompt) return null;
+  const box = make("div", "prayer-prompt");
+  box.appendChild(make("p", "prayer-prompt-text", `💡 ${info.prompt}`));
+  if (info.scripture) box.appendChild(make("p", "prayer-prompt-scripture", info.scripture));
+  if (withTopics && info.topics) box.appendChild(make("p", "prayer-prompt-topics", `Ideas: ${info.topics.replace(/; /g, " · ")}`));
+  return box;
+}
+
 function slotInfo(id) {
   return SLOTS.find((s) => s.id === id);
 }
@@ -292,6 +304,7 @@ function renderPrayer() {
       make("span", "prayer-card-status", batch.finished ? "Done ✓" : `${batch.checked.length}/${batch.items.length}`)
     );
     card.appendChild(head);
+    if (info.prompt) card.appendChild(make("p", "prayer-card-prompt", info.prompt));
 
     const ul = make("ul", "prayer-items");
     batch.items.forEach((item) => {
@@ -362,44 +375,92 @@ function closePrayer() {
 
 // ---------- Quotes ----------
 
-function quoteOfTheDay() {
-  if (PRAYER_QUOTES.length === 0) return null;
-  const now = new Date();
-  const dayNumber = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 86400000);
-  return PRAYER_QUOTES[(((dayNumber + quoteOffset) % PRAYER_QUOTES.length) + PRAYER_QUOTES.length) % PRAYER_QUOTES.length];
+function showQuote(step) {
+  const n = PRAYER_QUOTES.length;
+  quoteIndex = (((quoteIndex + step) % n) + n) % n;
+  ["prayer-home-quote", "prayer-view-quote"].forEach((id) => {
+    if (el(id) && !el(id).closest("[hidden]")) renderQuote(id, step);
+  });
 }
 
-function renderQuote(hostId) {
+// One reflection with its topic and source, ‹ › buttons and a counter;
+// swiping left/right on it moves to the next/previous one.
+function renderQuote(hostId, step) {
   const host = el(hostId);
   host.innerHTML = "";
-  const q = quoteOfTheDay();
-  host.hidden = !q;
-  if (!q) return;
-  const block = make("blockquote", "prayer-quote-text", `“${q.text}”`);
-  host.appendChild(block);
-  const foot = make("div", "prayer-quote-foot");
-  foot.appendChild(make("span", "prayer-quote-source", q.source ? `— ${q.source}` : ""));
+  host.hidden = PRAYER_QUOTES.length === 0;
+  if (host.hidden) return;
+  const q = PRAYER_QUOTES[quoteIndex];
+
+  const body = make("div", "prayer-quote-body" + (step > 0 ? " from-right" : step < 0 ? " from-left" : ""));
+  if (q.topic) body.appendChild(make("div", "prayer-quote-topic", q.topic));
+  body.appendChild(make("blockquote", "prayer-quote-text", q.text));
+  if (q.source) body.appendChild(make("div", "prayer-quote-source", q.source));
+  host.appendChild(body);
+
   if (PRAYER_QUOTES.length > 1) {
-    const another = make("button", "prayer-card-add-btn", "Another ›");
-    another.type = "button";
-    another.addEventListener("click", () => {
-      quoteOffset += 1;
-      renderQuote(hostId);
-    });
-    foot.appendChild(another);
+    const nav = make("div", "prayer-quote-nav");
+    const prev = make("button", "prayer-quote-arrow", "‹");
+    prev.type = "button";
+    prev.setAttribute("aria-label", "Previous reflection");
+    prev.addEventListener("click", () => showQuote(-1));
+    const count = make("span", "prayer-quote-count", `${quoteIndex + 1} / ${PRAYER_QUOTES.length}`);
+    const next = make("button", "prayer-quote-arrow", "›");
+    next.type = "button";
+    next.setAttribute("aria-label", "Next reflection");
+    next.addEventListener("click", () => showQuote(1));
+    nav.append(prev, count, next);
+    host.appendChild(nav);
   }
-  host.appendChild(foot);
+}
+
+// Horizontal swipes on a reflection card (set up once per card element).
+function enableQuoteSwipe(hostId) {
+  const host = el(hostId);
+  let startX = null;
+  let startY = null;
+  host.addEventListener(
+    "touchstart",
+    (e) => {
+      if (e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    },
+    { passive: true }
+  );
+  host.addEventListener(
+    "touchend",
+    (e) => {
+      if (startX === null) return;
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      startX = null;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) showQuote(dx < 0 ? 1 : -1);
+    },
+    { passive: true }
+  );
 }
 
 // ---------- My prayer lists (by tab) ----------
 
+// People + the eight categories, plus the old Goals / Other tabs only for
+// someone who still has a list under them.
+function visibleKinds() {
+  return KINDS.filter((k) => !k.legacy || myLists().some((l) => (l.kind || "custom") === k.id));
+}
+
 function renderKindTabs() {
   const host = el("prayer-kind-tabs");
   host.innerHTML = "";
-  KINDS.forEach((k) => {
-    const btn = make("button", "prayer-tab" + (k.id === selectedKind ? " active" : ""));
+  const kinds = visibleKinds();
+  if (!kinds.some((k) => k.id === selectedKind)) selectedKind = "people";
+  kinds.forEach((k) => {
+    const btn = make("button", "prayer-kind-tab" + (k.id === selectedKind ? " active" : ""));
     btn.type = "button";
-    btn.innerHTML = `<span aria-hidden="true">${k.icon}</span> ${k.tab}`;
+    btn.title = k.label;
+    btn.setAttribute("aria-label", k.label);
+    btn.setAttribute("aria-pressed", k.id === selectedKind ? "true" : "false");
+    btn.innerHTML = `<span class="prayer-kind-icon" aria-hidden="true">${k.icon}</span><span class="prayer-kind-label">${k.tab}</span>`;
     btn.addEventListener("click", () => {
       selectedKind = k.id;
       saveKindTab(k.id);
@@ -464,15 +525,18 @@ function renderManage() {
   if (lists.length === 0) {
     const card = make("div", "prayer-manage-card");
     card.appendChild(make("div", "prayer-list-name", `${info.icon} ${info.label}`));
-    card.appendChild(
-      make(
-        "p",
-        "prayer-card-note-muted",
-        selectedKind === "people"
-          ? "Add the people you want to pray for, and what to pray about for each."
-          : `Add what goes on your ${info.label} list.`
-      )
-    );
+    const prompt = renderPrompt(info, true);
+    if (prompt) card.appendChild(prompt);
+    else
+      card.appendChild(
+        make(
+          "p",
+          "prayer-card-note-muted",
+          selectedKind === "people"
+            ? "Add the people you want to pray for, and what to pray about for each."
+            : `Add what goes on your ${info.label} list.`
+        )
+      );
     card.appendChild(
       buildItemForm({
         key: `new:${selectedKind}`,
@@ -500,7 +564,7 @@ function renderManage() {
     const head = make("div", "prayer-manage-head");
     const titleWrap = make("div", "prayer-list-info");
     const items = normalizeItems(list);
-    titleWrap.appendChild(make("div", "prayer-list-name", `${list.name} (${items.length})`));
+    titleWrap.appendChild(make("div", "prayer-list-name", `${kindInfo(list.kind).icon} ${list.name} (${items.length})`));
     titleWrap.appendChild(make("div", "prayer-list-sched", scheduleSummary(list)));
     const editBtn = make("button", "btn btn-small", "✏️ Edit");
     editBtn.type = "button";
@@ -508,6 +572,8 @@ function renderManage() {
     editBtn.addEventListener("click", () => openModal(list));
     head.append(titleWrap, editBtn);
     card.appendChild(head);
+    const prompt = renderPrompt(kindInfo(list.kind), false);
+    if (prompt) card.appendChild(prompt);
 
     // Read-only here; changing or removing items happens in ✏️ Edit.
     const ul = make("ul", "prayer-manage-items");
@@ -669,11 +735,11 @@ function buildSkeleton(container) {
         <div class="list-toolbar prayer-lists-toolbar">
           <h2>What to Pray About</h2>
         </div>
-        <div class="prayer-tabs prayer-kind-tabs" id="prayer-kind-tabs"></div>
+        <div class="prayer-kind-tabs" id="prayer-kind-tabs"></div>
         <div id="prayer-manage"></div>
 
         <div class="list-toolbar prayer-lists-toolbar">
-          <h2>On Prayer</h2>
+          <h2>Reflections on Prayer</h2>
         </div>
         <div id="prayer-home-quote" class="prayer-quote"></div>
       </div>
@@ -815,6 +881,8 @@ function render() {
 export function mountPrayer(container) {
   buildSkeleton(container);
   el("prayer-start-btn").addEventListener("click", openPrayer);
+  enableQuoteSwipe("prayer-home-quote");
+  enableQuoteSwipe("prayer-view-quote");
   el("prayer-back-btn").addEventListener("click", closePrayer);
   el("prayer-finish-btn").addEventListener("click", closePrayer);
   el("prayer-cancel-btn").addEventListener("click", closeModal);

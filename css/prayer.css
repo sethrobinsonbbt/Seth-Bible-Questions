@@ -162,9 +162,82 @@
   margin-right: auto;
 }
 
-.prayer-kind-tabs .prayer-tab {
+/* People + 8 categories: a 3-across grid of icon-over-label tabs */
+.prayer-kind-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
+}
+
+.prayer-kind-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  border: none;
+  border-radius: 10px;
+  padding: 0.5rem 0.2rem;
+  background: var(--btn-bg);
+  color: var(--text);
+  min-width: 0;
+}
+
+.prayer-kind-tab.active {
+  background: var(--indigo);
+  color: white;
+}
+
+.prayer-kind-icon {
+  font-size: 1.3rem;
+  line-height: 1.2;
+}
+
+.prayer-kind-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* A category's example prompt + scripture */
+.prayer-prompt {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.5rem 0 0.3rem;
+}
+
+.prayer-prompt p {
+  margin: 0;
+}
+
+.prayer-prompt-text {
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.prayer-prompt-scripture {
+  margin-top: 0.25rem !important;
   font-size: 0.8rem;
-  padding: 0.55rem 0.2rem;
+  font-weight: 600;
+  color: var(--indigo);
+}
+
+.prayer-prompt-topics {
+  margin-top: 0.35rem !important;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.prayer-card-prompt {
+  margin: -0.1rem 0 0.4rem;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--text-muted);
+  line-height: 1.35;
 }
 
 .prayer-item-text {
@@ -327,34 +400,86 @@
   margin: 1rem 0;
 }
 
-/* Quotes */
+/* Reflections on prayer (swipeable) */
 .prayer-quote {
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-left: 4px solid var(--indigo);
   border-radius: var(--radius);
-  padding: 0.9rem 1rem 0.6rem;
+  padding: 0.9rem 1rem 0.4rem;
+  overflow: hidden;
+  touch-action: pan-y;
 }
 
 .prayer-quote[hidden] {
   display: none;
 }
 
-.prayer-quote-text {
-  margin: 0;
-  font-style: italic;
-  line-height: 1.5;
+.prayer-quote-body {
+  animation: prayer-quote-in 0.22s ease-out;
 }
 
-.prayer-quote-foot {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
+.prayer-quote-body.from-right {
+  animation-name: prayer-quote-in-right;
+}
+
+.prayer-quote-body.from-left {
+  animation-name: prayer-quote-in-left;
+}
+
+@keyframes prayer-quote-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes prayer-quote-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes prayer-quote-in-left {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: none; }
+}
+
+.prayer-quote-topic {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--indigo);
+  margin-bottom: 0.35rem;
+}
+
+.prayer-quote-text {
+  margin: 0;
+  line-height: 1.55;
 }
 
 .prayer-quote-source {
-  font-size: 0.85rem;
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.prayer-quote-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.3rem;
+}
+
+.prayer-quote-arrow {
+  border: none;
+  background: none;
+  color: var(--indigo);
+  font-size: 1.6rem;
+  line-height: 1;
+  padding: 0.2rem 0.8rem;
+}
+
+.prayer-quote-count {
+  font-size: 0.78rem;
   color: var(--text-muted);
 }
 

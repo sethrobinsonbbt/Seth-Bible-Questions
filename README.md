@@ -50,8 +50,14 @@ device, driving whose score gets tracked wherever progress applies
   dropdown.
 - **Prayer List** — each family member's own prayer lists (whoever's
   picked in the header's **User** dropdown). Under **What to Pray About**
-  are four tabs — **🙏 People**, **💛 Thankful**, **🎯 Goals** and
-  **📝 Other** — each with a Name / "what to pray about" / **Add** form
+  is a grid of tabs: **👥 People** plus eight prayer categories — **🙌
+  Praise & Worship**, **💛 Thanksgiving**, **🌱 Forgiveness & Spiritual
+  Growth**, **🏠 Family & Relationships**, **⛪ Ecclesia & Others**, **🧭
+  Guidance & Daily Life**, **🛡️ Trials & Strength** and **👑 God's Kingdom
+  & Purpose** — each category showing an example prayer prompt and
+  scripture references (the old 🎯 Goals / 📝 Other tabs still appear for
+  anyone with a list there). Each tab has a Name / "what to pray about" /
+  **Add** form
   (e.g. *Sister Judy* — *Physical well-being and dementia*). The tab
   shows the list and "3 per prayer"; its **✏️ Edit** window is where items
   are changed (✏️) or removed (✕) and the schedule is set: **how many
@@ -67,10 +73,11 @@ device, driving whose score gets tracked wherever progress applies
   **Quick add** box takes one-off things for the next prayer (e.g. *Sam's
   surgery tomorrow*): they show in a **📌 Just This Once** card at the top
   of the next prayer, whatever the time, and are cleared once checked off
-  and that prayer is closed. A short quote about
-  prayer sits at the bottom of the page and the end of each prayer — one
-  per day, with **Another ›** for more — from `js/prayer-quotes.js`
-  (currently placeholder KJV verses about prayer).
+  and that prayer is closed. **Reflections on Prayer** — 150 short
+  adapted reflections, each with its topic and source — sit at the bottom
+  of the page and the end of each prayer: a random one each time the page
+  opens, then swipe left/right (or tap ‹ ›) to browse. They live in
+  `js/prayer-quotes.js`, generated from the family's spreadsheet.
 - **🔒 Setup** — set off by a divider at the bottom of the ☰ menu, since
   it's an admin area rather than something a family member needs
   day-to-day. Passcode-gated (see below). A landing page links to four

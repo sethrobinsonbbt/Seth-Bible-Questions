@@ -7,7 +7,7 @@
 //
 // Doc shape: {
 //   ownerId, name,
-//   kind,                          // "people" | "thankful" | "goals" | "custom" — which tab it's under,
+//   kind,                          // a KINDS id below ("people", "praise", "thankful", ...) — which tab it's under,
 //                                  // or "quick": the one-off "Just This Once" list (see below)
 //   items: [{ id, name, note }],   // the things to pray for, in rotation order; `note` is the optional
 //                                  // "what to pray for about them". (Lists made before notes existed
@@ -42,14 +42,64 @@ export const SLOTS = [
   { id: "evening", label: "Evening", icon: "🌙" },
 ];
 
-// `tab` is the short tab label; `item`/`note` label the add-item form.
-// `itemEg`/`noteEg` are placeholder examples in the add form's boxes.
-// `perPrayer` is the default "how many each prayer" for a new list.
+// Which tab a list is filed under. People first, then the eight prayer
+// categories (from "Prayer App 150 Reflections and 8 Categories.xlsx" —
+// `prompt` and `scripture` are that sheet's example prompt and references,
+// `topics` its "topics included"). `tab` is the short tab label;
+// `item`/`note` label the add form, `itemEg`/`noteEg` are its placeholder
+// examples, and `perPrayer` is the default "how many each prayer" for a
+// new list (0 = all of them).
+//
+// "goals" and "custom" (🎯 Goals / 📝 Other) were tabs before the eight
+// categories; they're kept as `legacy` so anything already saved under them
+// still shows — their tabs only appear for someone who has a list there.
 export const KINDS = [
-  { id: "people", label: "People", tab: "People", icon: "🙏", item: "Name", note: "What to pray about for them", itemEg: "Name — e.g. Sister Judy", noteEg: "What to pray about — e.g. Physical well-being and dementia", perPrayer: 3 },
-  { id: "thankful", label: "Thankful For", tab: "Thankful", icon: "💛", item: "Something you're thankful for", note: "Details", itemEg: "Thankful for — e.g. Our church family", noteEg: "Details (optional)", perPrayer: 0 },
-  { id: "goals", label: "Goals", tab: "Goals", icon: "🎯", item: "Goal", note: "Details", itemEg: "Goal — e.g. Read the Bible every day", noteEg: "Details (optional)", perPrayer: 0 },
-  { id: "custom", label: "Other", tab: "Other", icon: "📝", item: "Something to pray about", note: "Details", itemEg: "e.g. Our nation's leaders", noteEg: "What to pray about (optional)", perPrayer: 0 },
+  { id: "people", label: "People", tab: "People", icon: "👥", item: "Name", note: "What to pray about for them",
+    itemEg: "Name — e.g. Sister Judy", noteEg: "What to pray about — e.g. Physical well-being and dementia", perPrayer: 3 },
+  { id: "praise", label: "Praise & Worship", tab: "Praise", icon: "🙌", item: "Something to praise God for", note: "Details",
+    itemEg: "e.g. His faithfulness", noteEg: "Details (optional)", perPrayer: 0,
+    topics: "God's character; creation; His name; His promises; Jesus Christ",
+    prompt: "Praise God for His mercy, faithfulness, holiness, and the hope He has provided through Christ.",
+    scripture: "Psalm 145:3; Psalm 103:1–5" },
+  { id: "thankful", label: "Thanksgiving", tab: "Thanks", icon: "💛", item: "Something you're thankful for", note: "Details",
+    itemEg: "e.g. Our church family", noteEg: "Details (optional)", perPrayer: 0,
+    topics: "Daily blessings; answered prayers; family; salvation; fellowship",
+    prompt: "Thank God for a specific blessing today and for something you usually take for granted.",
+    scripture: "1 Thessalonians 5:18; Philippians 4:6" },
+  { id: "growth", label: "Forgiveness & Spiritual Growth", tab: "Growth", icon: "🌱", item: "Something to work on", note: "Details",
+    itemEg: "e.g. Patience with others", noteEg: "Details (optional)", perPrayer: 0,
+    topics: "Repentance; temptation; humility; faith; wisdom; Christlike character",
+    prompt: "Confess a particular shortcoming and ask for wisdom and strength to change your conduct.",
+    scripture: "Psalm 51:10; Colossians 1:9–11" },
+  { id: "family", label: "Family & Relationships", tab: "Family", icon: "🏠", item: "Who or what", note: "What to pray about",
+    itemEg: "e.g. The kids", noteEg: "What to pray about (optional)", perPrayer: 0,
+    topics: "Marriage; children; parenting; reconciliation; friendships",
+    prompt: "Pray for patience, understanding, and spiritual growth within your family and relationships.",
+    scripture: "Ephesians 3:14–19; Matthew 6:14–15" },
+  { id: "ecclesia", label: "Ecclesia & Others", tab: "Ecclesia", icon: "⛪", item: "Who or what", note: "What to pray about",
+    itemEg: "e.g. Brother Tom", noteEg: "What to pray about (optional)", perPrayer: 3,
+    topics: "Brethren and sisters; illness; grief; loneliness; preaching; those struggling spiritually",
+    prompt: "Pray by name for someone in your ecclesia, including their spiritual and practical needs.",
+    scripture: "Ephesians 6:18; James 5:16" },
+  { id: "guidance", label: "Guidance & Daily Life", tab: "Guidance", icon: "🧭", item: "Something you need guidance on", note: "Details",
+    itemEg: "e.g. A decision at work", noteEg: "Details (optional)", perPrayer: 0,
+    topics: "Decisions; work; finances; responsibilities; provision; stewardship",
+    prompt: "Pray for discernment in a decision and for the willingness to act responsibly.",
+    scripture: "James 1:5; Matthew 6:11" },
+  { id: "trials", label: "Trials & Strength", tab: "Trials", icon: "🛡️", item: "A difficulty", note: "Details",
+    itemEg: "e.g. Feeling discouraged", noteEg: "Details (optional)", perPrayer: 0,
+    topics: "Suffering; discouragement; perseverance; uncertainty; trust in God's will",
+    prompt: "Ask for faith and endurance in a present difficulty, while submitting the outcome to God.",
+    scripture: "Romans 12:12; Luke 22:42" },
+  { id: "kingdom", label: "God's Kingdom & Purpose", tab: "Kingdom", icon: "👑", item: "Something to pray for", note: "Details",
+    itemEg: "e.g. Christ's return", noteEg: "Details (optional)", perPrayer: 0,
+    topics: "Christ's return; resurrection; God's promises; nations; peace and righteousness",
+    prompt: "Pray for Christ's return, the fulfillment of God's promises, and your readiness for the Kingdom.",
+    scripture: "Matthew 6:10; Revelation 11:15" },
+  { id: "goals", label: "Goals", tab: "Goals", icon: "🎯", item: "Goal", note: "Details",
+    itemEg: "Goal — e.g. Read the Bible every day", noteEg: "Details (optional)", perPrayer: 0, legacy: true },
+  { id: "custom", label: "Other", tab: "Other", icon: "📝", item: "Something to pray about", note: "Details",
+    itemEg: "e.g. Our nation's leaders", noteEg: "What to pray about (optional)", perPrayer: 0, legacy: true },
 ];
 
 export const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
