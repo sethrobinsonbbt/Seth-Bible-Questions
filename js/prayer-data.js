@@ -6,14 +6,18 @@
 // their own lists.
 //
 // Doc shape: {
-//   ownerId, name, kind,           // kind: "people" | "thankful" | "goals" | "custom" (just sets the icon)
-//   items: [string, ...],          // the things to pray for, in rotation order
+//   ownerId, name,
+//   kind,                          // "people" | "thankful" | "goals" | "custom" — which tab it's under
+//   items: [{ id, name, note }],   // the things to pray for, in rotation order; `note` is the optional
+//                                  // "what to pray for about them". (Lists made before notes existed
+//                                  // stored plain strings — normalizeItems() reads those as
+//                                  // { id: text, name: text, note: "" }, so old check-offs still match.)
 //   slots: ["morning"|"afternoon"|"evening", ...],
 //   days: [0..6, ...],             // 0 = Sunday, like Date#getDay()
 //   perPrayer: number,             // how many items per prayer; 0 = all of them, every time
 //   position: number,              // index of the first item in the current (not yet finished) batch
-//   checked: [string, ...],        // items in the current batch checked off so far
-//   done: { "YYYY-MM-DD|slot": [string, ...] }, // batches finished today, per prayer time
+//   checked: [itemId, ...],        // items in the current batch checked off so far
+//   done: { "YYYY-MM-DD|slot": [itemId, ...] }, // batches finished today, per prayer time
 //   createdAt,
 // }
 //
@@ -32,11 +36,12 @@ export const SLOTS = [
   { id: "evening", label: "Evening", icon: "🌙" },
 ];
 
+// `tab` is the short tab label; `item`/`note` label the add-item form.
 export const KINDS = [
-  { id: "people", label: "People", icon: "🙏" },
-  { id: "thankful", label: "Thankful For", icon: "💛" },
-  { id: "goals", label: "Goals", icon: "🎯" },
-  { id: "custom", label: "Other", icon: "📝" },
+  { id: "people", label: "People", tab: "People", icon: "🙏", item: "Name", note: "What to pray for about them (optional)" },
+  { id: "thankful", label: "Thankful For", tab: "Thankful", icon: "💛", item: "What you're thankful for", note: "Details (optional)" },
+  { id: "goals", label: "Goals", tab: "Goals", icon: "🎯", item: "Goal", note: "Details (optional)" },
+  { id: "custom", label: "Other", tab: "Other", icon: "📝", item: "What to pray for", note: "Details (optional)" },
 ];
 
 export const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -59,6 +64,16 @@ export function subscribePrayerLists(callback) {
   return () => listeners.delete(callback);
 }
 
+export function normalizeItems(list) {
+  return (list.items || []).map((it) =>
+    typeof it === "string" ? { id: it, name: it, note: "" } : { id: it.id, name: it.name || "", note: it.note || "" }
+  );
+}
+
+function newItemId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
 // Local-time date key, so "today" flips at the family's midnight, not UTC's.
 export function todayKey(date = new Date()) {
   const y = date.getFullYear();
@@ -78,20 +93,25 @@ export function isScheduled(list, slotId, date = new Date()) {
   return (list.slots || []).includes(slotId) && (list.days || []).includes(date.getDay());
 }
 
-// The items to pray for at this prayer time right now, plus whether
-// they're already finished for today. Doesn't write anything.
+// The items to pray for at this prayer time right now (item objects), the
+// ids checked off so far, and whether they're already finished for today.
+// Doesn't write anything.
 export function batchFor(list, slotId, date = new Date()) {
-  const items = list.items || [];
+  const items = normalizeItems(list);
   const sessionKey = `${todayKey(date)}|${slotId}`;
-  const done = (list.done || {})[sessionKey];
-  if (done) return { items: done, checked: done, finished: true, sessionKey };
+  const doneIds = (list.done || {})[sessionKey];
+  if (doneIds) {
+    const doneItems = doneIds.map((id) => items.find((it) => it.id === id)).filter(Boolean);
+    return { items: doneItems, checked: doneIds, finished: true, sessionKey };
+  }
   if (items.length === 0) return { items: [], checked: [], finished: false, sessionKey };
 
   const count = list.perPrayer > 0 ? Math.min(list.perPrayer, items.length) : items.length;
   const start = list.perPrayer > 0 ? (list.position || 0) % items.length : 0;
   const batch = [];
   for (let i = 0; i < count; i++) batch.push(items[(start + i) % items.length]);
-  const checked = (list.checked || []).filter((t) => batch.includes(t));
+  const batchIds = batch.map((it) => it.id);
+  const checked = (list.checked || []).filter((id) => batchIds.includes(id));
   return { items: batch, checked, finished: false, sessionKey };
 }
 
@@ -108,41 +128,40 @@ function prunedDone(done, date) {
 // Checks or unchecks one item at this prayer time. Finishing the batch
 // advances the rotation; unchecking an item of an already-finished batch
 // re-opens it (and steps the rotation back), for an accidental tap.
-export function toggleItem(list, slotId, itemText, date = new Date()) {
+export function toggleItem(list, slotId, itemId, date = new Date()) {
   if (!db) return;
   const batch = batchFor(list, slotId, date);
-  const items = list.items || [];
+  const items = normalizeItems(list);
   const done = prunedDone(list.done, date);
   const rotates = list.perPrayer > 0 && items.length > 0;
+  const batchIds = batch.items.map((it) => it.id);
 
   if (batch.finished) {
     delete done[batch.sessionKey];
     const position = rotates
-      ? (((list.position || 0) - batch.items.length) % items.length + items.length) % items.length
+      ? ((((list.position || 0) - batchIds.length) % items.length) + items.length) % items.length
       : 0;
-    collection().doc(list.id).update({
-      done,
-      position,
-      checked: batch.items.filter((t) => t !== itemText),
-    });
+    collection().doc(list.id).update({ done, position, checked: batchIds.filter((id) => id !== itemId) });
     return;
   }
 
-  const checked = batch.checked.includes(itemText)
-    ? batch.checked.filter((t) => t !== itemText)
-    : [...batch.checked, itemText];
+  const checked = batch.checked.includes(itemId)
+    ? batch.checked.filter((id) => id !== itemId)
+    : [...batch.checked, itemId];
 
-  if (batch.items.length > 0 && batch.items.every((t) => checked.includes(t))) {
-    done[batch.sessionKey] = batch.items;
+  if (batchIds.length > 0 && batchIds.every((id) => checked.includes(id))) {
+    done[batch.sessionKey] = batchIds;
     collection().doc(list.id).update({
       done,
       checked: [],
-      position: rotates ? ((list.position || 0) + batch.items.length) % items.length : 0,
+      position: rotates ? ((list.position || 0) + batchIds.length) % items.length : 0,
     });
   } else {
     collection().doc(list.id).update({ checked, done });
   }
 }
+
+// ---------- Lists ----------
 
 export function addPrayerList(data) {
   if (!db) return;
@@ -150,7 +169,7 @@ export function addPrayerList(data) {
     ownerId: data.ownerId,
     name: data.name,
     kind: data.kind || "custom",
-    items: data.items || [],
+    items: [],
     slots: data.slots || [],
     days: data.days || [],
     perPrayer: data.perPrayer || 0,
@@ -161,31 +180,52 @@ export function addPrayerList(data) {
   });
 }
 
-// Editing the items keeps the rotation where it was when possible: it
-// re-finds the item that was next up, so adding names to the end of the
-// list doesn't make anyone get skipped or repeated.
-export function updatePrayerList(list, data) {
+// Name + schedule only — items are managed one at a time below.
+export function updatePrayerListSettings(list, data) {
   if (!db) return;
-  const oldItems = list.items || [];
-  const nextUp = oldItems.length ? oldItems[(list.position || 0) % oldItems.length] : null;
-  const newItems = data.items || [];
-  let position = nextUp != null ? newItems.indexOf(nextUp) : 0;
-  if (position < 0) position = newItems.length ? (list.position || 0) % newItems.length : 0;
   collection().doc(list.id).update({
     name: data.name,
-    kind: data.kind || "custom",
-    items: newItems,
     slots: data.slots || [],
     days: data.days || [],
     perPrayer: data.perPrayer || 0,
-    position,
-    checked: (list.checked || []).filter((t) => newItems.includes(t)),
   });
 }
 
 export function deletePrayerList(id) {
   if (!db) return;
   collection().doc(id).delete();
+}
+
+// ---------- Items ----------
+
+// New items go at the end of the list, so whoever's next up stays next up.
+export function addItem(list, { name, note }) {
+  if (!db) return;
+  const items = normalizeItems(list);
+  items.push({ id: newItemId(), name, note: note || "" });
+  collection().doc(list.id).update({ items });
+}
+
+export function updateItem(list, itemId, { name, note }) {
+  if (!db) return;
+  const items = normalizeItems(list).map((it) => (it.id === itemId ? { ...it, name, note: note || "" } : it));
+  collection().doc(list.id).update({ items });
+}
+
+// Removing an item ahead of the rotation's place shifts the place back one,
+// so nobody gets skipped.
+export function removeItem(list, itemId) {
+  if (!db) return;
+  const items = normalizeItems(list);
+  const idx = items.findIndex((it) => it.id === itemId);
+  if (idx < 0) return;
+  items.splice(idx, 1);
+  let position = list.position || 0;
+  if (idx < position) position -= 1;
+  if (items.length === 0 || position >= items.length) position = 0;
+  collection()
+    .doc(list.id)
+    .update({ items, position, checked: (list.checked || []).filter((id) => id !== itemId) });
 }
 
 if (getFamilyId()) {
