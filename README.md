@@ -49,21 +49,23 @@ device, driving whose score gets tracked wherever progress applies
   logic as Questions. Tracks whoever's picked in the header's **User**
   dropdown.
 - **Prayer List** — each family member's own prayer lists (whoever's
-  picked in the header's **User** dropdown), under four tabs: **🙏 People**,
-  **💛 Thankful**, **🎯 Goals** and **📝 Other**. Each item is a name plus
-  an optional note ("what to pray for about them"), added from a small
-  Name / note / **Add** form under each list — or right on today's prayer
-  card with **+ Add a name**, mid-prayer. Items can be edited (✏️) or
-  removed (✕). Each list's **⚙️ Schedule** puts it into any of the
-  **Morning / Afternoon / Evening** prayers on chosen days of the week
-  (every day, Mon–Fri, weekends, or any mix), with **how many each
-  prayer** (e.g. 3 people) or "all of them, every time". The top of the
-  page shows today's prayer for the selected time (it opens on the current
-  one) with a checkbox per item. The same items stay up — day after day if
-  need be — until every one is checked off; then that prayer shows
-  **Done ✓** and the next scheduled prayer picks up with the next items on
-  the list, wrapping back to the top at the end. Unchecking an item in a
-  finished prayer reopens it, in case of a mis-tap.
+  picked in the header's **User** dropdown). Under **What to Pray About**
+  are four tabs — **🙏 People**, **💛 Thankful**, **🎯 Goals** and
+  **📝 Other** — each with a Name / "what to pray about" / **Add** form
+  (e.g. *Sister Judy* — *Physical well-being and dementia*); items can be
+  edited (✏️) or removed (✕). Each tab's **⚙️ Schedule** sets **how many
+  each prayer** (People start at 3; the others at "all of them"), which
+  **Morning / Afternoon / Evening** prayers, and which days. At the top,
+  pick a prayer time (it opens on the current one) and tap **🙏 Start
+  Prayer** to pray through everything picked for it from every tab, with
+  a checkbox per item and **+ Add a name** for adding someone mid-prayer.
+  The same people stay up — day after day if need be — until each one is
+  checked off; then the next prayer moves on to the next names on the
+  list, wrapping back to the top at the end. Unchecking an item in a
+  finished prayer reopens it, in case of a mis-tap. A short quote about
+  prayer sits at the bottom of the page and the end of each prayer — one
+  per day, with **Another ›** for more — from `js/prayer-quotes.js`
+  (currently placeholder KJV verses about prayer).
 - **🔒 Setup** — set off by a divider at the bottom of the ☰ menu, since
   it's an admin area rather than something a family member needs
   day-to-day. Passcode-gated (see below). A landing page links to four

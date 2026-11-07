@@ -286,3 +286,110 @@
 .prayer-another-btn {
   margin-top: 0.2rem;
 }
+
+/* Start Prayer card */
+.prayer-start-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.85rem;
+}
+
+.prayer-start-card .prayer-tabs {
+  margin-bottom: 0.4rem;
+}
+
+.prayer-start-summary {
+  margin: 0.5rem 0 0.7rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.prayer-start-btn {
+  font-size: 1.05rem;
+  padding: 0.85rem;
+}
+
+/* The prayer itself */
+.prayer-view-top {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+.prayer-view-title {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+#prayer-view .prayer-quote {
+  margin: 1rem 0;
+}
+
+/* Quotes */
+.prayer-quote {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--indigo);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem 0.6rem;
+}
+
+.prayer-quote[hidden] {
+  display: none;
+}
+
+.prayer-quote-text {
+  margin: 0;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.prayer-quote-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.prayer-quote-source {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.prayer-manage-head .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* "Who's praying?" picker, when no one's selected in the header */
+.prayer-who {
+  text-align: center;
+  padding: 1.5rem 0;
+}
+
+.prayer-who[hidden] {
+  display: none;
+}
+
+.prayer-who-title {
+  margin: 0 0 1rem;
+  font-size: 1.3rem;
+}
+
+.prayer-who-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.prayer-who-btn {
+  font-size: 1.1rem;
+  padding: 0.9rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+}
