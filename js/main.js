@@ -6,7 +6,7 @@ import { mountMemorize } from "./memorize.js";
 import { mountPrayer } from "./prayer.js";
 import { mountSettings } from "./settings.js";
 import { subscribeUsers } from "./users.js";
-import { getActiveUser, setActiveUser } from "./active-user.js";
+import { getActiveUser, setActiveUser, subscribeActiveUser } from "./active-user.js";
 import { mountFamilyGate } from "./family-gate.js";
 
 // "bible" is listed first, so it's both the top menu item and the default
@@ -48,6 +48,13 @@ function setupActiveUserBar() {
   });
 
   select.addEventListener("change", () => setActiveUser(select.value || null));
+  // Keep the dropdown in step when someone's picked from elsewhere (e.g.
+  // the Prayer List's "Who's praying?" buttons).
+  subscribeActiveUser((id) => {
+    if (select.value !== (id || "") && Array.from(select.options).some((o) => o.value === (id || ""))) {
+      select.value = id || "";
+    }
+  });
 }
 
 // ---------- Theme (light / dark / auto) ----------

@@ -363,3 +363,33 @@
   flex: 0 0 auto;
   white-space: nowrap;
 }
+
+/* "Who's praying?" picker, when no one's selected in the header */
+.prayer-who {
+  text-align: center;
+  padding: 1.5rem 0;
+}
+
+.prayer-who[hidden] {
+  display: none;
+}
+
+.prayer-who-title {
+  margin: 0 0 1rem;
+  font-size: 1.3rem;
+}
+
+.prayer-who-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.prayer-who-btn {
+  font-size: 1.1rem;
+  padding: 0.9rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+}

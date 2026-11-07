@@ -28,7 +28,7 @@ import {
   removeItem,
 } from "./prayer-data.js";
 import { subscribeUsers } from "./users.js";
-import { subscribeActiveUser } from "./active-user.js";
+import { subscribeActiveUser, setActiveUser } from "./active-user.js";
 import { PRAYER_QUOTES } from "./prayer-quotes.js";
 
 const el = (id) => document.getElementById(id);
@@ -586,6 +586,10 @@ function deleteCurrent() {
 function buildSkeleton(container) {
   container.innerHTML = `
     <p id="prayer-no-user" class="empty-state" hidden></p>
+    <div id="prayer-who" class="prayer-who" hidden>
+      <h2 class="prayer-who-title">Who's praying?</h2>
+      <div id="prayer-who-btns" class="prayer-who-btns"></div>
+    </div>
     <div id="prayer-main" hidden>
       <div id="prayer-home">
         <div class="list-toolbar">
@@ -655,16 +659,34 @@ function render() {
   const main = el("prayer-main");
   if (!noUser) return;
   const me = users.find((u) => u.id === activeUserId);
+  const who = el("prayer-who");
   if (!me) {
-    noUser.textContent =
-      users.length === 0
-        ? "No family members set up yet. Add them in 🔒 Setup (☰ menu)."
-        : "Pick who you are in the User dropdown at the top to see your prayer lists.";
-    noUser.hidden = false;
     main.hidden = true;
+    // Nobody picked yet: this page is all about one person's prayers, so
+    // ask who right here instead of pointing at the header dropdown.
+    // Picking someone sets them app-wide, same as that dropdown.
+    if (users.length === 0) {
+      noUser.textContent = "No family members set up yet. Add them in 🔒 Setup (☰ menu).";
+      noUser.hidden = false;
+      who.hidden = true;
+      return;
+    }
+    noUser.hidden = true;
+    who.hidden = false;
+    const btns = el("prayer-who-btns");
+    btns.innerHTML = "";
+    [...users]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach((u) => {
+        const b = make("button", "btn prayer-who-btn", u.name);
+        b.type = "button";
+        b.addEventListener("click", () => setActiveUser(u.id));
+        btns.appendChild(b);
+      });
     return;
   }
   noUser.hidden = true;
+  who.hidden = true;
   main.hidden = false;
 
   // Remember which form box had focus (and where), so re-rendering under
