@@ -191,9 +191,12 @@ function renderSlotTabs(hostId) {
   const host = el(hostId);
   host.innerHTML = "";
   SLOTS.forEach((s) => {
-    const btn = make("button", "prayer-tab" + (s.id === selectedSlot ? " active" : ""));
+    // Emoji only; the name is still there for screen readers and on hover.
+    const btn = make("button", "prayer-tab prayer-slot-icon" + (s.id === selectedSlot ? " active" : ""), s.icon);
     btn.type = "button";
-    btn.innerHTML = `<span aria-hidden="true">${s.icon}</span> ${s.label}`;
+    btn.title = `${s.label} prayer`;
+    btn.setAttribute("aria-label", `${s.label} prayer`);
+    btn.setAttribute("aria-pressed", s.id === selectedSlot ? "true" : "false");
     btn.addEventListener("click", () => {
       selectedSlot = s.id;
       openTodayAddFor = null;
@@ -203,39 +206,8 @@ function renderSlotTabs(hostId) {
   });
 }
 
-function renderStart() {
-  const lists = scheduledLists();
-  const summary = el("prayer-start-summary");
-  const btn = el("prayer-start-btn");
-  const slotLabel = slotInfo(selectedSlot).label;
-  let total = 0;
-  let checked = 0;
-  let allDone = lists.length > 0;
-  lists.forEach((l) => {
-    const b = batchFor(l, selectedSlot);
-    total += b.items.length;
-    checked += b.finished ? b.items.length : b.checked.length;
-    if (!b.finished) allDone = false;
-  });
-  if (lists.length === 0) {
-    summary.textContent = myLists().some((l) => normalizeItems(l).length)
-      ? `Nothing picked for today's ${slotLabel.toLowerCase()} prayer. Change it with ⚙️ Schedule below.`
-      : "Add people and things to pray about below, then come back here to pray.";
-    btn.hidden = true;
-    return;
-  }
-  btn.hidden = false;
-  if (allDone) {
-    summary.textContent = `${slotLabel} prayer done ✓ Amen!`;
-    btn.textContent = `🙏 Open ${slotLabel} Prayer`;
-    btn.classList.remove("btn-primary");
-  } else {
-    summary.textContent = `${total} thing${total === 1 ? "" : "s"} to pray about` + (checked ? ` · ${checked} done` : "");
-    btn.textContent = checked ? `🙏 Continue ${slotLabel} Prayer` : `🙏 Start ${slotLabel} Prayer`;
-    btn.classList.add("btn-primary");
-  }
-}
-
+// The start card is just the three prayer-time emoji and "Start Praying" —
+// what's on the list for that time shows once the prayer is opened.
 // ---------- The prayer itself ----------
 
 function renderPrayer() {
@@ -247,7 +219,15 @@ function renderPrayer() {
   );
 
   if (lists.length === 0) {
-    host.appendChild(make("p", "empty-state prayer-today-empty", "Nothing picked for this prayer time."));
+    host.appendChild(
+      make(
+        "p",
+        "empty-state prayer-today-empty",
+        myLists().some((l) => normalizeItems(l).length)
+          ? "Nothing picked for this prayer time. Change it with ⚙️ Schedule on the previous page."
+          : "Nothing to pray about yet. Go back and add people and things under What to Pray About."
+      )
+    );
   }
 
   let allDone = lists.length > 0;
@@ -597,8 +577,7 @@ function buildSkeleton(container) {
         </div>
         <div class="prayer-start-card">
           <div class="prayer-tabs" id="prayer-slot-tabs"></div>
-          <p id="prayer-start-summary" class="prayer-start-summary"></p>
-          <button id="prayer-start-btn" class="btn btn-primary btn-block prayer-start-btn">🙏 Start Prayer</button>
+          <button id="prayer-start-btn" class="btn btn-primary btn-block prayer-start-btn">🙏 Start Praying</button>
         </div>
 
         <div class="list-toolbar prayer-lists-toolbar">
@@ -704,7 +683,6 @@ function render() {
     renderPrayer();
   } else {
     renderSlotTabs("prayer-slot-tabs");
-    renderStart();
     renderKindTabs();
     renderManage();
     renderQuote("prayer-home-quote");

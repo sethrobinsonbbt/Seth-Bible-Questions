@@ -56,8 +56,8 @@ device, driving whose score gets tracked wherever progress applies
   edited (✏️) or removed (✕). Each tab's **⚙️ Schedule** sets **how many
   each prayer** (People start at 3; the others at "all of them"), which
   **Morning / Afternoon / Evening** prayers, and which days. At the top,
-  pick a prayer time (it opens on the current one) and tap **🙏 Start
-  Prayer** to pray through everything picked for it from every tab, with
+  pick a prayer time — 🌅 morning, ☀️ afternoon or 🌙 evening (it opens on the current one) — and tap **🙏 Start
+  Praying** to pray through everything picked for it from every tab, with
   a checkbox per item and **+ Add a name** for adding someone mid-prayer.
   The same people stay up — day after day if need be — until each one is
   checked off; then the next prayer moves on to the next names on the
