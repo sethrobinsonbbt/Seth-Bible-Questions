@@ -576,3 +576,15 @@
 #prayer-modal-items-wrap[hidden] {
   display: none;
 }
+
+/* People (always first) gets a full-width row above the categories. */
+.prayer-kind-tab:first-child {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.prayer-kind-tab:first-child .prayer-kind-label {
+  font-size: 0.9rem;
+}

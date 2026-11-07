@@ -50,12 +50,18 @@ export const SLOTS = [
 // examples, and `perPrayer` is the default "how many each prayer" for a
 // new list (0 = all of them).
 //
-// "goals" and "custom" (🎯 Goals / 📝 Other) were tabs before the eight
-// categories; they're kept as `legacy` so anything already saved under them
-// still shows — their tabs only appear for someone who has a list there.
+// `legacy` kinds no longer get a tab of their own unless someone already has
+// a list there, so nothing saved is lost: "family" and "ecclesia" (folded
+// into People) and "goals" / "custom" (🎯 Goals / 📝 Other, from before the
+// eight categories).
 export const KINDS = [
+  // People also covers the sheet's "Family & Relationships" and "Ecclesia &
+  // Others" categories — one list of everyone to pray for by name.
   { id: "people", label: "People", tab: "People", icon: "👥", item: "Name", note: "What to pray about for them",
-    itemEg: "Name — e.g. Sister Judy", noteEg: "What to pray about — e.g. Physical well-being and dementia", perPrayer: 3 },
+    itemEg: "Name — e.g. Sister Judy", noteEg: "What to pray about — e.g. Physical well-being and dementia", perPrayer: 3,
+    topics: "Family; marriage; children; friendships; reconciliation; brethren and sisters; illness; grief; loneliness; those struggling spiritually",
+    prompt: "Pray by name for family, friends and your ecclesia, including their spiritual and practical needs.",
+    scripture: "Ephesians 3:14–19; Ephesians 6:18; James 5:16" },
   { id: "praise", label: "Praise & Worship", tab: "Praise", icon: "🙌", item: "Something to praise God for", note: "Details",
     itemEg: "e.g. His faithfulness", noteEg: "Details (optional)", perPrayer: 0,
     topics: "God's character; creation; His name; His promises; Jesus Christ",
@@ -71,16 +77,6 @@ export const KINDS = [
     topics: "Repentance; temptation; humility; faith; wisdom; Christlike character",
     prompt: "Confess a particular shortcoming and ask for wisdom and strength to change your conduct.",
     scripture: "Psalm 51:10; Colossians 1:9–11" },
-  { id: "family", label: "Family & Relationships", tab: "Family", icon: "🏠", item: "Who or what", note: "What to pray about",
-    itemEg: "e.g. The kids", noteEg: "What to pray about (optional)", perPrayer: 0,
-    topics: "Marriage; children; parenting; reconciliation; friendships",
-    prompt: "Pray for patience, understanding, and spiritual growth within your family and relationships.",
-    scripture: "Ephesians 3:14–19; Matthew 6:14–15" },
-  { id: "ecclesia", label: "Ecclesia & Others", tab: "Ecclesia", icon: "⛪", item: "Who or what", note: "What to pray about",
-    itemEg: "e.g. Brother Tom", noteEg: "What to pray about (optional)", perPrayer: 3,
-    topics: "Brethren and sisters; illness; grief; loneliness; preaching; those struggling spiritually",
-    prompt: "Pray by name for someone in your ecclesia, including their spiritual and practical needs.",
-    scripture: "Ephesians 6:18; James 5:16" },
   { id: "guidance", label: "Guidance & Daily Life", tab: "Guidance", icon: "🧭", item: "Something you need guidance on", note: "Details",
     itemEg: "e.g. A decision at work", noteEg: "Details (optional)", perPrayer: 0,
     topics: "Decisions; work; finances; responsibilities; provision; stewardship",
@@ -96,6 +92,16 @@ export const KINDS = [
     topics: "Christ's return; resurrection; God's promises; nations; peace and righteousness",
     prompt: "Pray for Christ's return, the fulfillment of God's promises, and your readiness for the Kingdom.",
     scripture: "Matthew 6:10; Revelation 11:15" },
+  { id: "family", label: "Family & Relationships", tab: "Family", icon: "🏠", item: "Who or what", note: "What to pray about",
+    itemEg: "e.g. The kids", noteEg: "What to pray about (optional)", perPrayer: 0,
+    topics: "Marriage; children; parenting; reconciliation; friendships",
+    prompt: "Pray for patience, understanding, and spiritual growth within your family and relationships.",
+    scripture: "Ephesians 3:14–19; Matthew 6:14–15", legacy: true },
+  { id: "ecclesia", label: "Ecclesia & Others", tab: "Ecclesia", icon: "⛪", item: "Who or what", note: "What to pray about",
+    itemEg: "e.g. Brother Tom", noteEg: "What to pray about (optional)", perPrayer: 3,
+    topics: "Brethren and sisters; illness; grief; loneliness; preaching; those struggling spiritually",
+    prompt: "Pray by name for someone in your ecclesia, including their spiritual and practical needs.",
+    scripture: "Ephesians 6:18; James 5:16", legacy: true },
   { id: "goals", label: "Goals", tab: "Goals", icon: "🎯", item: "Goal", note: "Details",
     itemEg: "Goal — e.g. Read the Bible every day", noteEg: "Details (optional)", perPrayer: 0, legacy: true },
   { id: "custom", label: "Other", tab: "Other", icon: "📝", item: "Something to pray about", note: "Details",
