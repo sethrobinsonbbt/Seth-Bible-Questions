@@ -49,17 +49,21 @@ device, driving whose score gets tracked wherever progress applies
   logic as Questions. Tracks whoever's picked in the header's **User**
   dropdown.
 - **Prayer List** — each family member's own prayer lists (whoever's
-  picked in the header's **User** dropdown): people to pray for, things
-  you're thankful for, goals, or anything else. Each list is scheduled
-  into any of the **Morning / Afternoon / Evening** prayers on chosen days
-  of the week (every day, Mon–Fri, weekends, or any mix), with **how many
-  each prayer** (e.g. 3 people) or "all of them, every time". The top of
-  the page shows today's prayer for the selected time (it opens on the
-  current one) with a checkbox per item. The same items stay up — day
-  after day if need be — until every one is checked off; then that prayer
-  shows **Done ✓** and the next scheduled prayer picks up with the next
-  items on the list, wrapping back to the top at the end. Unchecking an
-  item in a finished prayer reopens it, in case of a mis-tap.
+  picked in the header's **User** dropdown), under four tabs: **🙏 People**,
+  **💛 Thankful**, **🎯 Goals** and **📝 Other**. Each item is a name plus
+  an optional note ("what to pray for about them"), added from a small
+  Name / note / **Add** form under each list — or right on today's prayer
+  card with **+ Add a name**, mid-prayer. Items can be edited (✏️) or
+  removed (✕). Each list's **⚙️ Schedule** puts it into any of the
+  **Morning / Afternoon / Evening** prayers on chosen days of the week
+  (every day, Mon–Fri, weekends, or any mix), with **how many each
+  prayer** (e.g. 3 people) or "all of them, every time". The top of the
+  page shows today's prayer for the selected time (it opens on the current
+  one) with a checkbox per item. The same items stay up — day after day if
+  need be — until every one is checked off; then that prayer shows
+  **Done ✓** and the next scheduled prayer picks up with the next items on
+  the list, wrapping back to the top at the end. Unchecking an item in a
+  finished prayer reopens it, in case of a mis-tap.
 - **🔒 Setup** — set off by a divider at the bottom of the ☰ menu, since
   it's an admin area rather than something a family member needs
   day-to-day. Passcode-gated (see below). A landing page links to four
