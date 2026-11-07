@@ -392,3 +392,43 @@
   background: var(--card-bg);
   border: 1px solid var(--border);
 }
+
+/* Quick add (one-off items for the next prayer), under Start Praying */
+.prayer-quick-form {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+}
+
+.prayer-quick-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.prayer-quick-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.prayer-quick-row .btn {
+  flex: 0 0 auto;
+}
+
+.prayer-quick-items {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.prayer-quick-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  font-size: 0.95rem;
+}
+
+.prayer-quick-item-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

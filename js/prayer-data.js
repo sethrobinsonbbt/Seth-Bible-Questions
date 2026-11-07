@@ -7,7 +7,8 @@
 //
 // Doc shape: {
 //   ownerId, name,
-//   kind,                          // "people" | "thankful" | "goals" | "custom" — which tab it's under
+//   kind,                          // "people" | "thankful" | "goals" | "custom" — which tab it's under,
+//                                  // or "quick": the one-off "Just This Once" list (see below)
 //   items: [{ id, name, note }],   // the things to pray for, in rotation order; `note` is the optional
 //                                  // "what to pray for about them". (Lists made before notes existed
 //                                  // stored plain strings — normalizeItems() reads those as
@@ -27,6 +28,11 @@
 // today's prayer time in `done` (so that prayer shows "Done ✓" for the rest
 // of the day) and moves `position` past it, so the NEXT scheduled prayer
 // time picks up with the next items on the list.
+//
+// Quick adds: each person has at most one kind "quick" list, fed by the
+// Quick Add box under Start Praying. It's in every prayer (all times, all
+// days), never rotates, and an item is deleted once it's been checked off
+// and that prayer is closed — prayed for once, then gone.
 import { ready } from "./firebase.js";
 import { getFamilyId, scopedCollection } from "./family.js";
 
@@ -166,8 +172,8 @@ export function toggleItem(list, slotId, itemId, date = new Date()) {
 // ---------- Lists ----------
 
 export function addPrayerList(data) {
-  if (!db) return;
-  collection().add({
+  if (!db) return null;
+  return collection().add({
     ownerId: data.ownerId,
     name: data.name,
     kind: data.kind || "custom",
@@ -243,4 +249,61 @@ if (getFamilyId()) {
       );
     })
     .catch((err) => console.error(err));
+}
+
+// ---------- Quick adds ("Just This Once") ----------
+
+export const QUICK_KIND = "quick";
+let quickCreating = null; // { ownerId, pending: [{name, note}] } while the quick list's first add is in flight
+
+export function addQuickItem(ownerId, { name, note }) {
+  if (!db || !ownerId) return;
+  const existing = lists.find((l) => l.ownerId === ownerId && l.kind === QUICK_KIND);
+  if (existing) return addItem(existing, { name, note });
+  // Two quick adds in a row before the new list shows up mustn't make two lists.
+  if (quickCreating && quickCreating.ownerId === ownerId) {
+    quickCreating.pending.push({ name, note });
+    return;
+  }
+  quickCreating = { ownerId, pending: [] };
+  const done = () => {
+    const pending = quickCreating ? quickCreating.pending : [];
+    quickCreating = null;
+    const created = lists.find((l) => l.ownerId === ownerId && l.kind === QUICK_KIND);
+    if (created && pending.length) {
+      const items = normalizeItems(created);
+      pending.forEach((p) => items.push({ id: newItemId(), name: p.name, note: p.note || "" }));
+      collection().doc(created.id).update({ items });
+    }
+  };
+  const ref = addPrayerList({
+    ownerId,
+    name: "Just This Once",
+    kind: QUICK_KIND,
+    items: [{ name, note }],
+    slots: SLOTS.map((s) => s.id),
+    days: [0, 1, 2, 3, 4, 5, 6],
+    perPrayer: 0,
+  });
+  if (ref && ref.then) ref.then(() => setTimeout(done, 0), () => (quickCreating = null));
+  else quickCreating = null;
+}
+
+// Quick items just toggle — no rotation, no "done" batches.
+export function toggleQuickItem(list, itemId) {
+  if (!db) return;
+  const checked = (list.checked || []).includes(itemId)
+    ? list.checked.filter((id) => id !== itemId)
+    : [...(list.checked || []), itemId];
+  collection().doc(list.id).update({ checked });
+}
+
+// Deletes every checked-off quick item. Called when a prayer is closed (and
+// whenever the page shows with leftovers, e.g. the app was closed mid-prayer).
+export function clearCheckedQuickItems(list) {
+  if (!db) return;
+  const checked = list.checked || [];
+  if (checked.length === 0) return;
+  const items = normalizeItems(list).filter((it) => !checked.includes(it.id));
+  collection().doc(list.id).update({ items, checked: [], done: {} });
 }

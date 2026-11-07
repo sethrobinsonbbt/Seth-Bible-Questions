@@ -26,6 +26,10 @@ import {
   addItem,
   updateItem,
   removeItem,
+  QUICK_KIND,
+  addQuickItem,
+  toggleQuickItem,
+  clearCheckedQuickItems,
 } from "./prayer-data.js";
 import { subscribeUsers } from "./users.js";
 import { subscribeActiveUser, setActiveUser } from "./active-user.js";
@@ -70,8 +74,15 @@ function saveKindTab(v) {
   }
 }
 
+const QUICK_INFO = { id: QUICK_KIND, label: "Just This Once", icon: "📌", item: "Something to pray about", note: "Details", itemEg: "e.g. Sam's surgery tomorrow", noteEg: "Details (optional)" };
+
 function kindInfo(kind) {
+  if (kind === QUICK_KIND) return QUICK_INFO;
   return KINDS.find((k) => k.id === kind) || KINDS[KINDS.length - 1];
+}
+
+function quickList() {
+  return allLists.find((l) => l.ownerId === activeUserId && l.kind === QUICK_KIND) || null;
 }
 
 function myLists() {
@@ -208,12 +219,61 @@ function renderSlotTabs(hostId) {
 
 // The start card is just the three prayer-time emoji and "Start Praying" —
 // what's on the list for that time shows once the prayer is opened.
+// ---------- Quick add (one-off items for the next prayer) ----------
+
+function renderQuickAdd() {
+  const host = el("prayer-quick");
+  host.innerHTML = "";
+  const form = make("form", "prayer-item-form prayer-quick-form");
+  form.dataset.key = "quick";
+  const row = make("div", "prayer-quick-row");
+  const input = make("input", "prayer-item-form-name");
+  input.type = "text";
+  input.placeholder = "Quick add to your next prayer…";
+  input.setAttribute("aria-label", "Quick add to your next prayer");
+  input.value = (drafts.quick && drafts.quick.name) || "";
+  input.addEventListener("input", () => (drafts.quick = { name: input.value }));
+  const add = make("button", "btn btn-primary btn-small", "Add");
+  add.type = "submit";
+  row.append(input, add);
+  form.appendChild(row);
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = input.value.trim();
+    if (!name) return input.focus();
+    delete drafts.quick;
+    input.value = "";
+    focusAfterRender = "quick";
+    addQuickItem(activeUserId, { name, note: "" });
+    input.focus();
+  });
+  host.appendChild(form);
+
+  const list = quickList();
+  const items = list ? normalizeItems(list) : [];
+  if (items.length) {
+    const ul = make("ul", "prayer-quick-items");
+    items.forEach((item) => {
+      const li = make("li", "prayer-quick-item");
+      li.appendChild(make("span", "prayer-quick-item-text", `📌 ${item.name}`));
+      const del = make("button", "prayer-icon-btn", "✕");
+      del.type = "button";
+      del.setAttribute("aria-label", `Remove ${item.name}`);
+      del.addEventListener("click", () => removeItem(list, item.id));
+      li.appendChild(del);
+      ul.appendChild(li);
+    });
+    host.appendChild(ul);
+  }
+}
+
 // ---------- The prayer itself ----------
 
 function renderPrayer() {
   el("prayer-view-title").textContent = `${slotInfo(selectedSlot).icon} ${slotInfo(selectedSlot).label} Prayer`;
   const host = el("prayer-view-cards");
   host.innerHTML = "";
+  // "Just This Once" first (findIndex → -1), then the tabs in order.
   const lists = scheduledLists().sort(
     (a, b) => KINDS.findIndex((k) => k.id === (a.kind || "custom")) - KINDS.findIndex((k) => k.id === (b.kind || "custom"))
   );
@@ -234,7 +294,8 @@ function renderPrayer() {
   lists.forEach((list) => {
     const info = kindInfo(list.kind);
     const batch = batchFor(list, selectedSlot);
-    if (!batch.finished) allDone = false;
+    const quickAllChecked = list.kind === QUICK_KIND && batch.checked.length === batch.items.length;
+    if (!batch.finished && !quickAllChecked) allDone = false;
     const card = make("div", "prayer-card" + (batch.finished ? " finished" : ""));
 
     const head = make("div", "prayer-card-head");
@@ -251,13 +312,18 @@ function renderPrayer() {
       const cb = document.createElement("input");
       cb.type = "checkbox";
       cb.checked = batch.checked.includes(item.id);
-      cb.addEventListener("change", () => toggleItem(list, selectedSlot, item.id));
+      cb.addEventListener("change", () =>
+        list.kind === QUICK_KIND ? toggleQuickItem(list, item.id) : toggleItem(list, selectedSlot, item.id)
+      );
       label.append(cb, renderItemText(item));
       li.appendChild(label);
       ul.appendChild(li);
     });
     card.appendChild(ul);
 
+    if (list.kind === QUICK_KIND) {
+      card.appendChild(make("p", "prayer-card-note-muted", "Checked-off ones are cleared when you finish this prayer."));
+    }
     if (batch.finished && list.perPrayer > 0) {
       card.appendChild(make("p", "prayer-card-note", "The next ones on this list come up at your next scheduled prayer."));
     }
@@ -299,6 +365,8 @@ function openPrayer() {
 }
 
 function closePrayer() {
+  const quick = quickList();
+  if (quick) clearCheckedQuickItems(quick);
   praying = false;
   openTodayAddFor = null;
   render();
@@ -578,6 +646,7 @@ function buildSkeleton(container) {
         <div class="prayer-start-card">
           <div class="prayer-tabs" id="prayer-slot-tabs"></div>
           <button id="prayer-start-btn" class="btn btn-primary btn-block prayer-start-btn">🙏 Start Praying</button>
+          <div id="prayer-quick" class="prayer-quick"></div>
         </div>
 
         <div class="list-toolbar prayer-lists-toolbar">
@@ -682,7 +751,12 @@ function render() {
   if (praying) {
     renderPrayer();
   } else {
+    // Leftover checked-off quick items (e.g. the app was closed mid-prayer):
+    // they've been prayed for, so clear them. The resulting update re-renders.
+    const quick = quickList();
+    if (quick && (quick.checked || []).length) clearCheckedQuickItems(quick);
     renderSlotTabs("prayer-slot-tabs");
+    renderQuickAdd();
     renderKindTabs();
     renderManage();
     renderQuote("prayer-home-quote");
