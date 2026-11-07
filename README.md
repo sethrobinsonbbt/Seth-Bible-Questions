@@ -52,8 +52,9 @@ device, driving whose score gets tracked wherever progress applies
   picked in the header's **User** dropdown). Under **What to Pray About**
   are four tabs — **🙏 People**, **💛 Thankful**, **🎯 Goals** and
   **📝 Other** — each with a Name / "what to pray about" / **Add** form
-  (e.g. *Sister Judy* — *Physical well-being and dementia*); items can be
-  edited (✏️) or removed (✕). Each tab's **⚙️ Schedule** sets **how many
+  (e.g. *Sister Judy* — *Physical well-being and dementia*). The tab
+  shows the list and "3 per prayer"; its **✏️ Edit** window is where items
+  are changed (✏️) or removed (✕) and the schedule is set: **how many
   each prayer** (People start at 3; the others at "all of them"), which
   **Morning / Afternoon / Evening** prayers, and which days. At the top,
   pick a prayer time — 🌅 morning, ☀️ afternoon or 🌙 evening (it opens on the current one) — and tap **🙏 Start

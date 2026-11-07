@@ -2,10 +2,11 @@
 // under four tabs (People / Thankful / Goals / Other). Each tab IS the
 // list: type a name and what to pray about them (e.g. "Sister Judy" —
 // "Physical well-being and dementia") and tap Add — the first Add creates
-// the list behind the scenes with a default schedule. ⚙️ Schedule sets how
-// many come up each prayer, at which prayer times, on which days.
+// the list behind the scenes with a default schedule. The tab shows the
+// items read-only; ✏️ Edit opens a window to change or remove them and to
+// set how many come up each prayer, at which prayer times, on which days.
 //
-// "🙏 Start Prayer" opens the prayer itself for the selected prayer time:
+// "🙏 Start Praying" opens the prayer itself for the selected prayer time:
 // everything picked for it from every tab (the next N in each list's
 // rotation — see prayer-data.js), each with its note and a checkbox, plus
 // "+ Add" to add someone mid-prayer. A prayer quote sits at the bottom of
@@ -46,7 +47,7 @@ let allLists = [];
 let activeUserId = null;
 let selectedSlot = slotForTime();
 let selectedKind = loadKindTab();
-let editingList = null; // list whose ⚙️ Schedule modal is open, or null when creating one
+let editingList = null; // list whose ✏️ Edit window is open, or null when creating one
 let creatingKind = null; // kind of the list being created
 let praying = false; // true while the Start Prayer view is open
 let openTodayAddFor = null; // list id whose "+ Add" form is open in the prayer view
@@ -91,19 +92,9 @@ function myLists() {
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 }
 
-function daysSummary(days) {
-  const set = [...new Set(days || [])].sort((a, b) => a - b);
-  if (set.length === 7) return "Every day";
-  if (set.length === 0) return "No days picked";
-  if (set.join() === WEEKDAYS.join()) return "Mon–Fri";
-  if (set.join() === "0,6") return "Weekends";
-  return set.map((d) => DAY_LABELS[d]).join(", ");
-}
-
+// Just "3 per prayer" — the times and days live in the ✏️ Edit window.
 function scheduleSummary(list) {
-  const count = list.perPrayer > 0 ? `${list.perPrayer} per prayer` : "All each prayer";
-  const slots = SLOTS.filter((s) => (list.slots || []).includes(s.id)).map((s) => s.label);
-  return [count, slots.length ? slots.join(" & ") : "No prayer time picked", daysSummary(list.days)].join(" · ");
+  return list.perPrayer > 0 ? `${list.perPrayer} per prayer` : "All each prayer";
 }
 
 function make(tag, className, text) {
@@ -284,18 +275,15 @@ function renderPrayer() {
         "p",
         "empty-state prayer-today-empty",
         myLists().some((l) => normalizeItems(l).length)
-          ? "Nothing picked for this prayer time. Change it with ⚙️ Schedule on the previous page."
+          ? "Nothing picked for this prayer time. Change it with ✏️ Edit on the previous page."
           : "Nothing to pray about yet. Go back and add people and things under What to Pray About."
       )
     );
   }
 
-  let allDone = lists.length > 0;
   lists.forEach((list) => {
     const info = kindInfo(list.kind);
     const batch = batchFor(list, selectedSlot);
-    const quickAllChecked = list.kind === QUICK_KIND && batch.checked.length === batch.items.length;
-    if (!batch.finished && !quickAllChecked) allDone = false;
     const card = make("div", "prayer-card" + (batch.finished ? " finished" : ""));
 
     const head = make("div", "prayer-card-head");
@@ -355,7 +343,6 @@ function renderPrayer() {
   });
 
   renderQuote("prayer-view-quote");
-  el("prayer-finish-btn").textContent = allDone ? "Amen ✓" : "Done for now";
 }
 
 function openPrayer() {
@@ -515,14 +502,20 @@ function renderManage() {
     const items = normalizeItems(list);
     titleWrap.appendChild(make("div", "prayer-list-name", `${list.name} (${items.length})`));
     titleWrap.appendChild(make("div", "prayer-list-sched", scheduleSummary(list)));
-    const sched = make("button", "btn btn-small", "⚙️ Schedule");
-    sched.type = "button";
-    sched.addEventListener("click", () => openModal(list));
-    head.append(titleWrap, sched);
+    const editBtn = make("button", "btn btn-small", "✏️ Edit");
+    editBtn.type = "button";
+    editBtn.setAttribute("aria-label", `Edit ${list.name}: names and schedule`);
+    editBtn.addEventListener("click", () => openModal(list));
+    head.append(titleWrap, editBtn);
     card.appendChild(head);
 
+    // Read-only here; changing or removing items happens in ✏️ Edit.
     const ul = make("ul", "prayer-manage-items");
-    items.forEach((item) => ul.appendChild(renderManageItem(list, item)));
+    items.forEach((item) => {
+      const li = make("li", "prayer-manage-item");
+      li.appendChild(renderItemText(item));
+      ul.appendChild(li);
+    });
     card.appendChild(ul);
 
     card.appendChild(
@@ -536,7 +529,28 @@ function renderManage() {
   });
 }
 
-// ---------- Schedule modal (name, how many, times, days) ----------
+// ---------- ✏️ Edit window (the list's items, then name / how many / times / days) ----------
+
+function renderModalItems() {
+  const wrap = el("prayer-modal-items-wrap");
+  if (!editingList) {
+    wrap.hidden = true;
+    return;
+  }
+  const fresh = allLists.find((l) => l.id === editingList.id);
+  if (!fresh) {
+    closeModal(); // deleted (maybe from another device)
+    return;
+  }
+  editingList = fresh;
+  wrap.hidden = false;
+  el("prayer-modal-items-label").textContent = fresh.kind === "people" ? "People on this list" : `On this list`;
+  const ul = el("prayer-modal-items");
+  ul.innerHTML = "";
+  const items = normalizeItems(fresh);
+  if (items.length === 0) ul.appendChild(make("li", "prayer-card-note-muted", "Nothing on this list yet."));
+  items.forEach((item) => ul.appendChild(renderManageItem(fresh, item)));
+}
 
 function buildToggleChips(hostId, options, selected) {
   const host = el(hostId);
@@ -571,6 +585,8 @@ function openModal(list, kind) {
   el("prayer-modal-title").textContent = list ? `${info.icon} ${list.name}` : `${info.icon} New ${info.label} List`;
   el("prayer-delete-btn").hidden = !list;
   el("prayer-error").hidden = true;
+  editingItem = null;
+  renderModalItems();
   el("prayer-name").value = list ? list.name : info.label;
 
   const per = list ? list.perPrayer || 0 : kind === "people" ? 3 : 0;
@@ -591,6 +607,7 @@ function openModal(list, kind) {
 
 function closeModal() {
   editingList = null;
+  editingItem = null;
   creatingKind = null;
   el("prayer-modal-backdrop").hidden = true;
 }
@@ -668,13 +685,19 @@ function buildSkeleton(container) {
         </div>
         <div id="prayer-view-cards"></div>
         <div id="prayer-view-quote" class="prayer-quote"></div>
-        <button id="prayer-finish-btn" class="btn btn-primary btn-block">Amen ✓</button>
+        <button id="prayer-finish-btn" class="btn btn-primary btn-block">Done</button>
       </div>
     </div>
 
     <div id="prayer-modal-backdrop" class="modal-backdrop" hidden>
       <div class="modal">
         <h3 id="prayer-modal-title">New Prayer List</h3>
+        <div id="prayer-modal-items-wrap">
+          <label id="prayer-modal-items-label"></label>
+          <ul id="prayer-modal-items" class="prayer-manage-items prayer-modal-items"></ul>
+          <p class="prayer-card-note-muted">Changes to these save right away.</p>
+        </div>
+        <h4 class="prayer-modal-subhead">Schedule</h4>
         <label for="prayer-name">List name</label>
         <input id="prayer-name" type="text" placeholder="e.g. Friends at church" />
         <label for="prayer-per-count">How many each prayer</label>
@@ -761,6 +784,8 @@ function render() {
     renderManage();
     renderQuote("prayer-home-quote");
   }
+
+  if (editingList) renderModalItems();
 
   let target = null;
   if (focusAfterRender === "manage:new") {

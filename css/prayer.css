@@ -432,3 +432,22 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* ✏️ Edit window */
+.prayer-modal-items {
+  margin-top: 0;
+}
+
+.prayer-modal-items .prayer-manage-item:first-child {
+  border-top: none;
+}
+
+.prayer-modal-subhead {
+  margin: 0.8rem 0 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border);
+}
+
+#prayer-modal-items-wrap[hidden] {
+  display: none;
+}
